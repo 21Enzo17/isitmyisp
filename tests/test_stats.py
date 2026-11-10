@@ -18,6 +18,11 @@ class Significance(unittest.TestCase):
         self.assertTrue(loss_is_significant(3, 50))
         self.assertTrue(loss_is_significant(10, 300))
 
+    def test_single_failure_is_never_significant(self):
+        # 1 failed TCP connect out of 10 has a Wilson low bound of 1.8%: still not evidence.
+        self.assertFalse(loss_is_significant(1, 10))
+        self.assertTrue(loss_is_significant(2, 10))
+
     def test_too_few_samples(self):
         self.assertFalse(loss_is_significant(2, 5))
 

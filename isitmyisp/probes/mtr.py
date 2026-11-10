@@ -144,3 +144,23 @@ def analyze_path(target: str, hops: list[Hop], threshold: float = LOSS_THRESHOLD
                 result.loss_starts_at = ha.hop.index
                 break
     return result
+
+
+def path_to_dict(p: PathAnalysis, asn_info: dict[str, tuple[str, str]] | None = None) -> dict:
+    """JSON-friendly form of an analyzed path, stored as incident evidence."""
+    asn_info = asn_info or {}
+    return {
+        "target": p.target,
+        "reached": p.reached,
+        "destination_loss": p.destination_loss,
+        "loss_starts_at": p.loss_starts_at,
+        "hops": [
+            {
+                "index": ha.hop.index, "host": ha.hop.host, "loss": ha.hop.loss, "sent": ha.hop.sent,
+                "avg": ha.hop.avg, "best": ha.hop.best, "worst": ha.hop.worst, "status": ha.status,
+                "asn": (asn_info.get(ha.hop.host) or (None, None))[0],
+                "as_name": (asn_info.get(ha.hop.host) or (None, None))[1],
+            }
+            for ha in p.hops
+        ],
+    }

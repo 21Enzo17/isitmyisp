@@ -1,4 +1,4 @@
-"""Command line interface: discover, status, mtr, monitor, update-asn."""
+"""Command line interface: discover, status, mtr, monitor, report, update-asn."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from .i18n import pick
 from .probes.icmp import IcmpProber, WindowStats
 from .probes.mtr import MtrError, PathAnalysis, analyze_path, run_mtr
 from .probes.sockets import SocketProber
-from .stats import Baseline, Hysteresis, loss_is_significant
+from .stats import loss_is_significant
 from .store import Store, data_dir
 
 MAX_DNS = 3
@@ -180,13 +180,18 @@ def cmd_mtr(args, t) -> int:
 
 
 def cmd_monitor(args, t) -> int:
+    from .discovery import network_to_dict
+    from .monitor import Monitor, mtr_capturer
+
     store = Store(args.db)
-    baselines: dict[str, Baseline] = {}
-    hyst = Hysteresis(open_after=2, close_after=2)
+    mon = Monitor(store, window_seconds=args.window,
+                  capture=mtr_capturer(store, data_dir(), asn_online=args.asn_online))
+    mon.resume()
     print(f"💾 {store.path}  {t['stop_hint']}")
     try:
         while True:  # one iteration per discovered network; re-discover on route change or timer
             net = _discover(args)
+            store.add_network(network_to_dict(net))
             route = default_route()
             with Session(net, args.interval, socket_interval=3.0, engine=args.engine) as s:
                 print_network(net, t, engine=s.icmp.name)
@@ -194,21 +199,13 @@ def cmd_monitor(args, t) -> int:
                 time.sleep(args.window + 1.5)
                 while True:
                     m, rows = s.measure(args.window)
-                    v = classify(m, baselines)
-                    for role, st in rows:
-                        store.add_window(role, st)
-                        b = baselines.setdefault(st.target, Baseline())
-                        b.update(st.rtt_median, healthy=v.code == "ok")
-                    tr = hyst.update(v.code)
+                    res = mon.step(m, rows)
                     stamp = time.strftime("%Y-%m-%d %H:%M:%S")
-                    if tr.closed:
-                        store.add_verdict(f"closed:{tr.closed}", [])
-                        print(f"\n[{stamp}] {t['closed']}: {tr.closed}")
-                    if tr.opened:
-                        store.add_verdict(tr.opened, v.evidence)
+                    if res.transition.closed:
+                        print(f"\n[{stamp}] {t['closed']}: {res.transition.closed}")
+                    if res.transition.opened:
                         print(f"\n[{stamp}] {t['opened']}", end="")
-                        print_verdict(v, t)
-                    store.commit()
+                        print_verdict(res.verdict, t)
                     time.sleep(args.window)
                     if default_route() != route or time.time() - started > args.rediscover * 60:
                         if default_route() != route:
@@ -218,6 +215,35 @@ def cmd_monitor(args, t) -> int:
         pass
     finally:
         store.close()
+    return 0
+
+
+def _parse_when(value: str) -> float:
+    """'7d', '24h', '90m' (ago) or 'YYYY-MM-DD[ HH:MM]' (local time)."""
+    units = {"d": 86400, "h": 3600, "m": 60}
+    if value and value[-1] in units and value[:-1].isdigit():
+        return time.time() - int(value[:-1]) * units[value[-1]]
+    for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            return time.mktime(time.strptime(value, fmt))
+        except ValueError:
+            continue
+    raise SystemExit(f"invalid date: {value!r} (use 7d, 24h or YYYY-MM-DD[ HH:MM])")
+
+
+def cmd_report(args, t) -> int:
+    from .report import build_report
+
+    store = Store(args.db)
+    start = _parse_when(args.since)
+    end = _parse_when(args.until) if args.until else time.time()
+    lang = args.lang or ("es" if t is pick("es") else "en")
+    html_doc = build_report(store, start, end, lang=lang)
+    store.close()
+    out = args.out or f"isitmyisp-report-{time.strftime('%Y%m%d-%H%M')}.html"
+    with open(out, "w", encoding="utf-8") as fh:
+        fh.write(html_doc)
+    print(f"📄 {out}")
     return 0
 
 
@@ -256,6 +282,12 @@ def build_parser() -> argparse.ArgumentParser:
     mon.add_argument("--rediscover", type=int, default=15, help="re-discover the path every N minutes")
     mon.add_argument("--db", help="SQLite path (default: ~/.local/share/isitmyisp/data.db)")
 
+    rep = sub.add_parser("report", help="write the HTML evidence report")
+    rep.add_argument("--since", default="7d", help="7d, 24h, 90m or YYYY-MM-DD[ HH:MM] (default: 7d)")
+    rep.add_argument("--until", help="same formats (default: now)")
+    rep.add_argument("-o", "--out", help="output file (default: isitmyisp-report-<date>.html)")
+    rep.add_argument("--db", help="SQLite path (default: ~/.local/share/isitmyisp/data.db)")
+
     sub.add_parser("update-asn", help="download the public IP-to-ASN dataset for offline lookups")
     return p
 
@@ -264,7 +296,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     t = pick(args.lang)
     handlers = {"discover": cmd_discover, "status": cmd_status, "mtr": cmd_mtr,
-                "monitor": cmd_monitor, "update-asn": cmd_update_asn}
+                "monitor": cmd_monitor, "report": cmd_report, "update-asn": cmd_update_asn}
     return handlers[args.cmd](args, t)
 
 

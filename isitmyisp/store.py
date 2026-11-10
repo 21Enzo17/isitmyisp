@@ -1,10 +1,16 @@
-"""SQLite storage for probe windows."""
+"""SQLite storage: probe windows, per-window verdicts, incidents and their evidence.
+
+Thread-safe: incident evidence (mtr) is captured in background threads.
+"""
 
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
+import threading
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 from .probes.icmp import WindowStats
@@ -16,13 +22,43 @@ CREATE TABLE IF NOT EXISTS samples (
     target TEXT NOT NULL,
     sent INTEGER NOT NULL,
     received INTEGER NOT NULL,
-    rtt_min REAL, rtt_avg REAL, rtt_max REAL, jitter REAL
+    rtt_min REAL, rtt_avg REAL, rtt_max REAL, jitter REAL,
+    rtt_median REAL
 );
 CREATE INDEX IF NOT EXISTS samples_ts ON samples(ts);
-CREATE TABLE IF NOT EXISTS verdicts (
+
+-- one row per measurement window: the raw verdict (before hysteresis)
+CREATE TABLE IF NOT EXISTS windows (
     ts REAL NOT NULL,
+    seconds REAL NOT NULL,
+    code TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS windows_ts ON windows(ts);
+
+CREATE TABLE IF NOT EXISTS incidents (
+    id INTEGER PRIMARY KEY,
+    opened REAL NOT NULL,
+    closed REAL,
     code TEXT NOT NULL,
-    evidence TEXT
+    evidence TEXT NOT NULL,      -- JSON list of strings, from the window that opened it
+    peak_loss REAL NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS incidents_opened ON incidents(opened);
+
+CREATE TABLE IF NOT EXISTS captures (
+    id INTEGER PRIMARY KEY,
+    incident_id INTEGER,
+    ts REAL NOT NULL,
+    kind TEXT NOT NULL,          -- 'mtr'
+    target TEXT NOT NULL,
+    data TEXT NOT NULL           -- JSON
+);
+CREATE INDEX IF NOT EXISTS captures_incident ON captures(incident_id);
+
+-- network context (ISP, CGNAT, path...) each time it is discovered
+CREATE TABLE IF NOT EXISTS networks (
+    ts REAL NOT NULL,
+    data TEXT NOT NULL           -- JSON
 );
 """
 
@@ -38,29 +74,148 @@ def default_path() -> Path:
     return data_dir() / "data.db"
 
 
+@dataclass
+class Incident:
+    id: int
+    opened: float
+    closed: float | None
+    code: str
+    evidence: list[str]
+    peak_loss: float
+
+    def duration(self, now: float | None = None) -> float:
+        return (self.closed or now or time.time()) - self.opened
+
+
+@dataclass
+class Capture:
+    id: int
+    incident_id: int | None
+    ts: float
+    kind: str
+    target: str
+    data: dict
+
+
 class Store:
     def __init__(self, path: Path | str | None = None):
         self.path = Path(path) if path else default_path()
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(self.path)
-        self.db.executescript(SCHEMA)
+        self.db = sqlite3.connect(self.path, check_same_thread=False)
+        self._lock = threading.RLock()
+        with self._lock:
+            self.db.executescript(SCHEMA)
+            cols = {r[1] for r in self.db.execute("PRAGMA table_info(samples)")}
+            if "rtt_median" not in cols:  # databases created by v0.1.0.dev0
+                self.db.execute("ALTER TABLE samples ADD COLUMN rtt_median REAL")
+
+    # ------------------------------------------------------------ writes
 
     def add_window(self, role: str, s: WindowStats, ts: float | None = None) -> None:
-        self.db.execute(
-            "INSERT INTO samples VALUES (?,?,?,?,?,?,?,?,?)",
-            (ts or time.time(), role, s.target, s.sent, s.received, s.rtt_min, s.rtt_avg, s.rtt_max, s.jitter),
-        )
+        with self._lock:
+            self.db.execute(
+                "INSERT INTO samples (ts, role, target, sent, received, rtt_min, rtt_avg, rtt_max, jitter, rtt_median)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (ts or time.time(), role, s.target, s.sent, s.received,
+                 s.rtt_min, s.rtt_avg, s.rtt_max, s.jitter, s.rtt_median),
+            )
 
-    def add_verdict(self, code: str, evidence: list[str], ts: float | None = None) -> None:
-        self.db.execute("INSERT INTO verdicts VALUES (?,?,?)", (ts or time.time(), code, " | ".join(evidence)))
+    def add_window_verdict(self, code: str, seconds: float, ts: float | None = None) -> None:
+        with self._lock:
+            self.db.execute("INSERT INTO windows VALUES (?,?,?)", (ts or time.time(), seconds, code))
+
+    def open_incident(self, code: str, evidence: list[str], ts: float | None = None) -> int:
+        with self._lock:
+            cur = self.db.execute("INSERT INTO incidents (opened, code, evidence) VALUES (?,?,?)",
+                                  (ts or time.time(), code, json.dumps(evidence)))
+            self.db.commit()
+            return int(cur.lastrowid)
+
+    def bump_peak_loss(self, incident_id: int, loss: float) -> None:
+        with self._lock:
+            self.db.execute("UPDATE incidents SET peak_loss = MAX(peak_loss, ?) WHERE id = ?", (loss, incident_id))
+
+    def close_incident(self, incident_id: int, ts: float | None = None) -> None:
+        with self._lock:
+            self.db.execute("UPDATE incidents SET closed = ? WHERE id = ?", (ts or time.time(), incident_id))
+            self.db.commit()
+
+    def close_dangling(self, ts: float | None = None) -> None:
+        """Incidents left open by a crash/restart are closed at the last window we have."""
+        with self._lock:
+            last = self.db.execute("SELECT MAX(ts) FROM windows").fetchone()[0]
+            self.db.execute("UPDATE incidents SET closed = ? WHERE closed IS NULL", (last or ts or time.time(),))
+            self.db.commit()
+
+    def add_capture(self, incident_id: int | None, kind: str, target: str, data: dict,
+                    ts: float | None = None) -> None:
+        with self._lock:
+            self.db.execute("INSERT INTO captures (incident_id, ts, kind, target, data) VALUES (?,?,?,?,?)",
+                            (incident_id, ts or time.time(), kind, target, json.dumps(data)))
+            self.db.commit()
+
+    def add_network(self, data: dict, ts: float | None = None) -> None:
+        with self._lock:
+            self.db.execute("INSERT INTO networks VALUES (?,?)", (ts or time.time(), json.dumps(data)))
+            self.db.commit()
 
     def commit(self) -> None:
-        self.db.commit()
+        with self._lock:
+            self.db.commit()
 
-    def prune(self, keep_days: int = 30) -> None:
+    def prune(self, keep_days: int = 90) -> None:
         cutoff = time.time() - keep_days * 86400
-        self.db.execute("DELETE FROM samples WHERE ts < ?", (cutoff,))
-        self.db.commit()
+        with self._lock:
+            for table in ("samples", "windows", "networks"):
+                self.db.execute(f"DELETE FROM {table} WHERE ts < ?", (cutoff,))
+            self.db.commit()
 
     def close(self) -> None:
-        self.db.close()
+        with self._lock:
+            self.db.commit()
+            self.db.close()
+
+    # ------------------------------------------------------------ reads (used by the report)
+
+    def windows_between(self, start: float, end: float) -> list[tuple[float, float, str]]:
+        with self._lock:
+            return self.db.execute("SELECT ts, seconds, code FROM windows WHERE ts BETWEEN ? AND ? ORDER BY ts",
+                                   (start, end)).fetchall()
+
+    def samples_between(self, start: float, end: float, role: str | None = None) -> list[sqlite3.Row]:
+        q = ("SELECT ts, role, target, sent, received, rtt_median, jitter FROM samples WHERE ts BETWEEN ? AND ?"
+             + (" AND role = ?" if role else "") + " ORDER BY ts")
+        with self._lock:
+            cur = self.db.execute(q, (start, end, role) if role else (start, end))
+            cols = [c[0] for c in cur.description]
+            return [dict(zip(cols, r)) for r in cur.fetchall()]
+
+    def incidents_between(self, start: float, end: float) -> list[Incident]:
+        with self._lock:
+            rows = self.db.execute(
+                "SELECT id, opened, closed, code, evidence, peak_loss FROM incidents"
+                " WHERE opened <= ? AND (closed IS NULL OR closed >= ?) ORDER BY opened", (end, start)).fetchall()
+        return [Incident(r[0], r[1], r[2], r[3], json.loads(r[4]), r[5]) for r in rows]
+
+    def captures_for(self, incident_ids: list[int]) -> dict[int, list[Capture]]:
+        if not incident_ids:
+            return {}
+        marks = ",".join("?" * len(incident_ids))
+        with self._lock:
+            rows = self.db.execute(f"SELECT id, incident_id, ts, kind, target, data FROM captures"
+                                   f" WHERE incident_id IN ({marks}) ORDER BY ts", incident_ids).fetchall()
+        out: dict[int, list[Capture]] = {}
+        for r in rows:
+            out.setdefault(r[1], []).append(Capture(r[0], r[1], r[2], r[3], r[4], json.loads(r[5])))
+        return out
+
+    def network_at(self, ts: float) -> dict | None:
+        with self._lock:
+            row = self.db.execute("SELECT data FROM networks WHERE ts <= ? ORDER BY ts DESC LIMIT 1", (ts,)).fetchone()
+            if not row:
+                row = self.db.execute("SELECT data FROM networks ORDER BY ts LIMIT 1").fetchone()
+        return json.loads(row[0]) if row else None
+
+    def first_and_last_window(self) -> tuple[float | None, float | None]:
+        with self._lock:
+            return self.db.execute("SELECT MIN(ts), MAX(ts) FROM windows").fetchone()

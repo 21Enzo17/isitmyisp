@@ -3,7 +3,7 @@ FROM python:3.12-slim
 # fping: main probe engine (one process, many targets). mtr: evidence on incidents.
 # iputils-ping: fallback prober. iproute2: route/addr discovery. iw: Wi-Fi signal (optional).
 RUN apt-get update \
- && apt-get install -y --no-install-recommends fping mtr-tiny iputils-ping iproute2 iw ca-certificates \
+ && apt-get install -y --no-install-recommends fping mtr-tiny iputils-ping iproute2 iw ca-certificates tzdata \
  && rm -rf /var/lib/apt/lists/*
 
 ENV LC_ALL=C.UTF-8 \

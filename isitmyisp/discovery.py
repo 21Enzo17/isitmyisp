@@ -214,3 +214,15 @@ def discover(trace_target: str = ANCHORS_V4[0], cycles: int = 5, data_dir: Path 
         if named:
             net.isp_asn, net.isp_name = named.asn, named.as_name
     return net
+
+
+def network_to_dict(net: Network) -> dict:
+    """JSON-friendly snapshot of the network context, stored with the measurements."""
+    return {
+        "gateway": net.gateway, "interface": net.interface, "wireless": net.wireless,
+        "dns_servers": net.dns_servers, "home_routers": net.home_routers, "isp_hop": net.isp_hop,
+        "isp_asn": net.isp_asn, "isp_name": net.isp_name, "cgnat": net.cgnat, "double_nat": net.double_nat,
+        "ipv6_global": net.ipv6_global, "ipv6_works": net.ipv6_works,
+        "path": [{"index": p.hop.index, "host": p.hop.host, "segment": p.segment, "asn": p.asn,
+                  "as_name": p.as_name} for p in net.path],
+    }

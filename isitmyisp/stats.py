@@ -16,6 +16,7 @@ from dataclasses import dataclass
 Z95 = 1.96
 LOSS_FLOOR = 1.5  # % loss we must be 95% confident to exceed (1/50 and 2/50 lost are NOT significant)
 MIN_SAMPLES = 10  # below this, we don't judge loss at all (except total outage)
+MIN_FAILURES = 2  # one failure is never evidence (1/10 TCP connects has a Wilson low bound of 1.8%)
 
 
 def wilson_interval(failures: int, n: int, z: float = Z95) -> tuple[float, float]:
@@ -35,7 +36,7 @@ def loss_is_significant(lost: int, sent: int, floor: float = LOSS_FLOOR) -> bool
         return False
     if lost == sent and sent >= 3:  # total outage: no statistics needed
         return True
-    if sent < MIN_SAMPLES:
+    if sent < MIN_SAMPLES or lost < MIN_FAILURES:
         return False
     low, _ = wilson_interval(lost, sent)
     return low > floor

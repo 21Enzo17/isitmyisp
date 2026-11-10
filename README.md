@@ -3,7 +3,7 @@
 **Is it your Wi-Fi, your router or your ISP?**
 A self-hosted connection monitor, built by someone who worked in an ISP's NOC. It finds *where* the problem is and builds the evidence your ISP needs to escalate your ticket.
 
-> 🚧 Early development. The CLI works; dashboard, PDF reports, tunnel mode and published images are coming.
+> 🚧 Early development. Monitoring, incidents and the HTML evidence report work; the web dashboard, tunnel mode and published images are coming.
 
 ## Why another monitor?
 Most tools either run speedtests, which measure the thing that rarely breaks and eat your data cap, or plot pings without telling you what they mean. isitmyisp reads the network the way a NOC engineer does:
@@ -33,7 +33,14 @@ docker build -t isitmyisp .
 docker run --rm --net=host --cap-add=NET_RAW -v isitmyisp:/data isitmyisp update-asn   # once, optional
 docker run --rm --net=host --cap-add=NET_RAW -v isitmyisp:/data \
   -v /run/systemd/resolve:/run/systemd/resolve:ro isitmyisp status
+
+# keep it running, then build the report for your ISP
+docker run -d --name isitmyisp --restart unless-stopped --net=host --cap-add=NET_RAW \
+  -e TZ=America/Argentina/Buenos_Aires -v isitmyisp:/data \
+  -v /run/systemd/resolve:/run/systemd/resolve:ro isitmyisp monitor
+docker exec isitmyisp isitmyisp report --since 7d -o /data/report.html
 ```
+Set `TZ` to your time zone so the report shows local times.
 `--net=host` is required to see your real gateway and path. The `/run/systemd/resolve` mount is optional: it lets the container see your real DNS servers on systemd-resolved hosts. Without it, your router is assumed to be your resolver.
 
 ## Without Docker
@@ -43,7 +50,8 @@ pip install -e .
 isitmyisp discover          # gateway, ISP, DNS, CGNAT, IPv6, path segments
 isitmyisp status -s 30      # measure 30 s and get a verdict
 isitmyisp mtr 8.8.8.8       # mtr with real loss vs ICMP noise
-isitmyisp monitor           # measure continuously, store in SQLite
+isitmyisp monitor           # measure continuously, open/close incidents, capture mtr evidence
+isitmyisp report --since 7d # self-contained HTML evidence report (print it to PDF from any browser)
 isitmyisp --lang es status  # Spanish output
 ```
 
@@ -62,6 +70,13 @@ isitmyisp is meant to run on your network for months. By default it **never send
 
 Bandwidth: about 1.3 GB/month at the default `monitor` settings (one ping every 2 s to 5–6 targets).
 
+## The evidence report
+`isitmyisp report` writes one self-contained HTML file: no JavaScript and no external assets. It has two readers in mind:
+- **You:** a plain-language summary ("3 incidents, 1 h 6 min in total; 2 were inside your ISP's network"), a timeline and where each problem was.
+- **Your ISP's support and NOC:** a ready-to-paste message listing only the incidents inside their network, with the hop and AS where loss starts, plus every mtr capture and the methodology.
+
+To try it without waiting for real problems, generate a clearly synthetic dataset: `python3 scripts/demo_data.py /tmp/demo.db && isitmyisp report --db /tmp/demo.db --since 1d`.
+
 ## How the verdict works
 1. **Home:** loss or abnormal latency to any of your own routers means the problem is on your side. If you're on Wi-Fi, you'll be told so.
 2. **Every destination affected:** the problem is in your ISP. If its first hop is also affected, it's the access network; otherwise it's the backbone or its upstream.
@@ -73,8 +88,9 @@ ICMP and TCP must agree before blaming anyone, and nothing is blamed on a handfu
 ## Roadmap
 - [x] Probes (fping/ping, TCP 443, DNS), discovery (gateway, ISP first hop, DNS, CGNAT, double NAT, IPv6, offline ASN), CLI verdicts (EN/ES)
 - [x] Statistical significance, per-target baselines, hysteresis, re-discovery when the route changes
-- [ ] Incident detection with automatic MTR capture stored as evidence
-- [ ] Web dashboard and HTML/PDF evidence report (EN/ES)
+- [x] Incidents with hysteresis and automatic mtr capture stored as evidence
+- [x] HTML evidence report (EN/ES): plain-language summary, timeline, incidents, message for your ISP, mtr appendix, methodology
+- [ ] Web dashboard and one-click PDF
 - [ ] **Tunnel mode:** did your IPsec/L2TP/WireGuard tunnel drop because of your config or because of loss on the path?
 - [ ] Prometheus `/metrics`, multi-arch images (amd64/arm64), alerts (Telegram/Discord)
 
