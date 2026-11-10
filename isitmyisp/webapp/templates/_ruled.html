@@ -2,8 +2,8 @@
 {% if dd %}
 <div class="ruled-box">
   {% if dd.ruled_out %}<div class="ruled-h">{{ t.ruled_title }}</div>
-  {% for c in dd.ruled_out %}{% if c in t.ruled %}<div class="ruled">✓ {{ t.ruled[c].format(link=dd.link|linktext, cpu=(dd.link.cpu_pct if dd.link else '?')) }}</div>{% endif %}{% endfor %}{% endif %}
+  {% for c in dd.ruled_out %}{% if c in t.ruled %}<div class="ruled"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>{{ t.ruled[c].format(link=dd.link|linktext, cpu=(dd.link.cpu_pct if dd.link else '?')) }}</div>{% endif %}{% endfor %}{% endif %}
   {% if dd.not_ruled_out %}<div class="ruled-h">{{ t.not_ruled_title }}</div>
-  {% for c in dd.not_ruled_out %}{% if c in t.not_ruled %}<div class="notruled">? {{ t.not_ruled[c] }}</div>{% endif %}{% endfor %}{% endif %}
+  {% for c in dd.not_ruled_out %}{% if c in t.not_ruled %}<div class="notruled"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>{{ t.not_ruled[c] }}</div>{% endif %}{% endfor %}{% endif %}
 </div>
 {% endif %}

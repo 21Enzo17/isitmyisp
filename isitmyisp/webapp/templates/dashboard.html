@@ -1,129 +1,188 @@
 {% extends "base.html" %}
+{% from "_charts.html" import line_plot, xaxis %}
 {% block head %}<meta http-equiv="refresh" content="30">{% endblock %}
 {% block title %}{{ t.nav.dashboard }}{% endblock %}
 {% block content %}
-<div class="topbar">
-  <h1>{{ t.nav.dashboard }}</h1>
-  <div class="right">
-    {% if d.has_data %}<span class="pill {{ d.css }}"><span class="dot"></span>{{ t.verdict[d.code] }}</span>
-    <span class="pill">{{ t.updated }} {{ d.updated_ago }} {{ t.ago }}</span>{% endif %}
-  </div>
-</div>
+{% macro num(v, fmt='%.1f') %}{{ fmt|format(v) if v is not none else '—' }}{% endmacro %}
 
-{% if not d.has_data %}
-<div class="card hero"><div class="verdict"><span class="dot"></span>{{ t.verdict.no_data }}</div>
-  <div class="sub">{{ t.verdict_sub.no_data }}</div></div>
-{% else %}
-<div class="grid hero-row">
-  <div class="card hero {{ d.css }}">
-    <h2>{{ t.last24 }}</h2>
-    <div class="verdict {{ d.css }}"><span class="dot"></span>{{ t.verdict[d.code] }}</div>
-    <div class="sub">{{ t.verdict_sub[d.code] }}</div>
-    {% if d.code != 'ok' and d.code in t.advice %}
-    <div class="advice"><b>{{ t.what_to_do }}:</b> {{ t.advice[d.code] }}</div>
-    {% endif %}
-    {% if d.active %}
-    <div class="evidence"><b>{{ t.active }}</b> · {{ t.since }} {{ d.active.opened|dt }} ({{ d.active_for }})<br>
-      {% for e in d.active.evidence[:3] %}<span class="mono">{{ e|ev }}</span><br>{% endfor %}
-      {% include "_ruled.html" %}</div>
-    {% endif %}
-    <div class="chart-label">{{ t.last24 }}</div>
-    {{ d.strip|safe }}
-    <div class="legend"><span><i class="l-ok"></i>{{ t.verdict.ok }}</span><span><i class="l-local"></i>{{ t.verdict.local }}</span>
-      <span><i class="l-access"></i>{{ t.verdict.access }}</span><span><i class="l-isp"></i>{{ t.verdict.isp }}</span>
-      <span><i class="l-remote"></i>{{ t.verdict.remote }}</span><span><i class="l-dns"></i>{{ t.verdict.dns }}</span>
-      <span title="{{ t.no_data_tip }}"><i class="l-nodata"></i>{{ t.no_data_legend }}</span></div>
-  </div>
-  <div class="card side-card">
-    <div class="kpis">
-      <div class="kpi"><div class="k">{{ t.healthy_24h }}</div><div class="v">{{ d.healthy_pct }}</div></div>
-      <div class="kpi"><div class="k">{{ t.incidents_24h }}</div><div class="v">{{ d.incidents_24h }}</div></div>
-      <div class="kpi"><div class="k">{{ t.worst_24h }}</div><div class="v">{{ d.worst_24h }}</div></div>
-    </div>
-    <div>
-      <h3>{{ t.evidence_for_isp }}</h3>
-      <p class="muted">{{ t.reports_sub }}</p>
-      <div class="actions">
-        <a class="btn primary" href="{{ url_for('report', since='7d') }}">{{ t.view_report }}</a>
-        <a class="btn" href="{{ url_for('report_pdf', since='7d') }}">PDF</a>
-      </div>
-    </div>
-  </div>
-</div>
+<section class="hero g-{{ d.group }}" aria-labelledby="headline">
+  <p class="stamp">{% if d.has_data %}<span class="live{{ ' stale' if d.code == 'stale' }}" aria-hidden="true"></span>{{ t.min_ago.format(ago=d.updated_ago) }}{% endif %}</p>
+  <h1 id="headline" class="headline">{{ t.headline.get(d.code, t.verdict.get(d.code, d.code)) }}</h1>
+  <p class="sub">{{ t.verdict_sub.get(d.code, '') }}</p>
 
-<div class="grid cols-2 mt-16">
-  <div class="card"><h2>{{ t.loss }} · {{ t.last24 }}</h2>{{ d.loss_chart|safe }}</div>
-  <div class="card"><h2>{{ t.latency }} · {{ t.last24 }}</h2>{{ d.latency_chart|safe }}</div>
-</div>
-
-<div class="section-title"><h2>{{ t.link_title }}</h2><a href="{{ url_for('settings_page') }}#link">◎</a></div>
-<div class="card">
-  {% if not d.link_enabled %}<p class="muted">{{ t.link_off }}</p>
-  {% elif not d.link %}<p class="muted">{{ t.link_err }}…</p>
-  {% else %}
-  <div class="kpis">
-    <div class="kpi"><div class="k">{{ t.link_down }}</div><div class="v">{{ '%.0f'|format(d.link.down) }}<small> Mbps</small></div>
-      <div class="muted small">{{ '%.0f%%'|format(d.link.down_pct) if d.link.down_pct is not none }} {{ t.of_contract }}</div></div>
-    <div class="kpi"><div class="k">{{ t.link_up }}</div><div class="v">{{ '%.0f'|format(d.link.up) }}<small> Mbps</small></div>
-      <div class="muted small">{{ '%.0f%%'|format(d.link.up_pct) if d.link.up_pct is not none }} {{ t.of_contract }}</div></div>
-    <div class="kpi"><div class="k">{{ t.link_cpu }}</div><div class="v">{{ '%.0f%%'|format(d.link.cpu) if d.link.cpu is not none else '—' }}</div></div>
-  </div>
-  {{ d.link.chart|safe }}
-  {% endif %}
-</div>
-
-<div class="section-title"><h2>{{ t.services_title }}</h2><a href="{{ url_for('settings_page') }}#services">+</a></div>
-{% if not d.services %}<div class="card"><p class="muted">{{ t.services_sub }}</p><p class="muted">{{ t.no_services }}</p></div>
-{% else %}
-<div class="grid cols-3">
-  {% for c in d.services %}
-  <div class="card target {{ 'bad' if c.state == 'down' else '' }}">
-    <div class="role"><span>{{ c.kind|upper }}</span><span class="badge {{ c.css if c.css != 'ok' else '' }}">{{ t.svc[c.state] }}{% if c.since %} · {{ c.since }}{% endif %}</span></div>
-    <div class="value sm">{{ c.name }}</div>
-    <div class="ip mono">{{ c.target }}</div>
-    {% if c.ms is not none %}<div class="muted">{{ '%.0f'|format(c.ms) }} ms</div>{% endif %}
-    {% if c.state == 'down' %}{% if c.detail %}<div class="muted small">{{ c.detail|ev }}</div>{% endif %}<div class="advice">{{ t.advice.service_down }}</div>{% endif %}
-  </div>
-  {% endfor %}
-</div>
-{% endif %}
-
-<div class="section-title"><h2>{{ t.brief_title }}</h2></div>
-<div class="card">
-  <p class="muted">{{ t.brief_sub }}</p>
-  {% if not d.brief %}<p class="muted">{{ t.no_brief }}</p>{% else %}
-  <table><tbody>
-    {% for e in d.brief %}
-    <tr><td class="num">{{ e.start|tm }}–{{ e.end|tm }}</td>
-        <td><span class="dot {{ e.code|css }}"></span> {{ t.verdict[e.code] }}</td>
-        <td class="mono">{% for x in e.evidence[:2] %}{{ x|ev }}<br>{% endfor %}</td>
-        <td class="muted">{{ t.advice.get(e.code, '') }}</td></tr>
+  {% if d.has_data %}
+  <ol class="path" aria-label="{{ t.hop.home }}, {{ t.hop.isp }}, {{ t.hop.internet }}">
+    {% for h in d.path %}
+    <li class="hop s-{{ h.state }}{{ ' blamed' if h.blamed }}">
+      <span class="node" aria-hidden="true"></span>
+      <span class="hop-name">{{ t.hop[h.key] }}</span>
+      <span class="hop-id">{% if h.key == 'internet' %}{{ t.hop_dest.format(n=h.name) }}{% else %}{{ h.name }}{% endif %}</span>
+      {% if h.detail %}<span class="hop-id ip">{{ h.detail }}</span>{% endif %}
+      <span class="hop-val"><b>{{ num(h.median) }}</b> ms <span class="sep" aria-hidden="true">/</span> <b>{{ num(h.loss) }}</b>%</span>
+      {% if h.blamed %}<span class="here">{{ t.hop_here }}</span>{% endif %}
+    </li>
     {% endfor %}
-  </tbody></table>{% endif %}
-</div>
+  </ol>
+  {% endif %}
 
-<div class="section-title"><h2>{{ t.targets }}</h2></div>
-<div class="grid cols-3">
-  {% for c in d.targets %}
-  <div class="card target {{ c.status }}">
-    <div class="role"><span>{{ t.role.get(c.role, c.role) }}</span>
-      <span class="badge {{ c.status if c.status != 'ok' else '' }}">{{ '%.1f'|format(c.loss) }}%</span></div>
-    <div class="ip mono">{{ c.target }}</div>
-    <div class="value">{% if c.median is not none %}{{ '%.1f'|format(c.median) }}<small>ms</small>{% else %}—{% endif %}</div>
-    {{ c.chart|safe }}
+  {% if d.code in t.advice and d.code != 'ok' %}
+  <div class="advice"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>
+    <p><b>{{ t.what_to_do }}.</b> {{ t.advice[d.code] }}</p></div>
+  {% endif %}
+  {% if d.active %}
+  <div class="evidence">
+    <p><b>{{ t.active }}</b>, {{ t.since }} {{ d.active.opened|dt }} ({{ d.active_for }})</p>
+    <ul>{% for e in d.active.evidence[:3] %}<li class="ip">{{ e|ev }}</li>{% endfor %}</ul>
+    {% include "_ruled.html" %}
   </div>
-  {% endfor %}
+  {% endif %}
+
+  {% if d.has_data %}
+  <div class="day">
+    <p>{% if not d.day.n %}{{ t.day_none }}{% else %}
+      {{ t.day_some.format(n=d.day.n, inc=t.day_inc[0 if d.day.n == 1 else 1], dur=d.day.dur) }}
+      {% for g in ('isp', 'you', 'other') if d.day.by.get(g) %}{{ t.day_by[g].format(k=d.day.by[g]) }}{{ ', ' if not loop.last else '.' }}{% endfor %}
+      {% endif %} {{ t.healthy_of.format(pct=d.healthy_pct) }}</p>
+    <div class="actions">
+      <a class="btn{{ ' primary' if d.day.by.get('isp') }}" href="{{ url_for('report', since='7d') }}">{{ t.claim }}</a>
+      <a class="btn quiet" href="{{ url_for('report_pdf', since='7d') }}"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg>{{ t.claim_pdf }}</a>
+    </div>
+  </div>
+  {% endif %}
+</section>
+
+{% if d.timeline %}
+{% set tl = d.timeline %}
+<section class="panel" aria-labelledby="tl-h">
+  <div class="panel-head">
+    <h2 id="tl-h">{{ t.last24 }}</h2>
+    <ul class="key" aria-label="{{ t.row_status }}">
+      {% for g in tl.groups %}<li><i class="sw g-{{ g }}" aria-hidden="true"></i>{{ t.group[g] }}</li>{% endfor %}
+    </ul>
+  </div>
+  <figure class="tl">
+    <span class="tl-name r1">{{ t.row_status }}</span>
+    <div class="tl-plot strip r1">
+      <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
+        <rect class="track" x="0" y="0" width="1000" height="100"/>
+        {% for x, w, g, code in tl.strip %}<rect class="g-{{ g }}" x="{{ x }}" y="{{ 72 if g == 'good' else 0 }}" width="{{ w }}" height="{{ 28 if g == 'good' else 100 }}"/>{% endfor %}
+      </svg>
+    </div>
+    <span class="tl-name r2">{{ t.row_loss }}</span>
+    {{ line_plot(tl.loss, 'r2') }}
+    <span class="tl-name r3">{{ t.row_latency }}</span>
+    {{ line_plot(tl.latency, 'r3') }}
+    <div class="hv rows-3" aria-hidden="true">
+      {% for b in tl.buckets %}<div class="c{{ ' flip' if b.flip }}"><div class="tip">
+        <b>{{ b.start|tm }}–{{ b.end|tm }}</b>
+        <span><i class="sw g-{{ b.group }}"></i>{{ t.verdict.get(b.code, b.code) if b.group != 'none' else t.group.none }}</span>
+        <span>{{ t.row_loss }} {{ num(b.loss) }}%</span>
+        <span>{{ t.row_latency }} {{ num(b.lat) }} ms</span></div></div>{% endfor %}
+    </div>
+    {{ xaxis(tl.xticks, 'r4') }}
+  </figure>
+  <details class="table-view">
+    <summary>{{ t.table_view }}</summary>
+    <table>
+      <thead><tr><th>{{ t.col_time }}</th><th>{{ t.row_status }}</th><th class="num">{{ t.col_worst_loss }}</th><th class="num">{{ t.col_latency }}</th></tr></thead>
+      <tbody>{% for b in tl.hourly %}<tr><td class="num-l">{{ b.start|tm }}–{{ b.end|tm }}</td>
+        <td><i class="sw g-{{ b.group }}" aria-hidden="true"></i>{{ t.verdict.get(b.code, b.code) if b.group != 'none' else t.group.none }}</td>
+        <td class="num">{{ num(b.loss) }}%</td><td class="num">{{ num(b.lat) }} ms</td></tr>{% endfor %}</tbody>
+    </table>
+  </details>
+  <div class="brief">
+    <h3>{{ t.brief_title }}</h3>
+    {% if not d.brief %}<p class="muted">{{ t.brief_none }}</p>{% else %}
+    <p class="muted">{{ t.brief_sub }}</p>
+    <table><tbody>
+      {% for e in d.brief %}
+      <tr><td class="num-l">{{ e.start|tm }}–{{ e.end|tm }}</td>
+          <td><i class="sw g-{{ e.code|group }}" aria-hidden="true"></i>{{ t.verdict[e.code] }}</td>
+          <td class="ip">{% for x in e.evidence[:2] %}{{ x|ev }}<br>{% endfor %}</td></tr>
+      {% endfor %}
+    </tbody></table>{% endif %}
+  </div>
+</section>
+{% endif %}
+
+{% if d.has_data %}
+<div class="pair">
+  <section class="panel" aria-labelledby="link-h">
+    <div class="panel-head"><h2 id="link-h">{{ t.link_title }}</h2>
+      <a class="icon-link" href="{{ url_for('settings_page') }}#link" aria-label="{{ t.nav.settings }}"><svg class="ico" aria-hidden="true"><use href="#i-settings"/></svg></a></div>
+    {% if not d.link_enabled %}<p class="muted">{{ t.link_off }}</p>
+    {% elif not d.link %}<p class="muted">{{ t.link_err }}.</p>
+    {% else %}
+    <div class="meters">
+      {% for label, mbps, pct in [(t.link_down, d.link.down, d.link.down_pct), (t.link_up, d.link.up, d.link.up_pct)] %}
+      <div class="meter{{ ' full' if pct is not none and pct >= 85 }}">
+        <span class="m-label">{{ label }}</span>
+        <span class="m-val"><b>{{ '%.0f'|format(mbps) }}</b> Mbps</span>
+        {% if pct is not none %}
+        <svg class="bar" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true">
+          <rect class="bar-track" x="0" y="2" width="100" height="6"/>
+          <rect class="bar-fill" x="0" y="2" width="{{ [pct, 100]|min }}" height="6"/>
+          <rect class="bar-mark" x="84.6" y="0" width="0.8" height="10"/>
+        </svg>
+        <span class="m-pct">{{ '%.0f'|format(pct) }}% {{ t.of_contract }}</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+      <div class="meter cpu"><span class="m-label">{{ t.link_cpu_short }}</span>
+        <span class="m-val"><b>{{ '%.0f'|format(d.link.cpu) if d.link.cpu is not none else '—' }}</b>{{ '%' if d.link.cpu is not none }}</span></div>
+    </div>
+    <figure class="tl small">
+      <figcaption>{{ t.link_chart_pct if d.link.pct else t.link_chart }}{% if d.link.pct %}<span class="thr-key"><i aria-hidden="true"></i>{{ t.sat_mark }} 85%</span>{% endif %}</figcaption>
+      {{ line_plot(d.link.plot, 'r1') }}
+      <div class="hv rows-1" aria-hidden="true">
+        {% for c in d.link.cols %}<div class="c{{ ' flip' if c.flip }}"><div class="tip"><b>{{ c.start|tm }}–{{ c.end|tm }}</b>
+          <span>{{ num(c.down, '%.0f') }} Mbps{% if c.pct is not none %} ({{ '%.0f'|format(c.pct) }}%){% endif %}</span></div></div>{% endfor %}
+      </div>
+      {{ xaxis(d.link.xticks, 'r2') }}
+    </figure>
+    {% endif %}
+  </section>
+
+  <section class="panel" aria-labelledby="svc-h">
+    <div class="panel-head"><h2 id="svc-h">{{ t.conn_title }}</h2>
+      <a class="icon-link" href="{{ url_for('settings_page') }}#services" aria-label="{{ t.svc_add }}"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></a></div>
+    {% if not d.services and not d.tunnels %}
+    <p class="muted">{{ t.services_sub }}</p>
+    <p><a href="{{ url_for('settings_page') }}#services">{{ t.svc_add }}</a></p>
+    {% else %}
+    <ul class="rows">
+      {% for c in d.services %}
+      {% set st = 'good' if c.state == 'up' else ('bad' if c.state == 'down' else 'none') %}
+      <li class="row s-{{ st }}">
+        <svg class="ico st" aria-hidden="true"><use href="#i-{{ 'check' if st == 'good' else ('cross' if st == 'bad' else 'wait') }}"/></svg>
+        <span class="r-main"><span class="r-name">{{ c.name }}</span><span class="r-sub ip">{{ c.target }}</span></span>
+        <span class="r-val">{% if c.ms is not none %}{{ '%.0f'|format(c.ms) }} ms{% endif %}</span>
+        <span class="r-state">{{ t.svc[c.state] }}{% if c.since %}, {{ c.since }}{% endif %}</span>
+        {% if c.state == 'down' %}<p class="r-note">{% if c.detail %}{{ c.detail|ev }}. {% endif %}{{ t.advice.service_down }}</p>{% endif %}
+      </li>
+      {% endfor %}
+      {% for c in d.tunnels %}
+      {% set st = 'good' if c.state == 'up' else ('bad' if c.state == 'down' else 'none') %}
+      <li class="row s-{{ st }}">
+        <svg class="ico st" aria-hidden="true"><use href="#i-{{ 'check' if st == 'good' else ('cross' if st == 'bad' else 'wait') }}"/></svg>
+        <span class="r-main"><span class="r-name">{{ c.name }}</span><span class="r-sub">{{ t.tunnel_word }} {{ c.type }}</span></span>
+        <span class="r-val"></span>
+        <span class="r-state">{{ t.tun[c.state] }}{% if c.since %}, {{ c.since }}{% endif %}</span>
+        {% if c.cause %}<p class="r-note">{{ c.cause|cause }}</p>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
 </div>
 
-{% if d.tunnels %}
-<div class="section-title"><h2>{{ t.nav.tunnels }}</h2><a href="{{ url_for('tunnels') }}">→</a></div>
-<div class="grid cols-3">
-  {% for c in d.tunnels %}
-  <div class="card target"><div class="role"><span>{{ c.type }}</span><span class="badge {{ c.css if c.css != 'ok' else '' }}">{{ t.tun[c.state] }}</span></div>
-    <div class="value sm">{{ c.name }}</div>
-    {% if c.cause %}<div class="muted">{{ c.cause|cause }}</div>{% endif %}</div>
-  {% endfor %}
-</div>
-{% endif %}
+<details class="panel measures">
+  <summary><h2>{{ t.targets }}</h2></summary>
+  <table>
+    <thead><tr><th>{{ t.where }}</th><th>IP</th><th class="num">{{ t.col_latency }}</th><th class="num">{{ t.row_loss }}</th></tr></thead>
+    <tbody>{% for c in d.targets %}<tr><td>{{ t.role.get(c.role, c.role) }}</td><td class="ip">{{ c.target }}</td>
+      <td class="num">{{ num(c.median) }} ms</td><td class="num">{{ '%.1f'|format(c.loss) }}%</td></tr>{% endfor %}</tbody>
+  </table>
+</details>
 {% endif %}
 {% endblock %}

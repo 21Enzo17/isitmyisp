@@ -196,6 +196,9 @@ class CsrfAndSettings(WebAppBase):
         html = r.get_data(as_text=True)
         self.assertNotIn("<script", html)
         self.assertNotIn(' style="', html)  # inline styles would be blocked by the CSP
+        self.assertIn("Internet is working", html)           # the verdict as a sentence
+        self.assertIn('class="path"', html)                  # your network -> your ISP -> internet
+        self.assertIn("font-src 'self'", csp)                 # self-hosted font, no third parties
 
     def test_services_add_and_delete(self):
         r = self.client.post("/settings/services/add", data={"csrf_token": csrf(self.page()), "name": "ARCA",

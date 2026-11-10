@@ -23,4 +23,4 @@ isitmyisp = "isitmyisp.cli:main"
 include = ["isitmyisp*"]
 
 [tool.setuptools.package-data]
-"isitmyisp.webapp" = ["templates/*.html", "static/*"]
+"isitmyisp.webapp" = ["templates/*.html", "static/*", "static/fonts/*"]

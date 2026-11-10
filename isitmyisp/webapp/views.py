@@ -2,36 +2,20 @@
 
 from __future__ import annotations
 
+import statistics
 import time
-from collections import defaultdict
 from dataclasses import dataclass, field
 
-from ..report import (COLORS, _anchor_series, _downsample, fmt_duration, svg_line, svg_status_strip)
+from ..report import _anchor_series, fmt_duration
 from ..settings import Settings
 from ..store import Store
 from ..api import is_stale
+from . import charts
 
 ROLE_ORDER = {"home": 0, "isp": 1, "anchor": 2, "tcp": 3, "dns": 4}
 CAUSE_CLASS = {"ok": "ok", "local": "warn", "access": "bad", "isp": "bad", "remote": "info", "dns": "info",
                "no_data": "muted", "stale": "muted", "config": "warn", "path_local": "bad",
                "path_remote": "info", "unknown": "muted", "saturation": "warn"}
-
-
-def spark(values: list[float], css: str = "spark", w: int = 240, h: int = 44) -> str:
-    """Tiny line chart without axes (latency over the last hours)."""
-    pts = [v for v in values if v is not None]
-    if len(pts) < 2:
-        return ""
-    lo, hi = min(pts), max(pts)
-    step = w / (len(values) - 1)
-    if hi - lo < 0.05:  # flat line: draw it in the middle, not glued to the bottom
-        coords = [(i * step, h / 2) for i, v in enumerate(values) if v is not None]
-    else:
-        coords = [(i * step, h - 4 - (v - lo) / (hi - lo) * (h - 8)) for i, v in enumerate(values) if v is not None]
-    line = " ".join(f"{x:.1f},{y:.1f}" for x, y in coords)
-    area = f"{coords[0][0]:.1f},{h} {line} {coords[-1][0]:.1f},{h}"
-    return (f'<svg viewBox="0 0 {w} {h}" class="{css}" preserveAspectRatio="none" role="img">'
-            f'<polygon points="{area}" class="spark-area"/><polyline points="{line}" class="spark-line"/></svg>')
 
 
 @dataclass
@@ -41,7 +25,21 @@ class TargetCard:
     loss: float
     median: float | None
     status: str  # ok | warn | bad
-    chart: str = ""
+
+
+@dataclass
+class Hop:
+    """One node of the path shown in the hero: your network -> your ISP -> the internet."""
+    key: str             # home | isp | internet
+    name: str            # IP, ISP name...
+    detail: str          # second line
+    median: float | None
+    loss: float | None
+    state: str           # good | warn | bad | none
+    blamed: bool = False  # the current verdict points here
+
+
+BLAME = {"local": "home", "saturation": "home", "access": "isp", "isp": "isp", "remote": "internet", "dns": "internet"}
 
 
 @dataclass
@@ -49,6 +47,7 @@ class Dashboard:
     has_data: bool = False
     code: str = "no_data"
     css: str = "muted"
+    group: str = "none"
     updated: float | None = None
     updated_ago: str = ""
     active: object = None
@@ -56,9 +55,11 @@ class Dashboard:
     healthy_pct: str = "—"
     incidents_24h: int = 0
     worst_24h: str = "0.0%"
-    strip: str = ""
-    loss_chart: str = ""
-    latency_chart: str = ""
+    timeline: object = None
+    path: list[Hop] = field(default_factory=list)
+    anchors: list[TargetCard] = field(default_factory=list)
+    isp_name: str = ""
+    day: dict = field(default_factory=dict)   # {"n", "dur", "by": {group: count}}
     targets: list[TargetCard] = field(default_factory=list)
     tunnels: list = field(default_factory=list)
     brief: list = field(default_factory=list)
@@ -71,8 +72,7 @@ def _sample_loss(s: dict) -> float:
     return 100.0 * (s["sent"] - s["received"]) / s["sent"] if s["sent"] else 0.0
 
 
-def dashboard_data(store: Store, settings: Settings, now: float | None = None,
-                   labels: dict[str, str] | None = None) -> Dashboard:
+def dashboard_data(store: Store, settings: Settings, now: float | None = None) -> Dashboard:
     now = now or time.time()
     d = Dashboard()
     last = store.last_window()
@@ -82,6 +82,7 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None,
     d.updated = last[0]
     d.updated_ago = fmt_duration(max(0, now - last[0]))
     d.code = "stale" if is_stale(last, now) else last[2]
+    d.group = charts.GROUP.get(d.code, "none")
     d.css = CAUSE_CLASS.get(d.code, "muted")
 
     active = [i for i in store.active_incidents() if i.scope == "internet"]
@@ -98,36 +99,75 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None,
         incs = store.incidents_between(start, now)
         d.incidents_24h = len(incs)
         d.worst_24h = f"{max((i.peak_loss for i in incs), default=0.0):.1f}%"
+        by: dict[str, int] = {}
+        for i in incs:
+            g = charts.GROUP.get(i.code, "other")
+            by[g] = by.get(g, 0) + 1
+        d.day = {"n": len(incs), "dur": fmt_duration(sum(i.duration(now) for i in incs)), "by": by}
         end = last[0]  # draw up to the last finished window: the one in progress isn't "missing data"
-        d.strip = svg_status_strip(windows, start, end, labels=labels)
-        series = _downsample(_anchor_series(store.samples_between(start, end, role="anchor")), 360)
-        if series:
-            d.loss_chart = svg_line([(ts, l) for ts, l, _ in series], start, end, COLORS["access"], unit="%")
-            d.latency_chart = svg_line([(ts, v) for ts, _, v in series if v is not None], start, end, "#9b8cff")
+        series = _anchor_series(store.samples_between(start, end, role="anchor"))
+        d.timeline = charts.timeline(windows, series, start, end)
         d.brief = list(reversed(store.brief_events(start, end)))[:12]
 
-    # one card per measured target, with a 6-hour latency sparkline
-    recent = store.samples_between(now - 6 * 3600, now)
-    by_target: dict[str, list[dict]] = defaultdict(list)
-    for s in recent:
-        by_target[s["target"]].append(s)
+    # the latest measurement of every target (they make up the path in the hero)
     for s in sorted(store.latest_samples(), key=lambda s: (ROLE_ORDER.get(s["role"], 9), s["target"])):
         if s["role"].startswith(("tunnel_", "service:")):
             continue
         loss = _sample_loss(s)
         status = "bad" if loss >= 5 else "warn" if loss > 0 else "ok"
-        hist = by_target.get(s["target"], [])[-90:]
-        d.targets.append(TargetCard(s["role"], s["target"], loss, s["rtt_median"], status,
-                                    spark([h["rtt_median"] for h in hist])))
+        d.targets.append(TargetCard(s["role"], s["target"], loss, s["rtt_median"], status))
+    d.anchors = [c for c in d.targets if c.role == "anchor"]
+    net = store.network_at(now) or {}
+    d.isp_name = net.get("isp_name") or ""
+    d.path = _path(d, net)
     d.tunnels = tunnel_cards(store, settings, now)
     d.services = service_cards(store, settings, now)
     d.link_enabled = bool(settings.link.get("enabled"))
     rows = store.link_usage_between(now - 3 * 3600, now)
     if rows:
         ts, down, up, dpct, upct, cpu = rows[-1]
-        d.link = {"down": down, "up": up, "down_pct": dpct, "up_pct": upct, "cpu": cpu,
-                  "chart": spark([r[3] if r[3] is not None else r[1] for r in rows[-90:]])}
+        pct = dpct is not None
+        d.link = {"down": down, "up": up, "down_pct": dpct, "up_pct": upct, "cpu": cpu, "pct": pct,
+                  "plot": charts.plot([(r[0], r[3] if pct else r[1]) for r in rows], now - 3 * 3600, now,
+                                      unit="%" if pct else " Mbps", ymax=100 if pct else None, floor=10,
+                                      threshold=85 if pct else None),
+                  "xticks": charts.xticks(now - 3 * 3600, now), "cols": _link_cols(rows, now - 3 * 3600, now)}
     return d
+
+
+def _link_cols(rows: list[tuple], start: float, end: float, n: int = 36) -> list[dict]:
+    """Hover columns for the link chart: peak download in each 5-minute slice."""
+    size = (end - start) / n
+    cols = [{"start": start + i * size, "end": start + (i + 1) * size, "down": None, "pct": None,
+             "flip": i >= n * 2 / 3} for i in range(n)]
+    for ts, down, _up, dpct, _upct, _cpu in rows:
+        i = int((ts - start) / size)
+        if 0 <= i < n and (cols[i]["down"] is None or down > cols[i]["down"]):
+            cols[i]["down"], cols[i]["pct"] = down, dpct
+    return cols
+
+
+def _state(loss: float | None) -> str:
+    return "none" if loss is None else "bad" if loss >= 5 else "warn" if loss > 0 else "good"
+
+
+def _path(d: Dashboard, net: dict) -> list[Hop]:
+    home = next((c for c in d.targets if c.role == "home"), None)
+    isp = next((c for c in d.targets if c.role == "isp"), None)
+    inet_loss = statistics.fmean(c.loss for c in d.anchors) if d.anchors else None
+    meds = [c.median for c in d.anchors if c.median is not None]
+    hops = [Hop("home", home.target if home else "—", "", home.median if home else None,
+                home.loss if home else None, _state(home.loss if home else None)),
+            Hop("isp", d.isp_name or (isp.target if isp else "—"), isp.target if isp and d.isp_name else "",
+                isp.median if isp else None, isp.loss if isp else None, _state(isp.loss if isp else None)),
+            Hop("internet", str(len(d.anchors)), "", statistics.median(meds) if meds else None,
+                inet_loss, _state(inet_loss))]
+    blamed = BLAME.get(d.code)
+    for h in hops:
+        h.blamed = h.key == blamed
+        if d.code in ("stale", "no_data"):
+            h.state = "none"
+    return hops
 
 
 @dataclass

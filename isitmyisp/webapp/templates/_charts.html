@@ -1,0 +1,21 @@
+{#- Chart pieces shared by the dashboard. Plots live in a 0..1000 x 0..100 box stretched to the
+    container (non-scaling strokes); every label is HTML so it stays legible at any width. -#}
+{% macro line_plot(p, row) %}
+<div class="tl-plot line {{ row }}">
+  {%- if p.empty %}<span class="no-plot">—</span>{% else %}
+  <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
+    <line class="gl" x1="0" x2="1000" y1="0.5" y2="0.5"/>
+    <line class="gl" x1="0" x2="1000" y1="50" y2="50"/>
+    <line class="base" x1="0" x2="1000" y1="99.5" y2="99.5"/>
+    {% if p.threshold is not none %}<line class="thr" x1="0" x2="1000" y1="{{ '%.1f'|format(p.threshold) }}" y2="{{ '%.1f'|format(p.threshold) }}"/>{% endif %}
+    <path class="area" d="{{ p.area }}"/>
+    <path class="ln" d="{{ p.line }}"/>
+  </svg>
+  <span class="yt top">{{ p.ticks[0] }}</span><span class="yt mid">{{ p.ticks[1] }}</span>
+  {%- endif %}
+</div>
+{% endmacro %}
+
+{% macro xaxis(ticks, row) %}
+<div class="xaxis {{ row }}" aria-hidden="true">{% for x in ticks %}<span class="x{{ loop.index }}">{{ x }}</span>{% endfor %}</div>
+{% endmacro %}

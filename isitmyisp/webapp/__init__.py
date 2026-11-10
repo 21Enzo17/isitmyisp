@@ -24,7 +24,7 @@ from .. import settings as settings_mod
 from ..report import R as REPORT_STRINGS, build_report
 from ..store import Store
 from ..timeutil import parse_when
-from . import auth, views
+from . import auth, charts, views
 from ..api import metrics_text, status_json
 from .strings import S
 
@@ -112,7 +112,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         # Reports are standalone documents with an inline <style>; everything else uses /static.
         style = "'self' 'unsafe-inline'" if request.endpoint in ("report",) else "'self'"
         resp.headers.setdefault("Content-Security-Policy",
-                                f"default-src 'none'; style-src {style}; img-src 'self' data:; "
+                                f"default-src 'none'; style-src {style}; img-src 'self' data:; font-src 'self'; "
                                 "form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
         resp.headers["X-Content-Type-Options"] = "nosniff"
         resp.headers["X-Frame-Options"] = "DENY"
@@ -146,6 +146,10 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         from ..report import describe_link
         return describe_link(link)
 
+    @app.template_filter("group")
+    def _group(code: str) -> str:
+        return charts.GROUP.get(code, "none")
+
     @app.template_filter("css")
     def _css_filter(code):
         return views.CAUSE_CLASS.get(code, "muted")
@@ -167,9 +171,8 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
 
     @app.get("/")
     def dashboard():
-        labels = {**g.t["verdict"], "no_data": g.t["no_data_tip"]}
         return render_template("dashboard.html", active="dashboard",
-                               d=views.dashboard_data(store, g.settings, labels=labels))
+                               d=views.dashboard_data(store, g.settings))
 
     @app.get("/incidents")
     def incidents():
