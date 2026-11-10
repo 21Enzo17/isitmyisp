@@ -213,6 +213,38 @@ b, strong { font-weight: 600; }
 .measures summary h2 { display: inline; font-size: 15px; font-weight: 500; color: inherit; }
 .measures[open] summary { margin-bottom: 12px; }
 
+/* ---------- your network, point by point: one card per measured target */
+.net-state { margin-top: 26px; }
+.panel-head.bare { margin-bottom: 12px; align-items: baseline; justify-content: flex-start; gap: 6px 14px; }
+.net-state h2 { margin: 0; font-size: 17px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+.tcard { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px 14px;
+         display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tcard header { display: flex; flex-direction: column; gap: 3px; }
+.t-role { font-weight: 600; font-size: 14.5px; }
+.t-state { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--ink-2); }
+.t-state .ico { width: 16px; height: 16px; }
+.tcard.s-good .t-state .ico { color: var(--good); }
+.tcard.s-warn .t-state .ico { color: var(--you); }
+.tcard.s-bad .t-state .ico { color: var(--isp); }
+.tcard.s-bad { border-color: color-mix(in srgb, var(--isp) 45%, var(--line)); }
+.tcard.s-bad .t-state { color: var(--ink); font-weight: 500; }
+.tcard .ip { color: var(--ink-3); margin: 6px 0 0; }
+.t-val { margin-top: 8px; color: var(--ink-2); font-size: 14px; font-variant-numeric: tabular-nums; }
+.t-val b { font-size: 28px; font-weight: 500; color: var(--ink); letter-spacing: -.02em; }
+.spark { position: relative; height: 52px; margin-top: 8px; }
+.spark svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.spark .base { stroke: var(--line-2); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.spark .ln { fill: none; stroke: var(--series); stroke-width: 1.75; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.spark .area { fill: var(--series); opacity: .1; }
+.spark .yt { left: 0; padding-left: 0; }
+.t-foot { font-size: 12.5px; color: var(--ink-2); margin-top: 6px; font-variant-numeric: tabular-nums; }
+
+/* ---------- latest incidents */
+.panel-head > a { font-size: 14px; }
+.recent tr.now td { color: var(--ink); }
+.recent td .small { margin-left: 4px; }
+
 /* ---------- link meters */
 .meters { display: grid; gap: 14px; }
 .meter { display: grid; grid-template-columns: 92px 7.5rem minmax(60px, 1fr) 11rem; align-items: center; gap: 4px 16px; }
@@ -362,6 +394,16 @@ label.check input { width: 17px; height: 17px; accent-color: var(--accent); }
   .meter .m-pct { grid-column: 2 / -1; }
   .row { grid-template-columns: 22px minmax(0, 1fr) auto; }
   .row .r-val { display: none; }
+  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .recent thead { display: none; }
+  .recent tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .recent tr:last-child { border-bottom: 0; }
+  .recent td { border: 0; padding: 0; }
+  .recent td:nth-child(2), .recent td:nth-child(3) { grid-column: 1 / -1; }
+  .recent td:nth-child(4) { grid-row: 1; grid-column: 2; }
+  .tcard { padding: 12px 12px 10px; }
+  .t-val b { font-size: 22px; }
+  .spark { height: 40px; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }

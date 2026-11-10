@@ -106,6 +106,31 @@
 {% endif %}
 
 {% if d.has_data %}
+<section class="net-state" aria-labelledby="net-h">
+  <div class="panel-head bare"><h2 id="net-h">{{ t.net_state }}</h2><span class="muted small">{{ t.net_state_sub }}</span></div>
+  <div class="cards">
+    {% for c in d.targets %}
+    {% set st = 'good' if c.status == 'ok' else ('warn' if c.status == 'warn' else 'bad') %}
+    <article class="tcard s-{{ st }}">
+      <header><span class="t-role">{{ t.role.get(c.role, c.role) }}</span>
+        <span class="t-state"><svg class="ico" aria-hidden="true"><use href="#i-{{ 'check' if st == 'good' else 'alert' }}"/></svg>{{ t.no_loss if c.loss == 0 else t.loss_now.format(x='%.0f'|format(c.loss)) }}</span></header>
+      <p class="ip">{{ c.target }}</p>
+      <p class="t-val"><b>{{ num(c.median) }}</b> ms</p>
+      {% if not c.history.empty %}
+      <div class="spark" aria-hidden="true">
+        <svg viewBox="0 0 1000 100" preserveAspectRatio="none">
+          <line class="base" x1="0" x2="1000" y1="99.5" y2="99.5"/>
+          <path class="area" d="{{ c.history.area }}"/><path class="ln" d="{{ c.history.line }}"/>
+        </svg>
+        <span class="yt top">{{ c.history.ticks[0] }}</span>
+      </div>
+      {% endif %}
+      {% if c.worst %}<p class="t-foot">{{ t.worst6.format(x='%.0f'|format(c.worst)) }}</p>{% endif %}
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
 <div class="pair">
   <section class="panel" aria-labelledby="link-h">
     <div class="panel-head"><h2 id="link-h">{{ t.link_title }}</h2>
@@ -176,13 +201,20 @@
   </section>
 </div>
 
-<details class="panel measures">
-  <summary><h2>{{ t.targets }}</h2></summary>
-  <table>
-    <thead><tr><th>{{ t.where }}</th><th>IP</th><th class="num">{{ t.col_latency }}</th><th class="num">{{ t.row_loss }}</th></tr></thead>
-    <tbody>{% for c in d.targets %}<tr><td>{{ t.role.get(c.role, c.role) }}</td><td class="ip">{{ c.target }}</td>
-      <td class="num">{{ num(c.median) }} ms</td><td class="num">{{ '%.1f'|format(c.loss) }}%</td></tr>{% endfor %}</tbody>
-  </table>
-</details>
+<section class="panel" aria-labelledby="recent-h">
+  <div class="panel-head"><h2 id="recent-h">{{ t.recent_title }}</h2><a href="{{ url_for('incidents') }}">{{ t.see_all }}</a></div>
+  {% if not d.recent %}<p class="muted">{{ t.recent_none }}</p>{% else %}
+  <table class="recent">
+    <thead><tr><th>{{ t.start }}</th><th>{{ t.where }}</th><th>{{ t.row_status }}</th><th class="num">{{ t.duration }}</th></tr></thead>
+    <tbody>{% for r in d.recent %}
+      <tr{% if r.ongoing %} class="now"{% endif %}>
+        <td class="num-l">{{ r.opened|dt }}</td>
+        <td>{{ t.scope_kind.get(r.scope, r.scope) }}{% if r.name %} <span class="muted">{{ r.name }}</span>{% endif %}</td>
+        <td><i class="sw g-{{ r.group }}" aria-hidden="true"></i>{{ t.verdict.get(r.code, r.code) }}
+          {% if r.count > 1 %}<span class="muted small">({{ t.times.format(n=r.count) }})</span>{% endif %}</td>
+        <td class="num">{% if r.ongoing %}<b>{{ t.ongoing_now }}</b>, {% endif %}{{ r.duration }}</td>
+      </tr>{% endfor %}</tbody>
+  </table>{% endif %}
+</section>
 {% endif %}
 {% endblock %}

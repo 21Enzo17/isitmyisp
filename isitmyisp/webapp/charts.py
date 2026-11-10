@@ -18,7 +18,9 @@ BUCKETS = 96  # 24 h -> 15 min per column
 
 # Who is responsible: this, not the 8 internal verdict codes, is what a colour means here.
 GROUP = {"ok": "good", "local": "you", "saturation": "you", "access": "isp", "isp": "isp",
-         "remote": "other", "dns": "other", "no_data": "none", "stale": "none"}
+         "remote": "other", "dns": "other", "no_data": "none", "stale": "none",
+         # tunnels and your own services
+         "config": "you", "path_local": "you", "path_remote": "other", "unknown": "none", "service_down": "other"}
 SEVERITY = {"isp": 4, "you": 3, "other": 2, "good": 1, "none": 0}
 
 

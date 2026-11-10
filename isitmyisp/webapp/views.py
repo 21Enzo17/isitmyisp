@@ -25,6 +25,8 @@ class TargetCard:
     loss: float
     median: float | None
     status: str  # ok | warn | bad
+    history: object = None       # charts.Plot: latency over the last 6 hours
+    worst: float | None = None   # worst loss in those 6 hours (%)
 
 
 @dataclass
@@ -66,6 +68,7 @@ class Dashboard:
     services: list = field(default_factory=list)
     link: dict | None = None
     link_enabled: bool = False
+    recent: list = field(default_factory=list)
 
 
 def _sample_loss(s: dict) -> float:
@@ -109,17 +112,26 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
         d.timeline = charts.timeline(windows, series, start, end)
         d.brief = list(reversed(store.brief_events(start, end)))[:12]
 
-    # the latest measurement of every target (they make up the path in the hero)
+    # the latest measurement of every target (they make up the path in the hero), with 6 h of history
+    h_start = now - 6 * 3600
+    history: dict[str, list] = {}
+    for row in store.samples_between(h_start, now):
+        history.setdefault(row["target"], []).append(row)
     for s in sorted(store.latest_samples(), key=lambda s: (ROLE_ORDER.get(s["role"], 9), s["target"])):
         if s["role"].startswith(("tunnel_", "service:")):
             continue
         loss = _sample_loss(s)
         status = "bad" if loss >= 5 else "warn" if loss > 0 else "ok"
-        d.targets.append(TargetCard(s["role"], s["target"], loss, s["rtt_median"], status))
+        rows = history.get(s["target"], [])
+        d.targets.append(TargetCard(s["role"], s["target"], loss, s["rtt_median"], status,
+                                    charts.plot([(r["ts"], r["rtt_median"]) for r in rows], h_start, now,
+                                                unit=" ms", floor=5),
+                                    max((_sample_loss(r) for r in rows), default=None)))
     d.anchors = [c for c in d.targets if c.role == "anchor"]
     net = store.network_at(now) or {}
     d.isp_name = net.get("isp_name") or ""
     d.path = _path(d, net)
+    d.recent = recent_incidents(store, now)
     d.tunnels = tunnel_cards(store, settings, now)
     d.services = service_cards(store, settings, now)
     d.link_enabled = bool(settings.link.get("enabled"))
@@ -257,3 +269,36 @@ def service_cards(store: Store, settings: Settings, now: float | None = None) ->
         else:
             cards.append(ServiceCard(sv.name, sv.kind, sv.target, "no_data", "muted", None))
     return cards
+
+
+@dataclass
+class RecentIncident:
+    code: str
+    group: str
+    scope: str        # internet | tunnel | service
+    name: str         # tunnel or service name ("" for the internet)
+    opened: float     # of the latest occurrence
+    duration: str
+    ongoing: bool
+    count: int = 1    # identical incidents (same place, same cause) folded into this row
+
+
+def recent_incidents(store: Store, now: float | None = None, limit: int = 6, days: int = 30) -> list[RecentIncident]:
+    """Latest incidents of any kind, newest first. Repeats of the same thing in the same place
+    (a tunnel that drops at every rekey) fold into one row with a count, so they don't bury the rest."""
+    now = now or time.time()
+    out: list[RecentIncident] = []
+    seen: dict[tuple, RecentIncident] = {}
+    for i in reversed(store.incidents_between(now - days * 86400, now, scope=None)):
+        key = (i.scope, i.code)
+        if key in seen:
+            seen[key].count += 1
+            continue
+        if len(out) == limit:
+            continue
+        kind, _, name = i.scope.partition(":")
+        row = RecentIncident(i.code, charts.GROUP.get(i.code, "other"), kind, name, i.opened,
+                             fmt_duration(i.duration(now)), i.closed is None)
+        seen[key] = row
+        out.append(row)
+    return out

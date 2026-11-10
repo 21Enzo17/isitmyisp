@@ -295,3 +295,22 @@ class NoneModeExposed(WebAppBase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(HAVE_WEB, "web extra not installed")
+class RecentIncidents(unittest.TestCase):
+    def test_repeats_fold_into_one_row_with_a_count(self):
+        from isitmyisp.webapp import views
+        with tempfile.TemporaryDirectory() as d:
+            store = Store(Path(d) / "r.db")
+            now = __import__("time").time()
+            for k in range(4):   # a tunnel that drops at every rekey
+                iid = store.open_incident("config", ["x"], ts=now - 3600 * (k + 2), scope="tunnel:office")
+                store.close_incident(iid, ts=now - 3600 * (k + 2) + 150)
+            store.open_incident("isp", ["y"], ts=now - 600)
+            store.commit()
+            rows = views.recent_incidents(store, now)
+            self.assertEqual([(r.scope, r.code, r.count, r.ongoing) for r in rows],
+                             [("internet", "isp", 1, True), ("tunnel", "config", 4, False)])
+            self.assertEqual(rows[1].name, "office")
+            store.close()
