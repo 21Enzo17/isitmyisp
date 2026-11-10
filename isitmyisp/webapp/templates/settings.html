@@ -44,6 +44,70 @@
     </form>{% endif %}
   </div>
 
+  <div class="card" id="services"><h3>{{ t.services_title }}</h3><p class="muted">{{ t.services_sub }}</p>
+    {% if s.services %}
+    <table><thead><tr><th>{{ t.svc_name }}</th><th>{{ t.svc_kind }}</th><th>{{ t.svc_target }}</th><th></th></tr></thead><tbody>
+      {% for sv in s.services %}
+      <tr><td>{{ sv.name }}</td><td>{{ sv.kind|upper }}</td><td class="mono">{{ sv.target }}</td>
+        <td class="num">{% if not readonly %}<form class="inline" method="post" action="{{ url_for('service_delete') }}">{{ csrf() }}
+          <input type="hidden" name="name" value="{{ sv.name }}"><button class="btn small danger" type="submit">{{ t.delete }}</button></form>{% endif %}</td></tr>
+      {% endfor %}
+    </tbody></table>{% endif %}
+    {% if not readonly %}
+    <form method="post" action="{{ url_for('service_add') }}">{{ csrf() }}
+      <div class="form-row">
+        <div><label for="sn">{{ t.svc_name }}</label><input type="text" id="sn" name="name" required maxlength="40" placeholder="ARCA"></div>
+        <div><label for="sk">{{ t.svc_kind }}</label><select id="sk" name="kind"><option value="http">HTTP(S)</option><option value="tcp">TCP</option></select></div>
+        <div><label for="st">{{ t.svc_target }}</label><input type="text" id="st" name="target" required placeholder="https://www.afip.gob.ar/"></div>
+      </div>
+      <p class="muted small">{{ t.svc_hint }}</p>
+      <div class="actions"><button class="btn primary" type="submit">{{ t.svc_add }}</button></div>
+    </form>{% endif %}
+  </div>
+
+  <div class="card" id="alerts"><h3>{{ t.alerts_title }}</h3><p class="muted">{{ t.alerts_sub }}</p>
+    {% if test_results %}<div class="flash {{ 'ok' if test_results.values()|select('equalto','ok')|list|length == test_results|length else 'err' }}">
+      <b>{{ t.test_results }}:</b> {% for ch, r in test_results.items() %}{{ ch }}: {{ r }}{{ ' · ' if not loop.last }}{% endfor %}</div>{% endif %}
+    {% if alerts_last and alerts_last.errors %}<div class="flash err"><b>{{ t.alerts_last_errors }}:</b>
+      {% for ch, r in alerts_last.errors.items() %}{{ ch }}: {{ r }}{{ ' · ' if not loop.last }}{% endfor %}</div>{% endif %}
+    <form method="post" action="{{ url_for('settings_alerts') }}">{{ csrf() }}
+      <div class="form-row">
+        <div><label for="amin">{{ t.alerts_min }}</label><input type="number" id="amin" name="min_minutes" min="0" max="240" value="{{ alerts.min_minutes }}" {{ 'disabled' if readonly }}></div>
+        <div><label for="aurl">{{ t.alerts_url }}</label><input type="text" id="aurl" name="public_url" value="{{ alerts.public_url }}" placeholder="http://192.168.1.10:8080" {{ 'disabled' if readonly }}></div>
+      </div>
+      <label class="check"><input type="checkbox" name="notify_close" value="1" {{ 'checked' if alerts.notify_close }} {{ 'disabled' if readonly }}> {{ t.alerts_close }}</label>
+
+      <h4>Telegram</h4>
+      <label class="check"><input type="checkbox" name="telegram_enabled" value="1" {{ 'checked' if alerts.telegram.enabled }} {{ 'disabled' if readonly }}> {{ t.enabled }}</label>
+      <div class="form-row">
+        <div><label for="tgt">{{ t.tg_token }}</label><input type="password" id="tgt" name="telegram_bot_token" autocomplete="off" placeholder="{{ t.secret_set if alerts.telegram.bot_token_set else '123456789:AA…' }}" {{ 'disabled' if readonly }}></div>
+        <div><label for="tgc">{{ t.tg_chat }}</label><input type="text" id="tgc" name="telegram_chat_id" value="{{ alerts.telegram.chat_id }}" {{ 'disabled' if readonly }}></div>
+      </div>
+      <p class="muted small">{{ t.tg_help }}</p>
+
+      <h4>Email</h4>
+      <label class="check"><input type="checkbox" name="email_enabled" value="1" {{ 'checked' if alerts.email.enabled }} {{ 'disabled' if readonly }}> {{ t.enabled }}</label>
+      <div class="form-row">
+        <div><label for="eh">{{ t.smtp_host }}</label><input type="text" id="eh" name="email_host" value="{{ alerts.email.host }}" placeholder="smtp.gmail.com" {{ 'disabled' if readonly }}></div>
+        <div><label for="ep">{{ t.smtp_port }}</label><input type="number" id="ep" name="email_port" value="{{ alerts.email.port }}" {{ 'disabled' if readonly }}></div>
+        <div><label for="es">{{ t.smtp_security }}</label><select id="es" name="email_security" {{ 'disabled' if readonly }}>
+          {% for m in ['starttls', 'ssl', 'none'] %}<option value="{{ m }}" {{ 'selected' if alerts.email.security == m }}>{{ m }}</option>{% endfor %}</select></div>
+      </div>
+      <div class="form-row">
+        <div><label for="eu">{{ t.smtp_user }}</label><input type="text" id="eu" name="email_username" value="{{ alerts.email.username }}" autocomplete="off" {{ 'disabled' if readonly }}></div>
+        <div><label for="epw">{{ t.smtp_pass }}</label><input type="password" id="epw" name="email_password" autocomplete="off" placeholder="{{ t.secret_set if alerts.email.password_set else '' }}" {{ 'disabled' if readonly }}></div>
+        <div><label for="ef">{{ t.smtp_from }}</label><input type="text" id="ef" name="email_sender" value="{{ alerts.email.sender }}" {{ 'disabled' if readonly }}></div>
+        <div><label for="et">{{ t.smtp_to }}</label><input type="text" id="et" name="email_to" value="{{ alerts.email.to }}" {{ 'disabled' if readonly }}></div>
+      </div>
+
+      <h4>Webhook</h4>
+      <label class="check"><input type="checkbox" name="webhook_enabled" value="1" {{ 'checked' if alerts.webhook.enabled }} {{ 'disabled' if readonly }}> {{ t.enabled }}</label>
+      <label for="wu">{{ t.wh_url }}</label><input type="text" id="wu" name="webhook_url" value="{{ alerts.webhook.url }}" placeholder="https://discord.com/api/webhooks/…" {{ 'disabled' if readonly }}>
+      {% if not readonly %}<div class="actions"><button class="btn primary" type="submit" name="action" value="save">{{ t.save }}</button>
+        <button class="btn" type="submit" name="action" value="test">{{ t.send_test }}</button></div>{% endif %}
+    </form>
+  </div>
+
   <div class="card"><h3>{{ t.security }}</h3>
     <p class="muted">{{ t.bind_hint.format(bind=bind) }}</p>
     <form method="post" action="{{ url_for('settings_access') }}">{{ csrf() }}

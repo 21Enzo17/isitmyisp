@@ -97,8 +97,11 @@ class Session:
     """Everything probed for one discovered network, with the current settings."""
 
     def __init__(self, net: Network, interval: float, socket_interval: float, engine: str | None = None,
-                 anchors: list[str] | None = None, tunnels: list | None = None):
+                 anchors: list[str] | None = None, tunnels: list | None = None, services: list | None = None):
+        from .services import ServiceProber
         self.net = net
+        self.services = ServiceProber(list(services or []))
+        self.last_services: list = []
         self.anchors = list(anchors or ANCHORS_V4)
         self.tunnels = list(tunnels or [])
         self.roles: list[tuple[str, str]] = [("home", r) for r in net.home_routers]
@@ -113,9 +116,11 @@ class Session:
     def __enter__(self) -> "Session":
         self.icmp.__enter__()
         self.sockets.__enter__()
+        self.services.__enter__()
         return self
 
     def __exit__(self, *exc) -> None:
+        self.services.__exit__()
         self.sockets.__exit__()
         self.icmp.__exit__()
 
@@ -134,6 +139,7 @@ class Session:
         rows += [("tcp", socks[SocketProber.tcp_name(a)]) for a in self.anchors]
         rows += [("dns", d) for d in m.dns]
         self.last_tunnels = [(t, icmp.get(t.underlay), icmp.get(t.overlay)) for t in self.tunnels]
+        self.last_services = [(sv, self.services.recent(sv.name)) for sv in self.services.services]
         return m, rows
 
 
@@ -142,7 +148,7 @@ def _settings(args, store: Store | None = None):
     from . import settings as settings_mod
     try:
         if store is not None:
-            return settings_mod.load(store, args.config, data_dir())
+            return settings_mod.load(store, args.config, data_dir(), default_lang=args.lang)
         s = settings_mod.Settings()
         cfg = load_config(args.config, data_dir())
         if cfg.path:
@@ -225,7 +231,8 @@ def _start_web(store: Store, args, t):
         print("🌐 web UI disabled: install it with pip install 'isitmyisp[web]' (the Docker image includes it)")
         return None
     app = create_app(store, data_dir=data_dir(), toml_path=args.config, bind=args.web,
-                     secure_cookies=os.environ.get("ISITMYISP_SECURE_COOKIES") == "1")
+                     secure_cookies=os.environ.get("ISITMYISP_SECURE_COOKIES") == "1",
+                     default_lang=_lang_code(args, t))
     server = WebServer(app, args.web).start()
     print(f"🌐 http://{args.web}")
     token = setup_token_if_needed(store, args.config, data_dir())
@@ -244,6 +251,8 @@ def cmd_monitor(args, t) -> int:
     mon = Monitor(store, window_seconds=args.window or cfg.window,
                   capture=mtr_capturer(store, data_dir(), asn_online=args.asn_online))
     mon.resume()
+    from .alerts import Alerter
+    alerter = Alerter(store, lambda: _settings(args, store).lang)
     server = _start_web(store, args, t) if args.web and args.web != "off" else None
     if cfg.tunnels_from_file:
         print(f"⚙️  {cfg.tunnels_from_file}: {len(cfg.tunnels)} tunnel(s)")
@@ -260,13 +269,14 @@ def cmd_monitor(args, t) -> int:
             store.add_network(snapshot)
             route = default_route()
             with Session(net, interval, socket_interval=3.0, engine=args.engine,
-                         anchors=cfg.anchors, tunnels=cfg.tunnels) as s:
+                         anchors=cfg.anchors, tunnels=cfg.tunnels, services=cfg.services) as s:
                 print_network(net, t, engine=s.icmp.name)
                 started = time.time()
                 time.sleep(window + 1.5)
                 while True:
                     m, rows = s.measure(window)
-                    res = mon.step(m, rows, tunnels=s.last_tunnels)
+                    res = mon.step(m, rows, tunnels=s.last_tunnels, services=s.last_services)
+                    alerter.tick()
                     stamp = time.strftime("%Y-%m-%d %H:%M:%S")
                     if res.transition.closed:
                         print(f"\n[{stamp}] {t['closed']}: {res.transition.closed}")

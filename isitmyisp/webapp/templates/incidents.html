@@ -11,7 +11,7 @@
   <tr><td class="num">{{ r.opened|dt }}</td><td class="num">{{ r.closed|dt if r.closed else t.ongoing }}</td>
       <td class="num">{{ r.duration }}</td>
       <td><span class="dot {{ r.css }}"></span> {{ r.scope }} · {{ r.code|cause }}</td>
-      <td class="mono">{% for e in r.evidence %}{{ e }}<br>{% endfor %}</td></tr>
+      <td class="mono">{% for e in r.evidence %}{{ e|ev }}<br>{% endfor %}</td></tr>
   {% endfor %}
   </tbody>
 </table>{% endif %}

@@ -33,7 +33,7 @@ AUTH_ENDPOINTS = {"login", "setup"}
 
 
 def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | None = None,
-               bind: str = "127.0.0.1:8080", secure_cookies: bool = False) -> Flask:
+               bind: str = "127.0.0.1:8080", secure_cookies: bool = False, default_lang: str = "en") -> Flask:
     app = Flask(__name__)
     host = bind.rpartition(":")[0] or "127.0.0.1"
     app.config.update(
@@ -61,14 +61,14 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         return auth.load_local_user(store, uid)
 
     def current_settings() -> settings_mod.Settings:
-        return settings_mod.load(store, toml_path, data_dir)
+        return settings_mod.load(store, toml_path, data_dir, default_lang=default_lang)
 
     # ---------------------------------------------------------------- gate
 
     @app.before_request
     def gate():
         g.settings = current_settings()
-        lang = request.args.get("lang")
+        lang = request.args.get("lang") or request.cookies.get("isitmyisp_lang")
         g.lang = lang if lang in S else g.settings.lang
         g.t = S[g.lang]
         g.readonly = False
@@ -119,6 +119,9 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         resp.headers["Referrer-Policy"] = "same-origin"
         if request.endpoint not in PUBLIC_ENDPOINTS:
             resp.headers["Cache-Control"] = "no-store"
+        if request.args.get("lang") in S:  # remember the language picked in the UI
+            resp.set_cookie("isitmyisp_lang", request.args["lang"], max_age=365 * 86400, samesite="Lax",
+                            httponly=True, secure=secure_cookies)
         return resp
 
     @app.errorhandler(CSRFError)
@@ -128,6 +131,19 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     @app.template_filter("dt")
     def _dt_filter(ts):
         return time.strftime("%Y-%m-%d %H:%M", time.localtime(ts)) if ts else ""
+
+    @app.template_filter("tm")
+    def _tm_filter(ts):
+        return time.strftime("%H:%M", time.localtime(ts)) if ts else ""
+
+    @app.template_filter("ev")
+    def _ev_filter(line):
+        from ..report import localize_evidence
+        return localize_evidence(str(line), g.get("lang", "en"))
+
+    @app.template_filter("css")
+    def _css_filter(code):
+        return views.CAUSE_CLASS.get(code, "muted")
 
     @app.template_filter("cause")
     def _cause_filter(code):
@@ -146,7 +162,9 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
 
     @app.get("/")
     def dashboard():
-        return render_template("dashboard.html", active="dashboard", d=views.dashboard_data(store, g.settings))
+        labels = {**g.t["verdict"], "no_data": g.t["no_data_tip"]}
+        return render_template("dashboard.html", active="dashboard",
+                               d=views.dashboard_data(store, g.settings, labels=labels))
 
     @app.get("/incidents")
     def incidents():
@@ -187,10 +205,13 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
 
     # ---------------------------------------------------------------- settings
 
-    def _settings_page(error: str | None = None, status: int = 200):
+    def _settings_page(error: str | None = None, status: int = 200, results: dict | None = None):
+        from .. import alerts as alerts_mod
         token = settings_mod.metrics_token(store) if not g.readonly else None
         return render_template("settings.html", active="settings", s=g.settings, error=error,
-                               metrics_token=token, bind=app.config["BIND"]), status
+                               metrics_token=token, bind=app.config["BIND"],
+                               alerts=alerts_mod.masked(alerts_mod.load(store)),
+                               alerts_last=store.get_setting("_alerts_last"), test_results=results), status
 
     @app.get("/settings")
     def settings_page():
@@ -235,6 +256,21 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         name = request.form.get("name")
         return _save({"tunnels": [t.__dict__ for t in g.settings.tunnels if t.name != name]})
 
+    @app.post("/settings/services/add")
+    def service_add():
+        _guard_write()
+        f = request.form
+        current = [sv.__dict__ for sv in g.settings.services]
+        current.append({"name": f.get("name", "").strip(), "kind": f.get("kind", "http"),
+                        "target": f.get("target", "").strip()})
+        return _save({"services": current})
+
+    @app.post("/settings/services/delete")
+    def service_delete():
+        _guard_write()
+        name = request.form.get("name")
+        return _save({"services": [sv.__dict__ for sv in g.settings.services if sv.name != name]})
+
     @app.post("/settings/access")
     def settings_access():
         _guard_write()
@@ -263,6 +299,22 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         store.set_password_hash(int(g.user.id), auth.hash_password(f["new_password"]))
         flash(g.t["pw_changed"])
         return redirect(url_for("settings_page"))
+
+    @app.post("/settings/alerts")
+    def settings_alerts():
+        from .. import alerts as alerts_mod
+        _guard_write()
+        try:
+            cfg = alerts_mod.validate(request.form.to_dict(), alerts_mod.load(store))
+        except alerts_mod.AlertError as exc:
+            return _settings_page(str(exc), 400)
+        alerts_mod.save(store, cfg)
+        if request.form.get("action") == "test":
+            title, body = alerts_mod.T[g.lang]["test"], alerts_mod.T[g.lang]["test_body"]
+            results = alerts_mod.send_all(cfg, title, body, {"event": "test"})
+            return _settings_page(results=results or {"-": g.t["alerts_none_enabled"]})
+        flash(g.t["saved"])
+        return redirect(url_for("settings_page") + "#alerts")
 
     @app.post("/settings/metrics-token")
     def settings_metrics_token():

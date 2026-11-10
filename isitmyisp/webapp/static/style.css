@@ -121,6 +121,7 @@ form.inline { display: inline; margin: 0; }
 .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
 .l-ok { background: #3fa66b; } .l-local { background: #e0a526; } .l-access { background: #d9534f; }
 .l-isp { background: #b83a6e; } .l-remote { background: #7b6fd0; } .l-dns { background: #3b8ad9; }
+.l-nodata { background: #c9ccd1; opacity: .55; }
 
 /* ---------- tables */
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -165,3 +166,11 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .mt-16 { margin-top: 16px; }
 .target .value.sm { font-size: 20px; font-weight: 400; }
 .stack > * + * { margin-top: 16px; }
+.advice { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: rgba(155,140,255,.10);
+          border: 1px solid rgba(155,140,255,.28); font-size: 13.5px; }
+.lang a { color: var(--muted); padding: 0 4px; }
+.lang a.on { color: var(--ink); font-weight: 600; }
+.card h4 { margin: 20px 0 4px; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+label.check { display: flex; align-items: center; gap: 8px; color: var(--ink); margin: 10px 0; }
+label.check input { width: auto; accent-color: var(--accent); }
+p.small, .small { font-size: 12px; }

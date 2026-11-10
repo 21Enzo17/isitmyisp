@@ -48,7 +48,7 @@ class MonitorLifecycle(unittest.TestCase):
 
     def run_seq(self, seq):
         for i, kind in enumerate(seq):
-            m, rows = measure(anchor_loss_pct=40 if kind == "isp" else 0, home_loss_pct=40 if kind == "local" else 0)
+            m, rows = measure(anchor_loss_pct=40 if kind in ("isp", "local") else 0, home_loss_pct=40 if kind == "local" else 0)
             self.mon.step(m, rows, now=T0 + (i + 1) * WIN)
 
     def test_single_bad_window_is_not_an_incident(self):

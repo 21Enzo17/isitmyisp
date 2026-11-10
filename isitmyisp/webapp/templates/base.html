@@ -26,6 +26,8 @@
         <button class="btn small" type="submit">{{ t.logout }}</button>
       </form>
       {% endif %}
+      <div class="lang">{{ t.lang_switch }}:
+        <a href="?lang=en" class="{{ 'on' if lang == 'en' }}">EN</a>·<a href="?lang=es" class="{{ 'on' if lang == 'es' }}">ES</a></div>
       <div>v{{ version }}</div>
     </div>
   </aside>

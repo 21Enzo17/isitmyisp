@@ -47,6 +47,12 @@ class Verdicts(unittest.TestCase):
         self.assertEqual(v.code, "local")
         self.assertIn("192.168.0.1", v.evidence[0])
 
+    def test_router_filtering_icmp_is_not_local(self):
+        # Business firewalls often don't answer ping: internet works through them, so it's not "your side".
+        v = classify(Measurements([w("192.168.1.1", 60, 0)], ISP, anchors(), tcp()))
+        self.assertEqual(v.code, "ok")
+        self.assertIn("router_icmp", v.hints)
+
     def test_access_problem(self):
         v = classify(Measurements([GW], w("181.0.0.1", 60, 50), anchors(60, 50), tcp(30, 25)))
         self.assertEqual(v.code, "access")

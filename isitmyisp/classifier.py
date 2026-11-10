@@ -64,16 +64,7 @@ def classify(m: Measurements, baselines: dict[str, Baseline] | None = None) -> V
 
     hints: list[str] = []
 
-    # 1) Home: your device, Wi-Fi, LAN and any router you own.
-    for h in m.home:
-        why = _why(h, baselines)
-        if why:
-            v = Verdict("local", evidence=[f"home router {h.target}: {why}"])
-            if m.wireless:
-                v.hints.append("wifi")
-            return v
-
-    # 2) Anchors: ICMP and TCP must agree.
+    # Anchors first: ICMP and TCP must agree.
     bad: list[tuple[WindowStats, str]] = []
     for a in anchors:
         icmp_why = _why(a, baselines)
@@ -84,6 +75,20 @@ def classify(m: Measurements, baselines: dict[str, Baseline] | None = None) -> V
             continue
         if icmp_why or tcp_why:
             bad.append((a, icmp_why or f"TCP/443 {tcp_why}"))
+
+    # 1) Home: your device, Wi-Fi, LAN and any router you own. A home problem must also show up
+    # on the internet (traffic goes THROUGH that router). If only the router "loses" pings while
+    # the internet is fine, the router filters or deprioritizes ICMP: common on business firewalls.
+    for h in m.home:
+        why = _why(h, baselines)
+        if why and (bad or not anchors):
+            v = Verdict("local", evidence=[f"home router {h.target}: {why}"]
+                        + [f"{a.target}: {w}" for a, w in bad[:2]])
+            if m.wireless:
+                v.hints.append("wifi")
+            return v
+        if why:
+            hints.append("router_icmp")
 
     isp_why = _why(m.isp_hop, baselines) if m.isp_hop else None
     if anchors and len(bad) == len(anchors):

@@ -197,6 +197,36 @@ class CsrfAndSettings(WebAppBase):
         self.assertNotIn("<script", html)
         self.assertNotIn(' style="', html)  # inline styles would be blocked by the CSP
 
+    def test_services_add_and_delete(self):
+        r = self.client.post("/settings/services/add", data={"csrf_token": csrf(self.page()), "name": "ARCA",
+                                                             "kind": "http", "target": "https://www.afip.gob.ar/"})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual([sv.name for sv in settings_mod.load(self.store).services], ["ARCA"])
+        bad = self.client.post("/settings/services/add", data={"csrf_token": csrf(self.page()), "name": "X",
+                                                               "kind": "http", "target": "not a url"})
+        self.assertEqual(bad.status_code, 400)
+        self.client.post("/settings/services/delete", data={"csrf_token": csrf(self.page()), "name": "ARCA"})
+        self.assertEqual(settings_mod.load(self.store).services, [])
+
+    def test_alerts_save_and_test_button(self):
+        from unittest import mock
+        from isitmyisp import alerts
+        form = {"csrf_token": csrf(self.page()), "min_minutes": "3", "telegram_enabled": "1",
+                "telegram_bot_token": "123456789:" + "B" * 35, "telegram_chat_id": "42", "action": "test"}
+        with mock.patch.object(alerts, "send_all", return_value={"telegram": "ok"}) as sent:
+            r = self.client.post("/settings/alerts", data=form)
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(sent.called)
+        html = r.get_data(as_text=True)
+        self.assertIn("telegram: ok", html)
+        self.assertNotIn("B" * 35, html)  # the token is never rendered back
+        self.assertEqual(alerts.load(self.store)["min_minutes"], 3)
+
+    def test_language_switch_is_remembered(self):
+        r = self.client.get("/?lang=es")
+        self.assertIn("isitmyisp_lang=es", r.headers.get("Set-Cookie", ""))
+        self.assertIn("Panel", self.client.get("/").get_data(as_text=True))
+
     def test_every_page_renders(self):
         for path in ("/", "/incidents", "/tunnels", "/reports", "/settings", "/report?since=1d", "/api/status"):
             self.assertEqual(self.client.get(path).status_code, 200, path)

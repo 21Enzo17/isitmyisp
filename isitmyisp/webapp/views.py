@@ -61,13 +61,16 @@ class Dashboard:
     latency_chart: str = ""
     targets: list[TargetCard] = field(default_factory=list)
     tunnels: list = field(default_factory=list)
+    brief: list = field(default_factory=list)
+    services: list = field(default_factory=list)
 
 
 def _sample_loss(s: dict) -> float:
     return 100.0 * (s["sent"] - s["received"]) / s["sent"] if s["sent"] else 0.0
 
 
-def dashboard_data(store: Store, settings: Settings, now: float | None = None) -> Dashboard:
+def dashboard_data(store: Store, settings: Settings, now: float | None = None,
+                   labels: dict[str, str] | None = None) -> Dashboard:
     now = now or time.time()
     d = Dashboard()
     last = store.last_window()
@@ -93,11 +96,13 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
         incs = store.incidents_between(start, now)
         d.incidents_24h = len(incs)
         d.worst_24h = f"{max((i.peak_loss for i in incs), default=0.0):.1f}%"
-        d.strip = svg_status_strip(windows, start, now)
-        series = _downsample(_anchor_series(store.samples_between(start, now, role="anchor")), 360)
+        end = last[0]  # draw up to the last finished window: the one in progress isn't "missing data"
+        d.strip = svg_status_strip(windows, start, end, labels=labels)
+        series = _downsample(_anchor_series(store.samples_between(start, end, role="anchor")), 360)
         if series:
-            d.loss_chart = svg_line([(ts, l) for ts, l, _ in series], start, now, COLORS["access"], unit="%")
-            d.latency_chart = svg_line([(ts, v) for ts, _, v in series if v is not None], start, now, "#9b8cff")
+            d.loss_chart = svg_line([(ts, l) for ts, l, _ in series], start, end, COLORS["access"], unit="%")
+            d.latency_chart = svg_line([(ts, v) for ts, _, v in series if v is not None], start, end, "#9b8cff")
+        d.brief = list(reversed(store.brief_events(start, end)))[:12]
 
     # one card per measured target, with a 6-hour latency sparkline
     recent = store.samples_between(now - 6 * 3600, now)
@@ -105,7 +110,7 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
     for s in recent:
         by_target[s["target"]].append(s)
     for s in sorted(store.latest_samples(), key=lambda s: (ROLE_ORDER.get(s["role"], 9), s["target"])):
-        if s["role"].startswith("tunnel_"):
+        if s["role"].startswith(("tunnel_", "service:")):
             continue
         loss = _sample_loss(s)
         status = "bad" if loss >= 5 else "warn" if loss > 0 else "ok"
@@ -113,6 +118,7 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
         d.targets.append(TargetCard(s["role"], s["target"], loss, s["rtt_median"], status,
                                     spark([h["rtt_median"] for h in hist])))
     d.tunnels = tunnel_cards(store, settings, now)
+    d.services = service_cards(store, settings, now)
     return d
 
 
@@ -165,7 +171,39 @@ def incident_rows(store: Store, t: dict, days: int = 30, now: float | None = Non
     now = now or time.time()
     rows = []
     for i in reversed(store.incidents_between(now - days * 86400, now, scope=None)):
-        scope = t["scope_internet"] if i.scope == "internet" else (i.tunnel or i.scope)
+        scope = t["scope_internet"] if i.scope == "internet" else (i.tunnel or i.scope.split(":", 1)[-1])
         rows.append(IncidentRow(i.id, scope, i.code, CAUSE_CLASS.get(i.code, "muted"), i.opened, i.closed,
                                 fmt_duration(i.duration(now)), i.evidence[:3]))
     return rows
+
+
+@dataclass
+class ServiceCard:
+    name: str
+    kind: str
+    target: str
+    state: str          # up | down | no_data
+    css: str
+    ms: float | None
+    since: str = ""
+    detail: str = ""
+
+
+def service_cards(store: Store, settings: Settings, now: float | None = None) -> list[ServiceCard]:
+    now = now or time.time()
+    latest = {s["role"]: s for s in store.latest_samples() if s["role"].startswith("service:")}
+    active = {i.scope.split(":", 1)[1]: i for i in store.active_incidents() if i.scope.startswith("service:")}
+    cards = []
+    for sv in settings.services:
+        sample = latest.get(f"service:{sv.name}")
+        inc = active.get(sv.name)
+        if inc:
+            cards.append(ServiceCard(sv.name, sv.kind, sv.target, "down", "bad", None,
+                                     fmt_duration(now - inc.opened), inc.evidence[0] if inc.evidence else ""))
+        elif sample and sample["sent"]:
+            ok = sample["received"] > 0
+            cards.append(ServiceCard(sv.name, sv.kind, sv.target, "up" if ok else "down", "ok" if ok else "warn",
+                                     sample["rtt_median"]))
+        else:
+            cards.append(ServiceCard(sv.name, sv.kind, sv.target, "no_data", "muted", None))
+    return cards

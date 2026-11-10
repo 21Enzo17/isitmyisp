@@ -19,15 +19,19 @@
     <h2>{{ t.last24 }}</h2>
     <div class="verdict {{ d.css }}"><span class="dot"></span>{{ t.verdict[d.code] }}</div>
     <div class="sub">{{ t.verdict_sub[d.code] }}</div>
+    {% if d.code != 'ok' and d.code in t.advice %}
+    <div class="advice"><b>{{ t.what_to_do }}:</b> {{ t.advice[d.code] }}</div>
+    {% endif %}
     {% if d.active %}
     <div class="evidence"><b>{{ t.active }}</b> · {{ t.since }} {{ d.active.opened|dt }} ({{ d.active_for }})<br>
-      {% for e in d.active.evidence[:3] %}<span class="mono">{{ e }}</span><br>{% endfor %}</div>
+      {% for e in d.active.evidence[:3] %}<span class="mono">{{ e|ev }}</span><br>{% endfor %}</div>
     {% endif %}
     <div class="chart-label">{{ t.last24 }}</div>
     {{ d.strip|safe }}
     <div class="legend"><span><i class="l-ok"></i>{{ t.verdict.ok }}</span><span><i class="l-local"></i>{{ t.verdict.local }}</span>
       <span><i class="l-access"></i>{{ t.verdict.access }}</span><span><i class="l-isp"></i>{{ t.verdict.isp }}</span>
-      <span><i class="l-remote"></i>{{ t.verdict.remote }}</span><span><i class="l-dns"></i>{{ t.verdict.dns }}</span></div>
+      <span><i class="l-remote"></i>{{ t.verdict.remote }}</span><span><i class="l-dns"></i>{{ t.verdict.dns }}</span>
+      <span title="{{ t.no_data_tip }}"><i class="l-nodata"></i>{{ t.no_data_legend }}</span></div>
   </div>
   <div class="card side-card">
     <div class="kpis">
@@ -49,6 +53,36 @@
 <div class="grid cols-2 mt-16">
   <div class="card"><h2>{{ t.loss }} · {{ t.last24 }}</h2>{{ d.loss_chart|safe }}</div>
   <div class="card"><h2>{{ t.latency }} · {{ t.last24 }}</h2>{{ d.latency_chart|safe }}</div>
+</div>
+
+<div class="section-title"><h2>{{ t.services_title }}</h2><a href="{{ url_for('settings_page') }}#services">+</a></div>
+{% if not d.services %}<div class="card"><p class="muted">{{ t.services_sub }}</p><p class="muted">{{ t.no_services }}</p></div>
+{% else %}
+<div class="grid cols-3">
+  {% for c in d.services %}
+  <div class="card target {{ 'bad' if c.state == 'down' else '' }}">
+    <div class="role"><span>{{ c.kind|upper }}</span><span class="badge {{ c.css if c.css != 'ok' else '' }}">{{ t.svc[c.state] }}{% if c.since %} · {{ c.since }}{% endif %}</span></div>
+    <div class="value sm">{{ c.name }}</div>
+    <div class="ip mono">{{ c.target }}</div>
+    {% if c.ms is not none %}<div class="muted">{{ '%.0f'|format(c.ms) }} ms</div>{% endif %}
+    {% if c.state == 'down' %}{% if c.detail %}<div class="muted small">{{ c.detail|ev }}</div>{% endif %}<div class="advice">{{ t.advice.service_down }}</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="section-title"><h2>{{ t.brief_title }}</h2></div>
+<div class="card">
+  <p class="muted">{{ t.brief_sub }}</p>
+  {% if not d.brief %}<p class="muted">{{ t.no_brief }}</p>{% else %}
+  <table><tbody>
+    {% for e in d.brief %}
+    <tr><td class="num">{{ e.start|tm }}–{{ e.end|tm }}</td>
+        <td><span class="dot {{ e.code|css }}"></span> {{ t.verdict[e.code] }}</td>
+        <td class="mono">{% for x in e.evidence[:2] %}{{ x|ev }}<br>{% endfor %}</td>
+        <td class="muted">{{ t.advice.get(e.code, '') }}</td></tr>
+    {% endfor %}
+  </tbody></table>{% endif %}
 </div>
 
 <div class="section-title"><h2>{{ t.targets }}</h2></div>

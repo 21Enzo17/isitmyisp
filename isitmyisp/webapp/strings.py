@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ..texts import ADVICE, VERDICT
+
 S = {
     "en": {
         "nav": {"dashboard": "Dashboard", "incidents": "Incidents", "tunnels": "Tunnels", "reports": "Reports",
@@ -55,6 +57,28 @@ S = {
         "proxy_denied": "This instance expects authentication from a reverse proxy, and this request didn't come through it.",
         "none_denied": "Authentication is disabled, which is only allowed when the dashboard listens on localhost.",
         "view_report": "View report", "evidence_for_isp": "Evidence for your ISP",
+        "no_data_legend": "Not measuring", "no_data_tip": "Not measuring: start-up, re-discovery of the path or a settings change (a few seconds each)",
+        "brief_title": "Brief events · 24 h",
+        "brief_sub": "Problems shorter than an incident (under a minute): worth knowing, not worth a complaint.",
+        "no_brief": "No brief events in the last 24 hours.",
+        "what_to_do": "What to do",
+        "lang_switch": "Language",
+        "services_title": "Your services", "services_sub": "Is it your internet, or is that service down? (e.g. ARCA/AFIP, your bank, your ERP, your cloud)",
+        "no_services": "No services yet. Add the ones your business depends on in Settings.",
+        "svc_name": "Name", "svc_kind": "Check", "svc_target": "URL or host:port", "svc_add": "Add service",
+        "svc": {"up": "Reachable", "down": "Unreachable", "no_data": "Checking…"},
+        "svc_hint": "Checked every 30 s. Down after 3 failures in a row while your internet is fine.",
+        "alerts_title": "Alerts", "alerts_sub": "Get told when something breaks, with whose fault it is and what to do.",
+        "alerts_min": "Alert only if it lasts at least (minutes)", "alerts_close": "Also notify when it's resolved",
+        "alerts_url": "Dashboard address to include in alerts (optional)",
+        "enabled": "Enabled", "tg_token": "Bot token (from @BotFather)", "tg_chat": "Chat id",
+        "tg_help": "Create a bot with @BotFather, send it any message, then get your chat id from @userinfobot.",
+        "smtp_host": "SMTP server", "smtp_port": "Port", "smtp_security": "Security", "smtp_user": "User",
+        "smtp_pass": "Password", "smtp_from": "From", "smtp_to": "To (comma separated)",
+        "wh_url": "URL (Discord and Slack detected automatically; anything else receives JSON)",
+        "secret_set": "saved, leave empty to keep", "send_test": "Save and send a test",
+        "test_results": "Test results", "alerts_none_enabled": "No channel is enabled.",
+        "alerts_last_errors": "Last delivery errors",
     },
     "es": {
         "nav": {"dashboard": "Panel", "incidents": "Incidentes", "tunnels": "Túneles", "reports": "Informes",
@@ -108,5 +132,32 @@ S = {
         "proxy_denied": "Esta instancia espera autenticación desde un proxy reverso, y este pedido no pasó por él.",
         "none_denied": "La autenticación está desactivada, y eso solo se permite si el panel escucha en localhost.",
         "view_report": "Ver informe", "evidence_for_isp": "Evidencia para tu ISP",
+        "no_data_legend": "Sin medir", "no_data_tip": "Sin medir: arranque, redescubrimiento del camino o cambio de configuración (unos segundos cada vez)",
+        "brief_title": "Eventos breves · 24 h",
+        "brief_sub": "Problemas más cortos que un incidente (menos de un minuto): conviene saberlos, no ameritan un reclamo.",
+        "no_brief": "Sin eventos breves en las últimas 24 horas.",
+        "what_to_do": "Qué hacer",
+        "lang_switch": "Idioma",
+        "services_title": "Tus servicios", "services_sub": "¿Es tu internet, o se cayó ese servicio? (por ej. ARCA/AFIP, tu banco, tu ERP, tu nube)",
+        "no_services": "Todavía no hay servicios. Agregá en Configuración los que usa tu empresa.",
+        "svc_name": "Nombre", "svc_kind": "Chequeo", "svc_target": "URL o host:puerto", "svc_add": "Agregar servicio",
+        "svc": {"up": "Responde", "down": "No responde", "no_data": "Chequeando…"},
+        "svc_hint": "Se chequea cada 30 s. Se marca caído tras 3 fallos seguidos mientras tu internet anda bien.",
+        "alerts_title": "Alertas", "alerts_sub": "Enterate cuando algo se rompe, de quién es la culpa y qué hacer.",
+        "alerts_min": "Avisar solo si dura al menos (minutos)", "alerts_close": "Avisar también cuando se resuelve",
+        "alerts_url": "Dirección del panel para incluir en las alertas (opcional)",
+        "enabled": "Activado", "tg_token": "Token del bot (de @BotFather)", "tg_chat": "Chat id",
+        "tg_help": "Creá un bot con @BotFather, mandale cualquier mensaje y obtené tu chat id con @userinfobot.",
+        "smtp_host": "Servidor SMTP", "smtp_port": "Puerto", "smtp_security": "Seguridad", "smtp_user": "Usuario",
+        "smtp_pass": "Contraseña", "smtp_from": "Remitente", "smtp_to": "Destinatarios (separados por coma)",
+        "wh_url": "URL (Discord y Slack se detectan solos; cualquier otra recibe JSON)",
+        "secret_set": "guardado, dejalo vacío para mantenerlo", "send_test": "Guardar y enviar prueba",
+        "test_results": "Resultado de la prueba", "alerts_none_enabled": "No hay ningún canal activado.",
+        "alerts_last_errors": "Últimos errores de envío",
     },
 }
+
+
+for _lang, _t in S.items():  # shared plain-language texts (also used by alerts)
+    _t["advice"] = ADVICE[_lang]
+    _t["verdict"] = {**VERDICT[_lang], **_t["verdict"]}

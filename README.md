@@ -13,6 +13,8 @@ Most tools either run speedtests, which measure the thing that rarely breaks and
 - **It doesn't cry wolf.** "1 packet lost out of 50" is not 2% loss, it's noise. Loss only counts when it's statistically significant (95% Wilson interval), latency is judged against each target's own baseline, and incidents need consecutive bad windows to open.
 - **It blames the right segment,** using address types and AS numbers, not hop positions: your home (including a second router if you have double NAT), your ISP's access network, your ISP's backbone, or a single remote destination.
 - **It detects CGNAT, double NAT and IPv6** and explains what that means for you.
+- **Your services:** "is it my internet, or is my bank / my ERP / the tax agency down?" Add any HTTP(S) or TCP service; when it's unreachable while your connection is healthy, the verdict says so.
+- **Alerts** by Telegram, email or webhook (Discord, Slack, Home Assistant…), only for problems that last, each one saying whose fault it is and what to do.
 - **Tunnel mode:** did your IPsec/L2TP/WireGuard tunnel drop because of its configuration or because of the path? It measures outside and inside the tunnel at the same time, and spots drops that repeat on a schedule (the fingerprint of mismatched rekey lifetimes).
 
 ```
@@ -73,6 +75,8 @@ isitmyisp is meant to run on your network for months. By default it **never send
 | iptoasn.com | only when you run `update-asn` | one HTTPS download of the public dataset (no per-IP queries) | manual |
 | Team Cymru whois | only with `--asn-online` | the public IPs of your path | **off** |
 | api.ipify.org | only with `--public-ip` | an HTTPS request (reveals your public IP to them) | **off** |
+| Your services | only the ones you add | an HTTP GET (or TCP connect) every 30 s | **off** |
+| api.telegram.org / your SMTP server / your webhook | only if you enable alerts | the alert text | **off** |
 
 Bandwidth: about 1.3 GB/month at the default `monitor` settings (one ping every 2 s to 5–6 targets).
 
@@ -138,8 +142,11 @@ If configuration drops repeat at a regular interval, the report says so: that's 
 
 To try it without waiting for real problems, generate a clearly synthetic dataset: `python3 scripts/demo_data.py /tmp/demo.db && isitmyisp report --db /tmp/demo.db --since 1d`.
 
+## Retention
+Per-target samples are kept 35 days (enough for a monthly report); window verdicts, incidents and their mtr evidence about 13 months. Old data is deleted automatically every hour.
+
 ## How the verdict works
-1. **Home:** loss or abnormal latency to any of your own routers means the problem is on your side. If you're on Wi-Fi, you'll be told so.
+1. **Home:** loss or abnormal latency to your own router(s) **that also shows up on the internet** means the problem is on your side. If only the router "loses" pings while the internet works through it, the router just filters ICMP (common on business firewalls) and nobody is blamed.
 2. **Every destination affected:** the problem is in your ISP. If its first hop is also affected, it's the access network; otherwise it's the backbone or its upstream.
 3. **Only some destinations:** it's not your ISP.
 4. **Everything fine except DNS:** your resolver.
@@ -155,7 +162,8 @@ ICMP and TCP must agree before blaming anyone, and nothing is blamed on a handfu
 - [x] Dashboard, Prometheus `/metrics`, `/api/status`, PDF export
 - [x] CI workflow: tests on Python 3.10–3.13, multi-arch image (amd64/arm64) to GHCR
 - [x] Web UI with settings applied live, local/proxy/none authentication, console recovery
-- [ ] MTU/MSS probing through tunnels, alerts (Telegram/Discord), Wi-Fi signal (`iw`)
+- [x] Alerts (Telegram, email, webhook), your own services (HTTP/TCP), brief events with advice, automatic retention
+- [ ] MTU/MSS probing through tunnels, read-only users, scheduled bandwidth tests (LibreSpeed), monthly SLA report, Wi-Fi signal (`iw`)
 
 ## License
 MIT

@@ -42,7 +42,7 @@ R = {
         "timeline": "Timeline", "status": "Status per window", "loss_chart": "Packet loss to the internet (%)",
         "lat_chart": "Latency to the internet (median, ms)",
         "legend": {"ok": "healthy", "local": "your side", "access": "ISP access", "isp": "ISP backbone",
-                   "remote": "remote", "dns": "DNS"},
+                   "remote": "remote", "dns": "DNS", "no_data": "not measuring (start-up, re-discovery, settings change)"},
         "incident_list": "Incidents", "start": "Start", "end": "End", "where": "Where", "evidence": "Evidence",
         "ongoing": "ongoing", "capture": "mtr",
         "message": "Message for your ISP",
@@ -78,6 +78,9 @@ R = {
         "tun_cause": {"path_local": "Loss on your connection", "path_remote": "Far site or path to it",
                       "config": "Tunnel configuration (path was clean)", "unknown": "Undetermined (far end filters ICMP)"},
         "tun_none": "No tunnel drops in this period.",
+        "services": "Your services: it wasn't your internet",
+        "svc_intro": "These services were unreachable while your own connection was healthy: the problem was on their side.",
+        "svc_col": "Service",
         "tun_periodic": ("{name}: drops repeat every {every} with a clean path. That is the fingerprint of "
                          "mismatched IKE/IPsec lifetimes or rekey timers between both ends: compare them."),
         "tun_config_hint": ("{name}: {k} drop(s) happened while the path outside the tunnel was clean. Check DPD "
@@ -102,7 +105,7 @@ R = {
         "timeline": "Línea de tiempo", "status": "Estado por ventana", "loss_chart": "Pérdida de paquetes hacia internet (%)",
         "lat_chart": "Latencia hacia internet (mediana, ms)",
         "legend": {"ok": "sana", "local": "tu lado", "access": "acceso ISP", "isp": "troncal ISP",
-                   "remote": "remoto", "dns": "DNS"},
+                   "remote": "remoto", "dns": "DNS", "no_data": "sin medir (arranque, redescubrimiento, cambio de configuración)"},
         "incident_list": "Incidentes", "start": "Inicio", "end": "Fin", "where": "Dónde", "evidence": "Evidencia",
         "ongoing": "en curso", "capture": "mtr",
         "message": "Mensaje para tu ISP",
@@ -138,6 +141,9 @@ R = {
         "tun_cause": {"path_local": "Pérdida en tu conexión", "path_remote": "Sitio remoto o camino hacia él",
                       "config": "Configuración del túnel (camino limpio)", "unknown": "Indeterminado (el otro extremo filtra ICMP)"},
         "tun_none": "Sin caídas de túneles en este período.",
+        "services": "Tus servicios: no era tu internet",
+        "svc_intro": "Estos servicios no respondían mientras tu propia conexión andaba bien: el problema era de ellos.",
+        "svc_col": "Servicio",
         "tun_periodic": ("{name}: las caídas se repiten cada {every} con el camino limpio. Esa es la huella de "
                          "lifetimes o timers de rekey IKE/IPsec distintos en los dos extremos: comparalos."),
         "tun_config_hint": ("{name}: {k} caída(s) ocurrieron con el camino por fuera del túnel limpio. Revisá timeouts "
@@ -230,7 +236,9 @@ def _time_axis(start: float, end: float, y: float) -> str:
     return "".join(parts)
 
 
-def svg_status_strip(windows: list[tuple[float, float, str]], start: float, end: float) -> str:
+def svg_status_strip(windows: list[tuple[float, float, str]], start: float, end: float,
+                     labels: dict[str, str] | None = None) -> str:
+    """Verdict per window. `labels` (code -> text) adds a hover tooltip to every stretch, no JS needed."""
     h = 26
     # Merge consecutive windows with the same verdict into one rectangle (a day is ~2,880 windows).
     runs: list[list] = []  # [begin, end, code]
@@ -245,8 +253,15 @@ def svg_status_strip(windows: list[tuple[float, float, str]], start: float, end:
     rects = []
     for begin, finish, code in runs:
         x0, x1 = _x(begin, start, end), _x(finish, start, end)
+        tip = ""
+        if labels:
+            tip = (f'<title>{_e(_dt(begin, False))}–{_e(_dt(finish, False))} · '
+                   f'{_e(labels.get(code, code))} ({fmt_duration(finish - begin)})</title>')
         rects.append(f'<rect x="{x0:.2f}" y="0" width="{max(0.6, x1 - x0):.2f}" height="{h}" '
-                     f'fill="{COLORS.get(code, COLORS["no_data"])}"/>')
+                     f'fill="{COLORS.get(code, COLORS["no_data"])}">{tip}</rect>')
+    if labels and "no_data" in labels:  # make the gaps explain themselves too
+        rects.insert(0, f'<rect x="{PAD_L}" y="0" width="{W - PAD_L - PAD_R}" height="{h}" fill="transparent">'
+                        f'<title>{_e(labels["no_data"])}</title></rect>')
     return (f'<svg viewBox="0 0 {W} {h + 18}" class="chart" role="img">'
             f'<rect x="{PAD_L}" y="0" width="{W - PAD_L - PAD_R}" height="{h}" fill="{COLORS["no_data"]}" opacity=".35"/>'
             + "".join(rects) + _time_axis(start, end, h + 14) + "</svg>")
@@ -278,7 +293,12 @@ def svg_line(points: list[tuple[float, float]], start: float, end: float, color:
 
 EVIDENCE_ES = [
     ("home router", "router de tu casa"), ("ISP first hop", "primer salto del ISP"),
-    ("% loss", "% de pérdida"), ("latency", "latencia"), ("vs usual", "vs. habitual"), (": OK", ": bien"),
+    ("% loss", "% de pérdida"), ("latency", "latencia"), ("vs usual", "vs. habitual"),
+    ("your internet: OK at the same time", "tu internet: bien al mismo tiempo"), ("checks failed", "chequeos fallidos"),
+    ("DNS failure", "falla de DNS"), ("timeout", "sin respuesta (timeout)"), ("connection refused", "conexión rechazada"),
+    ("TLS error", "error de TLS"), ("through the tunnel", "por dentro del túnel"), ("outside the tunnel", "por fuera del túnel"),
+    ("never answers ICMP", "nunca responde ICMP"), ("all anchors degraded (worst", "todos los destinos afectados (peor"),
+    (": OK", ": bien"),
 ]
 
 
@@ -504,7 +524,7 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
     legend = "".join(f'<span><span class="dot" style="background:{COLORS[c]}"></span>{_e(lbl)}</span>'
                      for c, lbl in t["legend"].items())
     out.append(f'<h2>{_e(t["timeline"])}</h2><div class="label">{_e(t["status"])} · {_e(_dt(start))} → {_e(_dt(end))}</div>'
-               + svg_status_strip(windows, start, end) + f'<div class="legend">{legend}</div>')
+               + svg_status_strip(windows, start, end, labels=t["legend"]) + f'<div class="legend">{legend}</div>')
     if series:
         out.append(f'<div class="label">{_e(t["loss_chart"])}</div>'
                    + svg_line([(ts, l) for ts, l, _ in series], start, end, COLORS["access"], unit="%"))
@@ -536,6 +556,19 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
     tun_captures = store.captures_for([i.id for i in tun_incidents])
     if tun_incidents or (net.get("tunnels")):
         out.append(tunnel_section(tun_incidents, t, now))
+
+    # ---- your services (outages that were NOT your internet)
+    svc_incidents = [i for i in store.incidents_between(start, end, scope=None) if i.scope.startswith("service:")]
+    if svc_incidents:
+        rows = "".join(
+            f'<tr><td>{_e(i.scope.split(":", 1)[1])}</td><td class="dt">{_dt_html(i.opened)}</td>'
+            f'<td class="dt">{_dt_html(i.closed) if i.closed else _e(t["ongoing"])}</td>'
+            f'<td class="num">{fmt_duration(i.duration(now))}</td><td class="ev">{_e(i.evidence[0] if i.evidence else "")}</td></tr>'
+            for i in svc_incidents)
+        out.append(f'<h2>{_e(t["services"])}</h2><p class="muted">{_e(t["svc_intro"])}</p>'
+                   f'<table class="incidents"><thead><tr><th>{t["svc_col"]}</th><th class="num">{t["start"]}</th>'
+                   f'<th class="num">{t["end"]}</th><th class="num">{t["duration"]}</th><th>{t["evidence"]}</th></tr>'
+                   f'</thead><tbody>{rows}</tbody></table>')
 
     # ---- message for the ISP
     out.append(f'<h2>{_e(t["message"])}</h2><p class="muted">{_e(t["message_hint"])}</p>'

@@ -31,7 +31,8 @@ CREATE INDEX IF NOT EXISTS samples_ts ON samples(ts);
 CREATE TABLE IF NOT EXISTS windows (
     ts REAL NOT NULL,
     seconds REAL NOT NULL,
-    code TEXT NOT NULL
+    code TEXT NOT NULL,
+    evidence TEXT                -- JSON list, only for non-ok windows
 );
 CREATE INDEX IF NOT EXISTS windows_ts ON windows(ts);
 
@@ -42,7 +43,9 @@ CREATE TABLE IF NOT EXISTS incidents (
     code TEXT NOT NULL,
     evidence TEXT NOT NULL,      -- JSON list of strings, from the window that opened it
     peak_loss REAL NOT NULL DEFAULT 0,
-    scope TEXT NOT NULL DEFAULT 'internet'   -- 'internet' or 'tunnel:<name>'
+    scope TEXT NOT NULL DEFAULT 'internet',  -- 'internet', 'tunnel:<name>' or 'service:<name>'
+    alerted INTEGER NOT NULL DEFAULT 0,      -- 'opened' alert sent
+    close_alerted INTEGER NOT NULL DEFAULT 0 -- 'closed' alert sent
 );
 CREATE INDEX IF NOT EXISTS incidents_opened ON incidents(opened);
 
@@ -127,9 +130,15 @@ class Store:
             cols = {r[1] for r in self.db.execute("PRAGMA table_info(samples)")}
             if "rtt_median" not in cols:  # databases created by v0.1.0.dev0
                 self.db.execute("ALTER TABLE samples ADD COLUMN rtt_median REAL")
+            wcols = {r[1] for r in self.db.execute("PRAGMA table_info(windows)")}
+            if "evidence" not in wcols:
+                self.db.execute("ALTER TABLE windows ADD COLUMN evidence TEXT")
             icols = {r[1] for r in self.db.execute("PRAGMA table_info(incidents)")}
             if "scope" not in icols:  # databases created before tunnel mode
                 self.db.execute("ALTER TABLE incidents ADD COLUMN scope TEXT NOT NULL DEFAULT 'internet'")
+            for col in ("alerted", "close_alerted"):  # databases created before alerts
+                if col not in icols:
+                    self.db.execute(f"ALTER TABLE incidents ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0")
 
     # ------------------------------------------------------------ writes
 
@@ -142,9 +151,11 @@ class Store:
                  s.rtt_min, s.rtt_avg, s.rtt_max, s.jitter, s.rtt_median),
             )
 
-    def add_window_verdict(self, code: str, seconds: float, ts: float | None = None) -> None:
+    def add_window_verdict(self, code: str, seconds: float, ts: float | None = None,
+                           evidence: list[str] | None = None) -> None:
         with self._lock:
-            self.db.execute("INSERT INTO windows VALUES (?,?,?)", (ts or time.time(), seconds, code))
+            self.db.execute("INSERT INTO windows (ts, seconds, code, evidence) VALUES (?,?,?,?)",
+                            (ts or time.time(), seconds, code, json.dumps(evidence) if evidence else None))
 
     def open_incident(self, code: str, evidence: list[str], ts: float | None = None,
                       scope: str = "internet") -> int:
@@ -186,12 +197,16 @@ class Store:
         with self._lock:
             self.db.commit()
 
-    def prune(self, keep_days: int = 90) -> None:
-        cutoff = time.time() - keep_days * 86400
+    def prune(self, samples_days: int = 35, windows_days: int = 400, now: float | None = None) -> int:
+        """Retention. Per-target samples (the bulk: ~32k rows/day) are kept 35 days, enough for a
+        monthly report. Window verdicts, incidents and their mtr evidence are small and kept ~13 months."""
+        now = now or time.time()
         with self._lock:
-            for table in ("samples", "windows", "networks"):
-                self.db.execute(f"DELETE FROM {table} WHERE ts < ?", (cutoff,))
+            n = self.db.execute("DELETE FROM samples WHERE ts < ?", (now - samples_days * 86400,)).rowcount
+            for table in ("windows", "networks"):
+                n += self.db.execute(f"DELETE FROM {table} WHERE ts < ?", (now - windows_days * 86400,)).rowcount
             self.db.commit()
+        return n
 
     def close(self) -> None:
         with self._lock:
@@ -204,6 +219,25 @@ class Store:
         with self._lock:
             return self.db.execute("SELECT ts, seconds, code FROM windows WHERE ts BETWEEN ? AND ? ORDER BY ts",
                                    (start, end)).fetchall()
+
+    def brief_events(self, start: float, end: float) -> list[dict]:
+        """Bad windows that never became an incident (hysteresis filtered them): short blips.
+        Consecutive windows with the same verdict are merged."""
+        with self._lock:
+            rows = self.db.execute("SELECT ts, seconds, code, evidence FROM windows WHERE ts BETWEEN ? AND ?"
+                                   " AND code NOT IN ('ok', 'no_data') ORDER BY ts", (start, end)).fetchall()
+        incidents = self.incidents_between(start, end)
+        def in_incident(ts: float, secs: float) -> bool:
+            return any(i.opened - 1 <= ts - secs and ts <= (i.closed or end) + 1 for i in incidents)
+        events: list[dict] = []
+        for ts, secs, code, ev in rows:
+            if in_incident(ts, secs):
+                continue
+            if events and events[-1]["code"] == code and ts - secs - events[-1]["end"] <= secs:
+                events[-1]["end"] = ts
+                continue
+            events.append({"start": ts - secs, "end": ts, "code": code, "evidence": json.loads(ev) if ev else []})
+        return events
 
     def samples_between(self, start: float, end: float, role: str | None = None) -> list[sqlite3.Row]:
         q = ("SELECT ts, role, target, sent, received, rtt_median, jitter FROM samples WHERE ts BETWEEN ? AND ?"
@@ -226,6 +260,28 @@ class Store:
         with self._lock:
             rows = self.db.execute(q + " ORDER BY opened", args).fetchall()
         return [Incident(r[0], r[1], r[2], r[3], json.loads(r[4]), r[5], r[6]) for r in rows]
+
+    def incidents_to_alert(self) -> tuple[list[Incident], list[Incident]]:
+        """(open incidents not alerted yet, closed incidents whose 'opened' alert went out but not the 'closed' one)."""
+        cols = "id, opened, closed, code, evidence, peak_loss, scope"
+        with self._lock:
+            opened = self.db.execute(f"SELECT {cols} FROM incidents WHERE closed IS NULL AND alerted = 0").fetchall()
+            closed = self.db.execute(f"SELECT {cols} FROM incidents WHERE closed IS NOT NULL AND alerted = 1"
+                                     " AND close_alerted = 0").fetchall()
+        mk = lambda r: Incident(r[0], r[1], r[2], r[3], json.loads(r[4]), r[5], r[6])  # noqa: E731
+        return [mk(r) for r in opened], [mk(r) for r in closed]
+
+    def mark_alerted(self, incident_id: int, which: str) -> None:
+        col = "alerted" if which == "opened" else "close_alerted"
+        with self._lock:
+            self.db.execute(f"UPDATE incidents SET {col} = 1 WHERE id = ?", (incident_id,))
+            self.db.commit()
+
+    def skip_close_alerts_for_unalerted(self) -> None:
+        """Incidents shorter than the alert threshold closed without an 'opened' alert: never alert them."""
+        with self._lock:
+            self.db.execute("UPDATE incidents SET close_alerted = 1 WHERE closed IS NOT NULL AND alerted = 0")
+            self.db.commit()
 
     def active_incidents(self) -> list[Incident]:
         with self._lock:

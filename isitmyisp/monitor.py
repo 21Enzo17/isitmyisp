@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import threading
 import time
+from urllib.parse import urlparse
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
@@ -19,6 +20,7 @@ from .probes.icmp import WindowStats
 from .probes.mtr import MtrError, analyze_path, path_to_dict, run_mtr
 from .stats import Baseline, Hysteresis, Transition
 from .store import Store
+from .services import CHECK_EVERY, FAILS_TO_DOWN, OKS_TO_UP, Check, Service, state as service_state
 from .tunnels import TunnelVerdict, classify_tunnel
 
 CaptureFn = Callable[[str, int], None]  # (target, incident_id)
@@ -55,8 +57,10 @@ class Monitor:
         self.hyst = Hysteresis(open_after=open_after, close_after=close_after)
         self.incident_id: int | None = None
         self._last_capture = 0.0
+        self._last_prune = 0.0
         self._open_after, self._close_after = open_after, close_after
         self._tunnels: dict[str, _TunnelState] = {}
+        self._services: dict[str, int | None] = {}  # service name -> open incident id
 
     def resume(self) -> None:
         """Close incidents left open by a previous run (crash, reboot, upgrade)."""
@@ -77,13 +81,16 @@ class Monitor:
         return max((s.loss for s in pool), default=0.0)
 
     def step(self, m: Measurements, rows: list[tuple[str, WindowStats]], now: float | None = None,
-             tunnels: list[TunnelSample] = ()) -> StepResult:
+             tunnels: list[TunnelSample] = (), services: list[tuple[Service, list[Check]]] = ()) -> StepResult:
         now = now or time.time()
         v = classify(m, self.baselines)
         for role, st in rows:
             self.store.add_window(role, st, ts=now)
             self.baselines.setdefault(st.target, Baseline()).update(st.rtt_median, healthy=v.code == "ok")
-        self.store.add_window_verdict(v.code, self.window, ts=now)
+        self.store.add_window_verdict(v.code, self.window, ts=now, evidence=v.evidence if v.code != "ok" else None)
+        if now - self._last_prune > 3600:  # retention, once an hour
+            self._last_prune = now
+            self.store.prune(now=now)
 
         tr = self.hyst.update(v.code)
         # Timestamps mark the END of each window. An incident started when the first of its bad
@@ -102,8 +109,38 @@ class Monitor:
             self.store.bump_peak_loss(self.incident_id, self.worst_loss(m, self.hyst.active or v.code))
         tunnel_results = [self._step_tunnel(t, under, over, v.code in INTERNET_OK, now)
                           for t, under, over in tunnels]
+        for svc, checks in services:
+            self._step_service(svc, checks, v.code in INTERNET_OK, now)
         self.store.commit()
         return StepResult(v, tr, self.incident_id, tunnel_results)
+
+    def _step_service(self, svc: Service, checks: list[Check], internet_ok: bool, now: float) -> None:
+        # Checks run every 30 s, so a short window may contain none: look back far enough that every
+        # window has at least one result (otherwise the service blinks to "no data" on the dashboard).
+        recent = [c for c in checks if c.ts > now - max(self.window, CHECK_EVERY * 1.5)]
+        if recent:  # one sample row per window, so the dashboard and /metrics can show the service
+            times = sorted(c.ms for c in recent if c.ok and c.ms is not None)
+            med = times[len(times) // 2] if times else None
+            ok_count = sum(1 for c in recent if c.ok)
+            self.store.add_window(f"service:{svc.name}", WindowStats(
+                svc.target, len(recent), ok_count, times[0] if times else None, med,
+                times[-1] if times else None, None, med), ts=now)
+        st = service_state(checks)
+        iid = self._services.get(svc.name)
+        if st == "down" and iid is None and internet_ok:
+            last = checks[-1]
+            evidence = [f"{svc.target}: {last.detail} ({FAILS_TO_DOWN}/{FAILS_TO_DOWN} checks failed)",
+                        "your internet: OK at the same time"]
+            iid = self.store.open_incident("service_down", evidence, ts=checks[-FAILS_TO_DOWN].ts,
+                                           scope=f"service:{svc.name}")
+            self._services[svc.name] = iid
+            if self.capture is not None:
+                host = urlparse(svc.target).hostname if svc.kind == "http" else svc.target.rpartition(":")[0]
+                if host:
+                    self.capture(host, iid)
+        elif st == "up" and iid is not None:
+            self.store.close_incident(iid, ts=checks[-OKS_TO_UP].ts)
+            self._services[svc.name] = None
 
     def _step_tunnel(self, t: Tunnel, under: WindowStats | None, over: WindowStats | None,
                      internet_ok: bool, now: float) -> tuple[TunnelVerdict, Transition]:

@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .config import Config, ConfigError, Tunnel, load as load_toml, parse as parse_tunnels
+from .services import Service
 from .store import Store
 
 AUTH_MODES = ("local", "proxy", "none")
@@ -28,6 +29,7 @@ DEFAULTS: dict = {
     "proxy_header": "Remote-User",
     "trusted_proxies": ["127.0.0.1/32", "::1/128"],
     "tunnels": [],             # list of {name, underlay, overlay, type}
+    "services": [],            # list of {name, kind: http|tcp, target}
 }
 
 SETUP_TOKEN_TTL = 24 * 3600
@@ -48,6 +50,7 @@ class Settings:
     trusted_proxies: list[str] = field(default_factory=lambda: list(DEFAULTS["trusted_proxies"]))
     tunnels: list[Tunnel] = field(default_factory=list)
     tunnels_from_file: Path | None = None  # set when a TOML file provides the tunnels
+    services: list = field(default_factory=list)  # list[services.Service]
     version: int = 0
 
 
@@ -114,18 +117,28 @@ def validate(values: dict) -> dict:
         except ConfigError as exc:
             raise SettingsError(str(exc)) from exc
         out["tunnels"] = [t.__dict__ for t in parsed]
+    if "services" in values:
+        from .services import ServiceError, validate as validate_services
+        try:
+            out["services"] = validate_services(values["services"])
+        except ServiceError as exc:
+            raise SettingsError(str(exc)) from exc
     return out
 
 
 # ------------------------------------------------------------------ load / save
 
-def load(store: Store, toml_path: str | None = None, data_dir: Path | None = None) -> Settings:
+def load(store: Store, toml_path: str | None = None, data_dir: Path | None = None,
+         default_lang: str | None = None) -> Settings:
     raw = {k: store.get_setting(k, v) for k, v in DEFAULTS.items()}
+    if store.get_setting("lang") is None and default_lang in ("en", "es"):
+        raw["lang"] = default_lang  # never chosen in the UI: follow `--lang` / $LANG
     s = Settings(
         anchors=list(raw["anchors"]), interval=float(raw["interval"]), window=int(raw["window"]),
         lang=raw["lang"], auth_mode=raw["auth_mode"], proxy_header=raw["proxy_header"],
         trusted_proxies=list(raw["trusted_proxies"]),
         tunnels=[Tunnel(**t) for t in raw["tunnels"]], version=store.settings_version(),
+        services=[Service(**sv) for sv in raw["services"]],
     )
     if data_dir is not None or toml_path:
         cfg: Config = load_toml(toml_path, data_dir or Path("."))
