@@ -199,6 +199,8 @@ class CsrfAndSettings(WebAppBase):
         self.assertIn("Internet is working", html)           # the verdict as a sentence
         self.assertIn('class="path"', html)                  # your network -> your ISP -> internet
         self.assertIn("font-src 'self'", csp)                 # self-hosted font, no third parties
+        font = self.client.get("/static/fonts/ibm-plex-sans-400.woff2")
+        self.assertEqual(font.mimetype, "font/woff2")
 
     def test_services_add_and_delete(self):
         r = self.client.post("/settings/services/add", data={"csrf_token": csrf(self.page()), "name": "ARCA",

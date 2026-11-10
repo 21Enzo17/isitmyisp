@@ -6,9 +6,12 @@ Flask-Limiter (login rate limit), served by Waitress. No JavaScript: plain HTML 
 
 from __future__ import annotations
 
+import mimetypes
 import threading
 import time
 from datetime import timedelta
+
+mimetypes.add_type("font/woff2", ".woff2")  # slim images ship without it
 from pathlib import Path
 from urllib.parse import urlparse
 
