@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ t.nav.incidents }}{% endblock %}
+{% block content %}
+<div class="topbar"><h1>{{ t.incidents_title }}</h1></div>
+<div class="card">
+{% if not rows %}<p class="muted">{{ t.no_incidents }}</p>{% else %}
+<table>
+  <thead><tr><th>{{ t.start }}</th><th>{{ t.end }}</th><th class="num">{{ t.duration }}</th><th>{{ t.where }}</th><th>{{ t.evidence }}</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr><td class="num">{{ r.opened|dt }}</td><td class="num">{{ r.closed|dt if r.closed else t.ongoing }}</td>
+      <td class="num">{{ r.duration }}</td>
+      <td><span class="dot {{ r.css }}"></span> {{ r.scope }} · {{ r.code|cause }}</td>
+      <td class="mono">{% for e in r.evidence %}{{ e }}<br>{% endfor %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>{% endif %}
+</div>
+{% endblock %}

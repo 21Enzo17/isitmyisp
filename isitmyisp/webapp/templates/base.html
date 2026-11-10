@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% block head %}{% endblock %}
+  <title>{% block title %}isitmyisp{% endblock %} · isitmyisp</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><div class="logo">i</div><div><b>isitmyisp</b><small>is it my ISP?</small></div></div>
+    <nav class="nav">
+      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if active == 'dashboard' }}"><span class="ico">◧</span>{{ t.nav.dashboard }}</a>
+      <a href="{{ url_for('incidents') }}" class="{{ 'active' if active == 'incidents' }}"><span class="ico">△</span>{{ t.nav.incidents }}</a>
+      <a href="{{ url_for('tunnels') }}" class="{{ 'active' if active == 'tunnels' }}"><span class="ico">⇄</span>{{ t.nav.tunnels }}</a>
+      <a href="{{ url_for('reports') }}" class="{{ 'active' if active == 'reports' }}"><span class="ico">▤</span>{{ t.nav.reports }}</a>
+      <a href="{{ url_for('settings_page') }}" class="{{ 'active' if active == 'settings' }}"><span class="ico">◎</span>{{ t.nav.settings }}</a>
+    </nav>
+    <div class="foot">
+      {% if user %}<b>{{ user.username }}</b>{% endif %}
+      {% if user and user.source == 'local' %}
+      <form class="inline" method="post" action="{{ url_for('logout') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn small" type="submit">{{ t.logout }}</button>
+      </form>
+      {% endif %}
+      <div>v{{ version }}</div>
+    </div>
+  </aside>
+  <main class="main">
+    {% with messages = get_flashed_messages() %}{% for m in messages %}<div class="flash ok">{{ m }}</div>{% endfor %}{% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ t.nav.reports }}{% endblock %}
+{% block content %}
+<div class="topbar"><h1>{{ t.reports_title }}</h1></div>
+<p class="muted">{{ t.reports_sub }}</p>
+<div class="grid cols-3">
+  {% for since, label in [('24h', t.r24), ('7d', t.r7), ('30d', t.r30)] %}
+  <div class="card"><h3>{{ label }}</h3>
+    <div class="actions"><a class="btn primary" href="{{ url_for('report', since=since) }}">{{ t.html }}</a>
+      <a class="btn" href="{{ url_for('report_pdf', since=since) }}">{{ t.pdf }}</a></div></div>
+  {% endfor %}
+</div>
+<div class="card mt-16"><h3>{{ t.custom }}</h3>
+  <form method="get" action="{{ url_for('report') }}">
+    <div class="form-row">
+      <div><label for="since">{{ t.from }}</label><input type="text" id="since" name="since" placeholder="2026-11-01 08:00" required></div>
+      <div><label for="until">{{ t.to }}</label><input type="text" id="until" name="until" placeholder="2026-11-07 20:00"></div>
+    </div>
+    <div class="actions"><button class="btn primary" type="submit">{{ t.generate }}</button></div>
+  </form>
+</div>
+{% endblock %}

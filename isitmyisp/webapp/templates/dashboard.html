@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block head %}<meta http-equiv="refresh" content="30">{% endblock %}
+{% block title %}{{ t.nav.dashboard }}{% endblock %}
+{% block content %}
+<div class="topbar">
+  <h1>{{ t.nav.dashboard }}</h1>
+  <div class="right">
+    {% if d.has_data %}<span class="pill {{ d.css }}"><span class="dot"></span>{{ t.verdict[d.code] }}</span>
+    <span class="pill">{{ t.updated }} {{ d.updated_ago }} {{ t.ago }}</span>{% endif %}
+  </div>
+</div>
+
+{% if not d.has_data %}
+<div class="card hero"><div class="verdict"><span class="dot"></span>{{ t.verdict.no_data }}</div>
+  <div class="sub">{{ t.verdict_sub.no_data }}</div></div>
+{% else %}
+<div class="grid hero-row">
+  <div class="card hero {{ d.css }}">
+    <h2>{{ t.last24 }}</h2>
+    <div class="verdict {{ d.css }}"><span class="dot"></span>{{ t.verdict[d.code] }}</div>
+    <div class="sub">{{ t.verdict_sub[d.code] }}</div>
+    {% if d.active %}
+    <div class="evidence"><b>{{ t.active }}</b> · {{ t.since }} {{ d.active.opened|dt }} ({{ d.active_for }})<br>
+      {% for e in d.active.evidence[:3] %}<span class="mono">{{ e }}</span><br>{% endfor %}</div>
+    {% endif %}
+    <div class="chart-label">{{ t.last24 }}</div>
+    {{ d.strip|safe }}
+    <div class="legend"><span><i class="l-ok"></i>{{ t.verdict.ok }}</span><span><i class="l-local"></i>{{ t.verdict.local }}</span>
+      <span><i class="l-access"></i>{{ t.verdict.access }}</span><span><i class="l-isp"></i>{{ t.verdict.isp }}</span>
+      <span><i class="l-remote"></i>{{ t.verdict.remote }}</span><span><i class="l-dns"></i>{{ t.verdict.dns }}</span></div>
+  </div>
+  <div class="card side-card">
+    <div class="kpis">
+      <div class="kpi"><div class="k">{{ t.healthy_24h }}</div><div class="v">{{ d.healthy_pct }}</div></div>
+      <div class="kpi"><div class="k">{{ t.incidents_24h }}</div><div class="v">{{ d.incidents_24h }}</div></div>
+      <div class="kpi"><div class="k">{{ t.worst_24h }}</div><div class="v">{{ d.worst_24h }}</div></div>
+    </div>
+    <div>
+      <h3>{{ t.evidence_for_isp }}</h3>
+      <p class="muted">{{ t.reports_sub }}</p>
+      <div class="actions">
+        <a class="btn primary" href="{{ url_for('report', since='7d') }}">{{ t.view_report }}</a>
+        <a class="btn" href="{{ url_for('report_pdf', since='7d') }}">PDF</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="grid cols-2 mt-16">
+  <div class="card"><h2>{{ t.loss }} · {{ t.last24 }}</h2>{{ d.loss_chart|safe }}</div>
+  <div class="card"><h2>{{ t.latency }} · {{ t.last24 }}</h2>{{ d.latency_chart|safe }}</div>
+</div>
+
+<div class="section-title"><h2>{{ t.targets }}</h2></div>
+<div class="grid cols-3">
+  {% for c in d.targets %}
+  <div class="card target {{ c.status }}">
+    <div class="role"><span>{{ t.role.get(c.role, c.role) }}</span>
+      <span class="badge {{ c.status if c.status != 'ok' else '' }}">{{ '%.1f'|format(c.loss) }}%</span></div>
+    <div class="ip mono">{{ c.target }}</div>
+    <div class="value">{% if c.median is not none %}{{ '%.1f'|format(c.median) }}<small>ms</small>{% else %}—{% endif %}</div>
+    {{ c.chart|safe }}
+  </div>
+  {% endfor %}
+</div>
+
+{% if d.tunnels %}
+<div class="section-title"><h2>{{ t.nav.tunnels }}</h2><a href="{{ url_for('tunnels') }}">→</a></div>
+<div class="grid cols-3">
+  {% for c in d.tunnels %}
+  <div class="card target"><div class="role"><span>{{ c.type }}</span><span class="badge {{ c.css if c.css != 'ok' else '' }}">{{ t.tun[c.state] }}</span></div>
+    <div class="value sm">{{ c.name }}</div>
+    {% if c.cause %}<div class="muted">{{ c.cause|cause }}</div>{% endif %}</div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

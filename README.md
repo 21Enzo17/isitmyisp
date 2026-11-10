@@ -41,15 +41,16 @@ docker run -d --name isitmyisp --restart unless-stopped --net=host --cap-add=NET
   -v /run/systemd/resolve:/run/systemd/resolve:ro isitmyisp monitor
 docker exec isitmyisp isitmyisp report --since 7d -o /data/report.html
 ```
-Set `TZ` to your time zone so the report shows local times. While `monitor` runs, the dashboard is on **http://127.0.0.1:8080** (local only by default; `--web 0.0.0.0:8080` exposes it on your LAN, `--web off` disables it). It has no authentication, so only expose it on a network you trust.
+Set `TZ` to your time zone so the report shows local times. While `monitor` runs, the web UI is on **http://127.0.0.1:8080** (local only by default; `--web 0.0.0.0:8080` exposes it on your LAN, `--web off` disables it). On first start the logs print a **one-time setup token**: open the link, create your admin account, and configure everything from the browser.
 
-The image is ~315 MB, mostly because of the PDF engine (WeasyPrint + Pango).
+The image is ~330 MB, mostly because of the PDF engine (WeasyPrint + Pango).
 `--net=host` is required to see your real gateway and path. The `/run/systemd/resolve` mount is optional: it lets the container see your real DNS servers on systemd-resolved hosts. Without it, your router is assumed to be your resolver.
 
 ## Without Docker
-Needs Linux, `fping` (recommended) or iputils `ping`, and `mtr`. No root and no Python dependencies.
+Needs Linux, `fping` (recommended) or iputils `ping`, and `mtr`. No root. The measuring core has no Python dependencies; the web UI and PDF are extras.
 ```bash
-pip install -e .
+pip install -e .            # CLI only
+pip install -e '.[web,pdf]' # + web UI and PDF
 isitmyisp discover          # gateway, ISP, DNS, CGNAT, IPv6, path segments
 isitmyisp status -s 30      # measure 30 s and get a verdict
 isitmyisp mtr 8.8.8.8       # mtr with real loss vs ICMP noise
@@ -75,6 +76,32 @@ isitmyisp is meant to run on your network for months. By default it **never send
 
 Bandwidth: about 1.3 GB/month at the default `monitor` settings (one ping every 2 s to 5–6 targets).
 
+## Web UI and security
+Dashboard, incidents, tunnels, reports and **settings** (anchors, intervals, language, tunnels, access) are all in the browser and applied live: no restart, no config files to edit. Everything works without JavaScript.
+
+Authentication is built on audited libraries, not hand-rolled crypto:
+
+| | |
+|---|---|
+| **Accounts** | Flask-Login sessions, **Argon2id** password hashes (argon2-cffi), login rate limit (Flask-Limiter) |
+| **First admin** | Created with a one-time setup token printed in the logs, so nobody on your LAN can claim the instance first |
+| **CSRF** | Token on every form (Flask-WTF) plus a same-origin `Origin` check |
+| **Headers** | Strict CSP (no scripts at all), `X-Frame-Options: DENY`, `HttpOnly` + `SameSite` cookies (`ISITMYISP_SECURE_COOKIES=1` behind HTTPS) |
+| **Server** | Waitress (production WSGI), untrusted `X-Forwarded-*` headers stripped |
+
+Three authentication modes, chosen in Settings → Access:
+- **local** (default): accounts with passwords.
+- **proxy**: trust a user header (`Remote-User`) from **Authelia, Authentik, oauth2-proxy or Tailscale**, only from the proxy addresses you list. You get SSO, 2FA and passkeys from your proxy. The UI refuses to switch to this mode unless your current request really comes through the proxy, so you can't lock yourself out.
+- **none**: only allowed while the UI listens on localhost, and settings become read-only.
+
+Locked out anyway? Recover from the console:
+```bash
+docker exec -it isitmyisp isitmyisp admin auth-mode local
+docker exec -it isitmyisp isitmyisp admin reset-password <user>
+docker exec -it isitmyisp isitmyisp admin setup-token
+```
+Prometheus scrapes `/metrics` with a bearer token shown in Settings (`authorization: { credentials: <token> }`). `/healthz` is public and only returns `{"ok": true|false}`.
+
 ## Dashboard, metrics and API
 | Path | What |
 |---|---|
@@ -82,10 +109,11 @@ Bandwidth: about 1.3 GB/month at the default `monitor` settings (one ping every 
 | `/report?since=7d&lang=es` | Evidence report (HTML) |
 | `/report.pdf?since=7d` | Evidence report (PDF) |
 | `/metrics` | Prometheus: `isitmyisp_loss_ratio`, `isitmyisp_rtt_median_ms`, `isitmyisp_verdict`, `isitmyisp_incident_active`, `isitmyisp_incidents_total` |
-| `/api/status` | Current state as JSON |
+| `/api/status` | Current state as JSON (login or proxy auth) |
+| `/healthz` | Public liveness check, no details |
 
 ## Tunnel mode
-Create `config.toml` in the data directory (`/data` in Docker), or pass `--config`:
+Add tunnels in **Settings → Tunnels**. If you prefer configuration as code, a `config.toml` in the data directory (`/data` in Docker) or `--config` takes precedence, and the UI shows those tunnels read-only:
 ```toml
 [[tunnel]]
 name = "branch-office"
@@ -126,6 +154,7 @@ ICMP and TCP must agree before blaming anyone, and nothing is blamed on a handfu
 - [x] Tunnel mode: path vs configuration, periodic drop (rekey) detection
 - [x] Dashboard, Prometheus `/metrics`, `/api/status`, PDF export
 - [x] CI workflow: tests on Python 3.10–3.13, multi-arch image (amd64/arm64) to GHCR
+- [x] Web UI with settings applied live, local/proxy/none authentication, console recovery
 - [ ] MTU/MSS probing through tunnels, alerts (Telegram/Discord), Wi-Fi signal (`iw`)
 
 ## License

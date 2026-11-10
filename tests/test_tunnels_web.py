@@ -1,8 +1,5 @@
-import json
 import tempfile
 import unittest
-import urllib.error
-import urllib.request
 from pathlib import Path
 
 from isitmyisp.classifier import Measurements
@@ -12,7 +9,7 @@ from isitmyisp.probes.icmp import WindowStats
 from isitmyisp.store import Store
 from isitmyisp.timeutil import parse_when
 from isitmyisp.tunnels import classify_tunnel, periodic_interval
-from isitmyisp.web import metrics_text, start_server
+from isitmyisp.api import metrics_text
 
 T = Tunnel("branch", "198.51.100.20", "10.10.0.1", "ipsec-l2tp")
 T0 = 1_794_000_000.0
@@ -114,58 +111,24 @@ class MonitorTunnels(unittest.TestCase):
             store.close()
 
 
-class Web(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.tmp = tempfile.TemporaryDirectory()
-        cls.store = Store(Path(cls.tmp.name) / "w.db")
-        mon = Monitor(cls.store, WIN)
-        for i in range(4):
-            m, rows = healthy_internet()
-            mon.step(m, rows, now=T0 + (i + 1) * WIN)
-        cls.httpd = start_server(cls.store, "127.0.0.1:0")
-        cls.base = f"http://127.0.0.1:{cls.httpd.server_address[1]}"
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.httpd.shutdown()
-        cls.store.close()
-        cls.tmp.cleanup()
-
-    def get(self, path):
-        with urllib.request.urlopen(self.base + path, timeout=5) as r:
-            return r.status, r.headers.get("Content-Type"), r.read().decode()
-
-    def test_dashboard(self):
-        code, ctype, body = self.get("/?lang=es")
-        self.assertEqual(code, 200)
-        self.assertIn("text/html", ctype)
-        self.assertIn('http-equiv="refresh"', body)
-        self.assertNotIn("<script", body)
-
-    def test_status_json(self):
-        _, ctype, body = self.get("/api/status")
-        data = json.loads(body)
-        self.assertEqual(data["verdict"], "ok")
-        self.assertEqual(ctype, "application/json")
-
+class Metrics(unittest.TestCase):
     def test_metrics_format(self):
-        _, _, body = self.get("/metrics")
-        self.assertIn('isitmyisp_verdict{code="ok"} 1', body)
-        self.assertIn('isitmyisp_loss_ratio{role="anchor",target="1.1.1.1"} 0.0', body)
-        for line in body.splitlines():
-            self.assertTrue(line.startswith(("# HELP isitmyisp_", "# TYPE isitmyisp_", "isitmyisp_")), line)
-
-    def test_report_and_404(self):
-        code, _, body = self.get("/report?since=2026-01-01")
-        self.assertEqual(code, 200)
-        self.assertIn("<svg", body)
-        with self.assertRaises(urllib.error.HTTPError) as ctx:
-            self.get("/nope")
-        self.assertEqual(ctx.exception.code, 404)
-
-    def test_metrics_text_escapes_labels(self):
-        self.assertIn("isitmyisp_incidents_total", metrics_text(self.store))
+        with tempfile.TemporaryDirectory() as d:
+            store = Store(Path(d) / "m.db")
+            mon = Monitor(store, WIN)
+            for i in range(3):
+                m, rows = healthy_internet()
+                mon.step(m, rows, now=T0 + (i + 1) * WIN)
+            body = metrics_text(store)
+            self.assertIn('isitmyisp_verdict{code="ok"} 1', body)
+            self.assertIn('isitmyisp_loss_ratio{role="anchor",target="1.1.1.1"} 0.0', body)
+            for line in body.splitlines():
+                self.assertTrue(line.startswith(("# HELP isitmyisp_", "# TYPE isitmyisp_", "isitmyisp_")), line)
+            # a target removed from the settings disappears from the latest samples
+            m, rows = healthy_internet()
+            mon.step(m, [r for r in rows if r[1].target != "8.8.8.8"], now=T0 + 10 * WIN)
+            self.assertNotIn("8.8.8.8", {s["target"] for s in store.latest_samples()})
+            store.close()
 
 
 if __name__ == "__main__":

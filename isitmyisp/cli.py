@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 
@@ -14,7 +15,7 @@ from .probes.icmp import IcmpProber, WindowStats
 from .probes.mtr import MtrError, PathAnalysis, analyze_path, run_mtr
 from .probes.sockets import SocketProber
 from .stats import loss_is_significant
-from .config import Config, ConfigError, load as load_config
+from .config import ConfigError, load as load_config
 from .store import Store, data_dir
 from .timeutil import parse_when as _parse_when
 from .tunnels import classify_tunnel
@@ -93,20 +94,21 @@ def print_table(rows: list[tuple[str, WindowStats]], t: dict) -> None:
 # ---------------------------------------------------------------- measuring
 
 class Session:
-    """Everything probed for one discovered network."""
+    """Everything probed for one discovered network, with the current settings."""
 
     def __init__(self, net: Network, interval: float, socket_interval: float, engine: str | None = None,
-                 config: Config | None = None):
+                 anchors: list[str] | None = None, tunnels: list | None = None):
         self.net = net
-        self.tunnels = (config or Config()).tunnels
+        self.anchors = list(anchors or ANCHORS_V4)
+        self.tunnels = list(tunnels or [])
         self.roles: list[tuple[str, str]] = [("home", r) for r in net.home_routers]
         if net.isp_hop:
             self.roles.append(("isp", net.isp_hop))
-        self.roles += [("anchor", a) for a in ANCHORS_V4]
+        self.roles += [("anchor", a) for a in self.anchors]
         tunnel_targets = [ip for t in self.tunnels for ip in (t.underlay, t.overlay)]
         self.last_tunnels: list = []
         self.icmp = IcmpProber([ip for _, ip in self.roles] + tunnel_targets, interval=interval, engine=engine)
-        self.sockets = SocketProber(tcp=ANCHORS_V4, dns=net.dns_servers[:MAX_DNS], interval=socket_interval)
+        self.sockets = SocketProber(tcp=self.anchors, dns=net.dns_servers[:MAX_DNS], interval=socket_interval)
 
     def __enter__(self) -> "Session":
         self.icmp.__enter__()
@@ -123,21 +125,29 @@ class Session:
         m = Measurements(
             home=[icmp[r] for r in self.net.home_routers],
             isp_hop=icmp.get(self.net.isp_hop) if self.net.isp_hop else None,
-            anchors=[icmp[a] for a in ANCHORS_V4],
-            anchors_tcp={a: socks[SocketProber.tcp_name(a)] for a in ANCHORS_V4},
+            anchors=[icmp[a] for a in self.anchors],
+            anchors_tcp={a: socks[SocketProber.tcp_name(a)] for a in self.anchors},
             dns=[socks[SocketProber.dns_name(s)] for s in self.net.dns_servers[:MAX_DNS]],
             wireless=self.net.wireless,
         )
         rows = [(role, icmp[ip]) for role, ip in self.roles]
-        rows += [("tcp", socks[SocketProber.tcp_name(a)]) for a in ANCHORS_V4]
+        rows += [("tcp", socks[SocketProber.tcp_name(a)]) for a in self.anchors]
         rows += [("dns", d) for d in m.dns]
         self.last_tunnels = [(t, icmp.get(t.underlay), icmp.get(t.overlay)) for t in self.tunnels]
         return m, rows
 
 
-def _config(args) -> Config:
+def _settings(args, store: Store | None = None):
+    """Live settings: SQLite (web UI) when a store is given, defaults otherwise; TOML tunnels win."""
+    from . import settings as settings_mod
     try:
-        return load_config(args.config, data_dir())
+        if store is not None:
+            return settings_mod.load(store, args.config, data_dir())
+        s = settings_mod.Settings()
+        cfg = load_config(args.config, data_dir())
+        if cfg.path:
+            s.tunnels, s.tunnels_from_file = cfg.tunnels, cfg.path
+        return s
     except ConfigError as exc:
         raise SystemExit(f"config: {exc}")
 
@@ -170,8 +180,9 @@ def cmd_discover(args, t) -> int:
 
 def cmd_status(args, t) -> int:
     net = _discover(args)
-    cfg = _config(args)
-    with Session(net, args.interval, socket_interval=2.0, engine=args.engine, config=cfg) as s:
+    cfg = _settings(args, Store(args.db) if args.db or default_db_exists() else None)
+    with Session(net, args.interval, socket_interval=2.0, engine=args.engine,
+                 anchors=cfg.anchors, tunnels=cfg.tunnels) as s:
         print_network(net, t, engine=s.icmp.name)
         end = time.time() + args.seconds
         while (left := end - time.time()) > 0:
@@ -207,36 +218,54 @@ def cmd_mtr(args, t) -> int:
     return _mtr(args.target, args.cycles, t, args)
 
 
+def _start_web(store: Store, args, t):
+    try:
+        from .webapp import WebServer, create_app, setup_token_if_needed
+    except ImportError:
+        print("🌐 web UI disabled: install it with pip install 'isitmyisp[web]' (the Docker image includes it)")
+        return None
+    app = create_app(store, data_dir=data_dir(), toml_path=args.config, bind=args.web,
+                     secure_cookies=os.environ.get("ISITMYISP_SECURE_COOKIES") == "1")
+    server = WebServer(app, args.web).start()
+    print(f"🌐 http://{args.web}")
+    token = setup_token_if_needed(store, args.config, data_dir())
+    if token:
+        print(f"🔑 {t['setup_token']}: {token}")
+        print(f"   http://{args.web}/setup?token={token}")
+    return server
+
+
 def cmd_monitor(args, t) -> int:
     from .discovery import network_to_dict
     from .monitor import Monitor, mtr_capturer
 
     store = Store(args.db)
-    mon = Monitor(store, window_seconds=args.window,
+    cfg = _settings(args, store)
+    mon = Monitor(store, window_seconds=args.window or cfg.window,
                   capture=mtr_capturer(store, data_dir(), asn_online=args.asn_online))
     mon.resume()
-    httpd = None
-    if args.web and args.web != "off":
-        from .web import start_server
-        httpd = start_server(store, args.web, lang=_lang_code(args, t))
-        print(f"🌐 http://{args.web}")
-    cfg = _config(args)
-    if cfg.path:
-        print(f"⚙️  {cfg.path}: {len(cfg.tunnels)} tunnel(s)")
+    server = _start_web(store, args, t) if args.web and args.web != "off" else None
+    if cfg.tunnels_from_file:
+        print(f"⚙️  {cfg.tunnels_from_file}: {len(cfg.tunnels)} tunnel(s)")
     print(f"💾 {store.path}  {t['stop_hint']}")
     try:
-        while True:  # one iteration per discovered network; re-discover on route change or timer
+        while True:  # one session per (network, settings); rebuilt on route change, timer or new settings
+            cfg = _settings(args, store)
+            window = args.window or cfg.window
+            interval = args.interval or cfg.interval
+            mon.window = window
             net = _discover(args)
             snapshot = network_to_dict(net)
             snapshot["tunnels"] = [tun.name for tun in cfg.tunnels]
             store.add_network(snapshot)
             route = default_route()
-            with Session(net, args.interval, socket_interval=3.0, engine=args.engine, config=cfg) as s:
+            with Session(net, interval, socket_interval=3.0, engine=args.engine,
+                         anchors=cfg.anchors, tunnels=cfg.tunnels) as s:
                 print_network(net, t, engine=s.icmp.name)
                 started = time.time()
-                time.sleep(args.window + 1.5)
+                time.sleep(window + 1.5)
                 while True:
-                    m, rows = s.measure(args.window)
+                    m, rows = s.measure(window)
                     res = mon.step(m, rows, tunnels=s.last_tunnels)
                     stamp = time.strftime("%Y-%m-%d %H:%M:%S")
                     if res.transition.closed:
@@ -249,7 +278,10 @@ def cmd_monitor(args, t) -> int:
                             print(f"\n[{stamp}] {t['opened']} · {tv.name}: {t['tun_' + tv.code]}")
                         if ttr.closed:
                             print(f"\n[{stamp}] {t['closed']} · {tv.name}")
-                    time.sleep(args.window)
+                    time.sleep(window)
+                    if store.settings_version() != cfg.version:
+                        print(f"\n{t['settings_changed']}")
+                        break
                     if default_route() != route or time.time() - started > args.rediscover * 60:
                         if default_route() != route:
                             print(f"\n{t['rediscover']}")
@@ -257,8 +289,8 @@ def cmd_monitor(args, t) -> int:
     except KeyboardInterrupt:
         pass
     finally:
-        if httpd:
-            httpd.shutdown()
+        if server:
+            server.stop()
         store.close()
     return 0
 
@@ -296,19 +328,62 @@ def _lang_code(args, t) -> str:
 
 
 def cmd_web(args, t) -> int:
-    from .web import start_server
     store = Store(args.db)
-    httpd = start_server(store, args.bind, lang=_lang_code(args, t))
-    print(f"🌐 http://{args.bind}  {t['stop_hint']}")
+    args.web = args.bind
+    server = _start_web(store, args, t)
+    if server is None:
+        return 2
+    print(t["stop_hint"])
     try:
         while True:
             time.sleep(3600)
     except KeyboardInterrupt:
         pass
     finally:
-        httpd.shutdown()
+        server.stop()
         store.close()
     return 0
+
+
+def cmd_admin(args, t) -> int:
+    """Recovery from the console: works even when you are locked out of the web UI."""
+    import getpass
+
+    from . import settings as settings_mod
+    store = Store(args.db)
+    try:
+        if args.action == "auth-mode":
+            settings_mod.save(store, {"auth_mode": args.value})
+            print(f"auth_mode = {args.value}")
+        elif args.action == "setup-token":
+            print(settings_mod.issue_setup_token(store))
+        elif args.action in ("create-user", "reset-password"):
+            from .webapp import auth
+            name = args.value
+            pw = getpass.getpass("password: ")
+            problem = auth.password_problem(pw, getpass.getpass("confirm: "))
+            if problem:
+                raise SystemExit(t["pw_" + problem] if "pw_" + problem in t else problem)
+            row = store.get_user(username=name)
+            if args.action == "create-user":
+                if row:
+                    raise SystemExit(f"user {name!r} already exists")
+                store.add_user(name, auth.hash_password(pw))
+            else:
+                if not row:
+                    raise SystemExit(f"no user {name!r}")
+                store.set_password_hash(row[0], auth.hash_password(pw))
+            print("ok")
+    except settings_mod.SettingsError as exc:
+        raise SystemExit(str(exc))
+    finally:
+        store.close()
+    return 0
+
+
+def default_db_exists() -> bool:
+    from .store import default_path
+    return default_path().exists()
 
 
 def cmd_update_asn(args, t) -> int:
@@ -342,8 +417,8 @@ def build_parser() -> argparse.ArgumentParser:
     m.add_argument("-c", "--cycles", type=int, default=20)
 
     mon = sub.add_parser("monitor", help="measure continuously and store results")
-    mon.add_argument("-w", "--window", type=int, default=30, help="seconds per sample window")
-    mon.add_argument("-i", "--interval", type=float, default=2.0, help="seconds between pings")
+    mon.add_argument("-w", "--window", type=int, help="seconds per sample window (default: from settings, 30)")
+    mon.add_argument("-i", "--interval", type=float, help="seconds between pings (default: from settings, 2)")
     mon.add_argument("--rediscover", type=int, default=15, help="re-discover the path every N minutes")
     mon.add_argument("--db", help="SQLite path (default: ~/.local/share/isitmyisp/data.db)")
     mon.add_argument("--web", default="127.0.0.1:8080",
@@ -360,6 +435,11 @@ def build_parser() -> argparse.ArgumentParser:
     web.add_argument("--bind", default="127.0.0.1:8080")
     web.add_argument("--db", help="SQLite path (default: ~/.local/share/isitmyisp/data.db)")
 
+    adm = sub.add_parser("admin", help="console recovery: auth mode, setup token, users")
+    adm.add_argument("action", choices=["auth-mode", "setup-token", "create-user", "reset-password"])
+    adm.add_argument("value", nargs="?", default="", help="mode (local/proxy/none) or username")
+    adm.add_argument("--db", help="SQLite path (default: ~/.local/share/isitmyisp/data.db)")
+
     sub.add_parser("update-asn", help="download the public IP-to-ASN dataset for offline lookups")
     return p
 
@@ -368,7 +448,8 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     t = pick(args.lang)
     handlers = {"discover": cmd_discover, "status": cmd_status, "mtr": cmd_mtr,
-                "monitor": cmd_monitor, "report": cmd_report, "web": cmd_web, "update-asn": cmd_update_asn}
+                "monitor": cmd_monitor, "report": cmd_report, "web": cmd_web, "admin": cmd_admin,
+                "update-asn": cmd_update_asn}
     return handlers[args.cmd](args, t)
 
 

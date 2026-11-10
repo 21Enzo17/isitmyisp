@@ -13,6 +13,7 @@ requires-python = ">=3.10"
 dependencies = []
 
 [project.optional-dependencies]
+web = ["flask>=3.0", "flask-login>=0.6.3", "flask-wtf>=1.2", "argon2-cffi>=23.1", "flask-limiter>=3.5", "waitress>=3.0"]
 pdf = ["weasyprint>=60"]
 
 [project.scripts]
@@ -20,3 +21,6 @@ isitmyisp = "isitmyisp.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["isitmyisp*"]
+
+[tool.setuptools.package-data]
+"isitmyisp.webapp" = ["templates/*.html", "static/*"]

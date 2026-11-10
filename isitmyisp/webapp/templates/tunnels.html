@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ t.nav.tunnels }}{% endblock %}
+{% block content %}
+<div class="topbar"><h1>{{ t.nav.tunnels }}</h1><div class="right"><a class="btn" href="{{ url_for('settings_page') }}#tunnels">◎ {{ t.nav.settings }}</a></div></div>
+{% if not tunnels %}
+<div class="card hero"><h3>{{ t.no_tunnels }}</h3><p class="muted">{{ t.add_tunnel_hint }}</p></div>
+{% else %}
+<div class="grid cols-3">
+  {% for c in tunnels %}
+  <div class="card target">
+    <div class="role"><span>{{ c.type }}</span><span class="badge {{ c.css if c.css != 'ok' else '' }}">{{ t.tun[c.state] }}{% if c.since %} · {{ c.since }}{% endif %}</span></div>
+    <div class="value sm">{{ c.name }}</div>
+    {% if c.cause %}<p>{{ c.cause|cause }}</p>{% endif %}
+    <table>
+      <tr><td class="muted">{{ t.overlay }}</td><td class="mono">{{ c.overlay }}</td><td class="num">{{ '%.1f%%'|format(c.loss_inside) if c.loss_inside is not none else '—' }}</td></tr>
+      <tr><td class="muted">{{ t.underlay }}</td><td class="mono">{{ c.underlay }}</td><td class="num">{{ '%.1f%%'|format(c.loss_outside) if c.loss_outside is not none else '—' }}</td></tr>
+    </table>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

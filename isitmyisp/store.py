@@ -61,6 +61,19 @@ CREATE TABLE IF NOT EXISTS networks (
     ts REAL NOT NULL,
     data TEXT NOT NULL           -- JSON
 );
+
+-- settings edited from the web UI (JSON values); 'version' changes on every write
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,   -- argon2id
+    created REAL NOT NULL
+);
 """
 
 
@@ -225,12 +238,12 @@ class Store:
             return self.db.execute("SELECT ts, seconds, code FROM windows ORDER BY ts DESC LIMIT 1").fetchone()
 
     def latest_samples(self) -> list[dict]:
-        """Every target's most recent window."""
+        """The targets of the most recent window only: a target removed from the settings
+        (or from the path after a re-discovery) must not linger on the dashboard or in /metrics."""
         with self._lock:
             cur = self.db.execute(
-                "SELECT s.ts, s.role, s.target, s.sent, s.received, s.rtt_median, s.jitter FROM samples s"
-                " JOIN (SELECT target, MAX(ts) AS ts FROM samples GROUP BY target) m"
-                " ON s.target = m.target AND s.ts = m.ts ORDER BY s.role, s.target")
+                "SELECT ts, role, target, sent, received, rtt_median, jitter FROM samples"
+                " WHERE ts = (SELECT MAX(ts) FROM samples) ORDER BY role, target")
             cols = [c[0] for c in cur.description]
             return [dict(zip(cols, r)) for r in cur.fetchall()]
 
@@ -257,6 +270,51 @@ class Store:
             if not row:
                 row = self.db.execute("SELECT data FROM networks ORDER BY ts LIMIT 1").fetchone()
         return json.loads(row[0]) if row else None
+
+    # ------------------------------------------------------------ settings & users
+
+    def get_setting(self, key: str, default=None):
+        with self._lock:
+            row = self.db.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        return json.loads(row[0]) if row else default
+
+    def set_settings(self, values: dict, bump: bool = True) -> None:
+        """bump=False for internal secrets: they must not make the monitor reload its configuration."""
+        with self._lock:
+            for k, v in values.items():
+                self.db.execute("INSERT INTO settings (key, value) VALUES (?, ?) "
+                                "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (k, json.dumps(v)))
+            if not bump:
+                self.db.commit()
+                return
+            version = (self.get_setting("_version", 0) or 0) + 1
+            self.db.execute("INSERT INTO settings (key, value) VALUES ('_version', ?) "
+                            "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (json.dumps(version),))
+            self.db.commit()
+
+    def settings_version(self) -> int:
+        return int(self.get_setting("_version", 0) or 0)
+
+    def user_count(self) -> int:
+        with self._lock:
+            return self.db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+
+    def add_user(self, username: str, password_hash: str) -> int:
+        with self._lock:
+            cur = self.db.execute("INSERT INTO users (username, password_hash, created) VALUES (?,?,?)",
+                                  (username, password_hash, time.time()))
+            self.db.commit()
+            return int(cur.lastrowid)
+
+    def get_user(self, *, user_id: int | None = None, username: str | None = None) -> tuple | None:
+        q, arg = ("id = ?", user_id) if user_id is not None else ("username = ?", username)
+        with self._lock:
+            return self.db.execute(f"SELECT id, username, password_hash FROM users WHERE {q}", (arg,)).fetchone()
+
+    def set_password_hash(self, user_id: int, password_hash: str) -> None:
+        with self._lock:
+            self.db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (password_hash, user_id))
+            self.db.commit()
 
     def first_and_last_window(self) -> tuple[float | None, float | None]:
         with self._lock:

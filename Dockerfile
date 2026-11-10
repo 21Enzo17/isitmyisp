@@ -17,14 +17,15 @@ ENV LC_ALL=C.UTF-8 \
 WORKDIR /app
 COPY pyproject.toml README.md LICENSE ./
 COPY isitmyisp ./isitmyisp
-RUN pip install --no-cache-dir ".[pdf]"
+RUN pip install --no-cache-dir ".[web,pdf]"
 
 VOLUME ["/data"]
 EXPOSE 8080
 # Needs host networking to see your real gateway and path:
 #   docker run --rm --net=host --cap-add=NET_RAW -v isitmyisp:/data isitmyisp status
 # Dashboard on http://127.0.0.1:8080 (monitor --web 0.0.0.0:8080 to expose it on your LAN).
-HEALTHCHECK --interval=1m --timeout=5s --start-period=2m \
-  CMD python -c "import json,urllib.request,sys; s=json.load(urllib.request.urlopen('http://127.0.0.1:8080/api/status',timeout=4)); sys.exit(1 if s['stale'] else 0)" || exit 1
+# First run: the logs print a one-time setup token to create the admin account.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s \
+  CMD python -c "import os,urllib.request,sys; u=os.environ.get('ISITMYISP_HEALTH_URL','http://127.0.0.1:8080/healthz'); sys.exit(0 if urllib.request.urlopen(u,timeout=4).status==200 else 1)" || exit 1
 ENTRYPOINT ["isitmyisp"]
 CMD ["monitor"]

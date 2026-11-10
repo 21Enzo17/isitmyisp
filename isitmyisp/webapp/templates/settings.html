@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{{ t.settings_title }}{% endblock %}
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
+{% block content %}
+<div class="topbar"><h1>{{ t.settings_title }}</h1></div>
+{% if error %}<div class="flash err">{{ error }}</div>{% endif %}
+{% if readonly %}<div class="flash err">{{ t.readonly }}</div>{% endif %}
+<div class="stack">
+  <div class="card"><h3>{{ t.general }}</h3>
+    <form method="post" action="{{ url_for('settings_general') }}">{{ csrf() }}
+      <label for="anchors">{{ t.anchors }}</label>
+      <textarea id="anchors" name="anchors" {{ 'disabled' if readonly }}>{{ s.anchors|join('\n') }}</textarea>
+      <div class="form-row">
+        <div><label for="interval">{{ t.interval }}</label><input type="number" step="0.5" min="0.5" max="10" id="interval" name="interval" value="{{ s.interval }}" {{ 'disabled' if readonly }}></div>
+        <div><label for="window">{{ t.window }}</label><input type="number" min="10" max="300" id="window" name="window" value="{{ s.window }}" {{ 'disabled' if readonly }}></div>
+        <div><label for="lang">{{ t.language }}</label><select id="lang" name="lang" {{ 'disabled' if readonly }}>
+          <option value="en" {{ 'selected' if s.lang == 'en' }}>English</option><option value="es" {{ 'selected' if s.lang == 'es' }}>Español</option></select></div>
+      </div>
+      {% if not readonly %}<div class="actions"><button class="btn primary" type="submit">{{ t.save }}</button></div>{% endif %}
+    </form>
+  </div>
+
+  <div class="card" id="tunnels"><h3>{{ t.tunnels_title }}</h3>
+    {% if s.tunnels_from_file %}<p class="muted">{{ t.from_file.format(path=s.tunnels_from_file) }}</p>{% endif %}
+    {% if s.tunnels %}
+    <table><thead><tr><th>{{ t.name }}</th><th>{{ t.type }}</th><th>{{ t.underlay }}</th><th>{{ t.overlay }}</th><th></th></tr></thead><tbody>
+      {% for tun in s.tunnels %}
+      <tr><td>{{ tun.name }}</td><td>{{ tun.type }}</td><td class="mono">{{ tun.underlay }}</td><td class="mono">{{ tun.overlay }}</td>
+        <td class="num">{% if not readonly and not s.tunnels_from_file %}
+          <form class="inline" method="post" action="{{ url_for('tunnel_delete') }}">{{ csrf() }}<input type="hidden" name="name" value="{{ tun.name }}">
+          <button class="btn small danger" type="submit">{{ t.delete }}</button></form>{% endif %}</td></tr>
+      {% endfor %}
+    </tbody></table>{% else %}<p class="muted">{{ t.no_tunnels }}</p>{% endif %}
+    {% if not readonly and not s.tunnels_from_file %}
+    <form method="post" action="{{ url_for('tunnel_add') }}">{{ csrf() }}
+      <div class="form-row">
+        <div><label for="tname">{{ t.name }}</label><input type="text" id="tname" name="name" required maxlength="40"></div>
+        <div><label for="ttype">{{ t.type }}</label><select id="ttype" name="type">
+          {% for ty in ['ipsec-l2tp', 'ipsec', 'wireguard', 'openvpn', 'other'] %}<option value="{{ ty }}">{{ ty }}</option>{% endfor %}</select></div>
+        <div><label for="tunder">{{ t.underlay }}</label><input type="text" id="tunder" name="underlay" required placeholder="203.0.113.10"></div>
+        <div><label for="tover">{{ t.overlay }}</label><input type="text" id="tover" name="overlay" required placeholder="10.10.0.1"></div>
+      </div>
+      <div class="actions"><button class="btn primary" type="submit">{{ t.add }}</button></div>
+    </form>{% endif %}
+  </div>
+
+  <div class="card"><h3>{{ t.security }}</h3>
+    <p class="muted">{{ t.bind_hint.format(bind=bind) }}</p>
+    <form method="post" action="{{ url_for('settings_access') }}">{{ csrf() }}
+      <label for="auth_mode">{{ t.auth_mode }}</label>
+      <select id="auth_mode" name="auth_mode" {{ 'disabled' if readonly }}>
+        {% for m in ['local', 'proxy', 'none'] %}<option value="{{ m }}" {{ 'selected' if s.auth_mode == m }}>{{ t.auth_modes[m] }}</option>{% endfor %}</select>
+      <div class="form-row">
+        <div><label for="proxy_header">{{ t.proxy_header }}</label><input type="text" id="proxy_header" name="proxy_header" value="{{ s.proxy_header }}" {{ 'disabled' if readonly }}></div>
+        <div><label for="trusted_proxies">{{ t.trusted_proxies }}</label><textarea id="trusted_proxies" name="trusted_proxies" {{ 'disabled' if readonly }}>{{ s.trusted_proxies|join('\n') }}</textarea></div>
+      </div>
+      {% if not readonly %}<div class="actions"><button class="btn primary" type="submit">{{ t.save }}</button></div>{% endif %}
+    </form>
+  </div>
+
+  {% if user and user.source == 'local' %}
+  <div class="card"><h3>{{ t.change_password }}</h3>
+    <form method="post" action="{{ url_for('settings_password') }}">{{ csrf() }}
+      <div class="form-row">
+        <div><label for="pw">{{ t.password }}</label><input type="password" id="pw" name="password" autocomplete="current-password" required></div>
+        <div><label for="npw">{{ t.new_password }}</label><input type="password" id="npw" name="new_password" autocomplete="new-password" minlength="10" required></div>
+        <div><label for="cpw">{{ t.confirm }}</label><input type="password" id="cpw" name="confirm" autocomplete="new-password" minlength="10" required></div>
+      </div>
+      <div class="actions"><button class="btn primary" type="submit">{{ t.change_password }}</button></div>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if metrics_token %}
+  <div class="card"><h3>{{ t.metrics }}</h3>
+    <p class="muted">{{ t.metrics_hint }}</p>
+    <div class="token mono">{{ metrics_token }}</div>
+    <form method="post" action="{{ url_for('settings_metrics_token') }}">{{ csrf() }}
+      <div class="actions"><button class="btn" type="submit">{{ t.rotate }}</button></div></form>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

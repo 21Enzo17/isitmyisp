@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="{{ lang }}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ t.setup_title }} · isitmyisp</title><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
+<body><div class="auth-wrap"><div class="auth">
+  <div class="brand"><div class="logo">i</div><div><b>isitmyisp</b><small>is it my ISP?</small></div></div>
+  <div class="card"><h3>{{ t.setup_title }}</h3><p class="muted">{{ t.setup_sub }}</p>
+    {% if error %}<div class="flash err">{{ error }}</div>{% endif %}
+    <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="tok">{{ t.token }}</label><input type="text" id="tok" name="token" value="{{ token }}" required autocomplete="off">
+      <label for="u">{{ t.username }}</label><input type="text" id="u" name="username" autocomplete="username" required maxlength="64">
+      <label for="p">{{ t.password }}</label><input type="password" id="p" name="password" autocomplete="new-password" minlength="10" required>
+      <label for="c">{{ t.confirm }}</label><input type="password" id="c" name="confirm" autocomplete="new-password" minlength="10" required>
+      <div class="actions"><button class="btn primary" type="submit">{{ t.create }}</button></div>
+    </form></div>
+</div></div></body></html>
