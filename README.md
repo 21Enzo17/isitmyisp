@@ -3,7 +3,7 @@
 **Is it your Wi-Fi, your router or your ISP?**
 A self-hosted connection monitor, built by someone who worked in an ISP's NOC. It finds *where* the problem is and builds the evidence your ISP needs to escalate your ticket.
 
-> 🚧 Early development. Monitoring, incidents and the HTML evidence report work; the web dashboard, tunnel mode and published images are coming.
+> 🚧 Early development: monitoring, incidents, the evidence report (HTML/PDF), the dashboard, Prometheus metrics and tunnel mode all work. Not yet battle-tested on many networks.
 
 ## Why another monitor?
 Most tools either run speedtests, which measure the thing that rarely breaks and eat your data cap, or plot pings without telling you what they mean. isitmyisp reads the network the way a NOC engineer does:
@@ -13,6 +13,7 @@ Most tools either run speedtests, which measure the thing that rarely breaks and
 - **It doesn't cry wolf.** "1 packet lost out of 50" is not 2% loss, it's noise. Loss only counts when it's statistically significant (95% Wilson interval), latency is judged against each target's own baseline, and incidents need consecutive bad windows to open.
 - **It blames the right segment,** using address types and AS numbers, not hop positions: your home (including a second router if you have double NAT), your ISP's access network, your ISP's backbone, or a single remote destination.
 - **It detects CGNAT, double NAT and IPv6** and explains what that means for you.
+- **Tunnel mode:** did your IPsec/L2TP/WireGuard tunnel drop because of its configuration or because of the path? It measures outside and inside the tunnel at the same time, and spots drops that repeat on a schedule (the fingerprint of mismatched rekey lifetimes).
 
 ```
 $ isitmyisp discover
@@ -40,7 +41,9 @@ docker run -d --name isitmyisp --restart unless-stopped --net=host --cap-add=NET
   -v /run/systemd/resolve:/run/systemd/resolve:ro isitmyisp monitor
 docker exec isitmyisp isitmyisp report --since 7d -o /data/report.html
 ```
-Set `TZ` to your time zone so the report shows local times.
+Set `TZ` to your time zone so the report shows local times. While `monitor` runs, the dashboard is on **http://127.0.0.1:8080** (local only by default; `--web 0.0.0.0:8080` exposes it on your LAN, `--web off` disables it). It has no authentication, so only expose it on a network you trust.
+
+The image is ~315 MB, mostly because of the PDF engine (WeasyPrint + Pango).
 `--net=host` is required to see your real gateway and path. The `/run/systemd/resolve` mount is optional: it lets the container see your real DNS servers on systemd-resolved hosts. Without it, your router is assumed to be your resolver.
 
 ## Without Docker
@@ -51,7 +54,9 @@ isitmyisp discover          # gateway, ISP, DNS, CGNAT, IPv6, path segments
 isitmyisp status -s 30      # measure 30 s and get a verdict
 isitmyisp mtr 8.8.8.8       # mtr with real loss vs ICMP noise
 isitmyisp monitor           # measure continuously, open/close incidents, capture mtr evidence
-isitmyisp report --since 7d # self-contained HTML evidence report (print it to PDF from any browser)
+isitmyisp report --since 7d # self-contained HTML evidence report
+isitmyisp report --pdf      # PDF (pip install 'isitmyisp[pdf]')
+isitmyisp web               # dashboard + /metrics from an existing database
 isitmyisp --lang es status  # Spanish output
 ```
 
@@ -69,6 +74,34 @@ isitmyisp is meant to run on your network for months. By default it **never send
 | api.ipify.org | only with `--public-ip` | an HTTPS request (reveals your public IP to them) | **off** |
 
 Bandwidth: about 1.3 GB/month at the default `monitor` settings (one ping every 2 s to 5–6 targets).
+
+## Dashboard, metrics and API
+| Path | What |
+|---|---|
+| `/` | Current verdict, active incident, last 24 h timeline, tunnels, targets. Refreshes every 30 s, no JavaScript |
+| `/report?since=7d&lang=es` | Evidence report (HTML) |
+| `/report.pdf?since=7d` | Evidence report (PDF) |
+| `/metrics` | Prometheus: `isitmyisp_loss_ratio`, `isitmyisp_rtt_median_ms`, `isitmyisp_verdict`, `isitmyisp_incident_active`, `isitmyisp_incidents_total` |
+| `/api/status` | Current state as JSON |
+
+## Tunnel mode
+Create `config.toml` in the data directory (`/data` in Docker), or pass `--config`:
+```toml
+[[tunnel]]
+name = "branch-office"
+underlay = "203.0.113.10"   # the far end's PUBLIC address (outside the tunnel)
+overlay = "10.10.0.1"       # an address on the far side reached THROUGH the tunnel
+type = "ipsec-l2tp"         # ipsec-l2tp | ipsec | wireguard | openvpn | other
+```
+| Through the tunnel | Outside the tunnel | Verdict |
+|---|---|---|
+| fine | — | up |
+| failing | clean | **tunnel configuration**: DPD, IKE/IPsec lifetimes and rekey, NAT-T, MTU/MSS |
+| failing | losing too, your internet fine | **the far site or the path to it** |
+| failing | losing too, your internet bad | **your connection** |
+| failing | the far end never answers ping | can't tell (it filters ICMP) |
+
+If configuration drops repeat at a regular interval, the report says so: that's almost always mismatched lifetimes or rekey timers between both ends.
 
 ## The evidence report
 `isitmyisp report` writes one self-contained HTML file: no JavaScript and no external assets. It has two readers in mind:
@@ -90,9 +123,10 @@ ICMP and TCP must agree before blaming anyone, and nothing is blamed on a handfu
 - [x] Statistical significance, per-target baselines, hysteresis, re-discovery when the route changes
 - [x] Incidents with hysteresis and automatic mtr capture stored as evidence
 - [x] HTML evidence report (EN/ES): plain-language summary, timeline, incidents, message for your ISP, mtr appendix, methodology
-- [ ] Web dashboard and one-click PDF
-- [ ] **Tunnel mode:** did your IPsec/L2TP/WireGuard tunnel drop because of your config or because of loss on the path?
-- [ ] Prometheus `/metrics`, multi-arch images (amd64/arm64), alerts (Telegram/Discord)
+- [x] Tunnel mode: path vs configuration, periodic drop (rekey) detection
+- [x] Dashboard, Prometheus `/metrics`, `/api/status`, PDF export
+- [x] CI workflow: tests on Python 3.10–3.13, multi-arch image (amd64/arm64) to GHCR
+- [ ] MTU/MSS probing through tunnels, alerts (Telegram/Discord), Wi-Fi signal (`iw`)
 
 ## License
 MIT

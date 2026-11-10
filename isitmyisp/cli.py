@@ -14,7 +14,10 @@ from .probes.icmp import IcmpProber, WindowStats
 from .probes.mtr import MtrError, PathAnalysis, analyze_path, run_mtr
 from .probes.sockets import SocketProber
 from .stats import loss_is_significant
+from .config import Config, ConfigError, load as load_config
 from .store import Store, data_dir
+from .timeutil import parse_when as _parse_when
+from .tunnels import classify_tunnel
 
 MAX_DNS = 3
 
@@ -92,13 +95,17 @@ def print_table(rows: list[tuple[str, WindowStats]], t: dict) -> None:
 class Session:
     """Everything probed for one discovered network."""
 
-    def __init__(self, net: Network, interval: float, socket_interval: float, engine: str | None = None):
+    def __init__(self, net: Network, interval: float, socket_interval: float, engine: str | None = None,
+                 config: Config | None = None):
         self.net = net
+        self.tunnels = (config or Config()).tunnels
         self.roles: list[tuple[str, str]] = [("home", r) for r in net.home_routers]
         if net.isp_hop:
             self.roles.append(("isp", net.isp_hop))
         self.roles += [("anchor", a) for a in ANCHORS_V4]
-        self.icmp = IcmpProber([ip for _, ip in self.roles], interval=interval, engine=engine)
+        tunnel_targets = [ip for t in self.tunnels for ip in (t.underlay, t.overlay)]
+        self.last_tunnels: list = []
+        self.icmp = IcmpProber([ip for _, ip in self.roles] + tunnel_targets, interval=interval, engine=engine)
         self.sockets = SocketProber(tcp=ANCHORS_V4, dns=net.dns_servers[:MAX_DNS], interval=socket_interval)
 
     def __enter__(self) -> "Session":
@@ -124,7 +131,25 @@ class Session:
         rows = [(role, icmp[ip]) for role, ip in self.roles]
         rows += [("tcp", socks[SocketProber.tcp_name(a)]) for a in ANCHORS_V4]
         rows += [("dns", d) for d in m.dns]
+        self.last_tunnels = [(t, icmp.get(t.underlay), icmp.get(t.overlay)) for t in self.tunnels]
         return m, rows
+
+
+def _config(args) -> Config:
+    try:
+        return load_config(args.config, data_dir())
+    except ConfigError as exc:
+        raise SystemExit(f"config: {exc}")
+
+
+def print_tunnels(results, t: dict) -> None:
+    if not results:
+        return
+    print(f"\n{t['tunnels']}")
+    for tv in results:
+        print(f"  {tv.name:<20} {t['tun_' + tv.code]}")
+        for e in tv.evidence:
+            print(f"     · {e}")
 
 
 def _discover(args) -> Network:
@@ -145,7 +170,8 @@ def cmd_discover(args, t) -> int:
 
 def cmd_status(args, t) -> int:
     net = _discover(args)
-    with Session(net, args.interval, socket_interval=2.0, engine=args.engine) as s:
+    cfg = _config(args)
+    with Session(net, args.interval, socket_interval=2.0, engine=args.engine, config=cfg) as s:
         print_network(net, t, engine=s.icmp.name)
         end = time.time() + args.seconds
         while (left := end - time.time()) > 0:
@@ -157,6 +183,8 @@ def cmd_status(args, t) -> int:
     print_table(rows, t)
     v = classify(m)
     print_verdict(v, t)
+    print_tunnels([classify_tunnel(tun, under, over, v.code in ("ok", "remote", "dns"))
+                   for tun, under, over in s.last_tunnels], t)
     if v.code in ("access", "isp", "remote"):
         worst = max(m.anchors, key=lambda a: a.loss)
         _mtr(worst.target, 20, t, args)
@@ -187,25 +215,40 @@ def cmd_monitor(args, t) -> int:
     mon = Monitor(store, window_seconds=args.window,
                   capture=mtr_capturer(store, data_dir(), asn_online=args.asn_online))
     mon.resume()
+    httpd = None
+    if args.web and args.web != "off":
+        from .web import start_server
+        httpd = start_server(store, args.web, lang=_lang_code(args, t))
+        print(f"🌐 http://{args.web}")
+    cfg = _config(args)
+    if cfg.path:
+        print(f"⚙️  {cfg.path}: {len(cfg.tunnels)} tunnel(s)")
     print(f"💾 {store.path}  {t['stop_hint']}")
     try:
         while True:  # one iteration per discovered network; re-discover on route change or timer
             net = _discover(args)
-            store.add_network(network_to_dict(net))
+            snapshot = network_to_dict(net)
+            snapshot["tunnels"] = [tun.name for tun in cfg.tunnels]
+            store.add_network(snapshot)
             route = default_route()
-            with Session(net, args.interval, socket_interval=3.0, engine=args.engine) as s:
+            with Session(net, args.interval, socket_interval=3.0, engine=args.engine, config=cfg) as s:
                 print_network(net, t, engine=s.icmp.name)
                 started = time.time()
                 time.sleep(args.window + 1.5)
                 while True:
                     m, rows = s.measure(args.window)
-                    res = mon.step(m, rows)
+                    res = mon.step(m, rows, tunnels=s.last_tunnels)
                     stamp = time.strftime("%Y-%m-%d %H:%M:%S")
                     if res.transition.closed:
                         print(f"\n[{stamp}] {t['closed']}: {res.transition.closed}")
                     if res.transition.opened:
                         print(f"\n[{stamp}] {t['opened']}", end="")
                         print_verdict(res.verdict, t)
+                    for tv, ttr in res.tunnels:
+                        if ttr.opened:
+                            print(f"\n[{stamp}] {t['opened']} · {tv.name}: {t['tun_' + tv.code]}")
+                        if ttr.closed:
+                            print(f"\n[{stamp}] {t['closed']} · {tv.name}")
                     time.sleep(args.window)
                     if default_route() != route or time.time() - started > args.rediscover * 60:
                         if default_route() != route:
@@ -214,36 +257,57 @@ def cmd_monitor(args, t) -> int:
     except KeyboardInterrupt:
         pass
     finally:
+        if httpd:
+            httpd.shutdown()
         store.close()
     return 0
-
-
-def _parse_when(value: str) -> float:
-    """'7d', '24h', '90m' (ago) or 'YYYY-MM-DD[ HH:MM]' (local time)."""
-    units = {"d": 86400, "h": 3600, "m": 60}
-    if value and value[-1] in units and value[:-1].isdigit():
-        return time.time() - int(value[:-1]) * units[value[-1]]
-    for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d"):
-        try:
-            return time.mktime(time.strptime(value, fmt))
-        except ValueError:
-            continue
-    raise SystemExit(f"invalid date: {value!r} (use 7d, 24h or YYYY-MM-DD[ HH:MM])")
 
 
 def cmd_report(args, t) -> int:
     from .report import build_report
 
+    try:
+        start = _parse_when(args.since)
+        end = _parse_when(args.until) if args.until else time.time()
+    except ValueError as exc:
+        raise SystemExit(str(exc))
     store = Store(args.db)
-    start = _parse_when(args.since)
-    end = _parse_when(args.until) if args.until else time.time()
-    lang = args.lang or ("es" if t is pick("es") else "en")
-    html_doc = build_report(store, start, end, lang=lang)
+    html_doc = build_report(store, start, end, lang=_lang_code(args, t))
     store.close()
-    out = args.out or f"isitmyisp-report-{time.strftime('%Y%m%d-%H%M')}.html"
-    with open(out, "w", encoding="utf-8") as fh:
-        fh.write(html_doc)
+    ext = "pdf" if args.pdf else "html"
+    out = args.out or f"isitmyisp-report-{time.strftime('%Y%m%d-%H%M')}.{ext}"
+    if args.pdf:
+        from .pdf import PdfUnavailable, html_to_pdf
+        try:
+            data = html_to_pdf(html_doc)
+        except PdfUnavailable as exc:
+            raise SystemExit(str(exc))
+        with open(out, "wb") as fh:
+            fh.write(data)
+    else:
+        with open(out, "w", encoding="utf-8") as fh:
+            fh.write(html_doc)
     print(f"📄 {out}")
+    return 0
+
+
+def _lang_code(args, t) -> str:
+    return args.lang or ("es" if t is pick("es") else "en")
+
+
+def cmd_web(args, t) -> int:
+    from .web import start_server
+    store = Store(args.db)
+    httpd = start_server(store, args.bind, lang=_lang_code(args, t))
+    print(f"🌐 http://{args.bind}  {t['stop_hint']}")
+    try:
+        while True:
+            time.sleep(3600)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        httpd.shutdown()
+        store.close()
     return 0
 
 
@@ -264,6 +328,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="look up ASNs via Team Cymru whois (sends your path's public IPs to them)")
     p.add_argument("--public-ip", action="store_true", help="ask api.ipify.org for your public IPv4")
     p.add_argument("--engine", choices=["fping", "ping"], help="force an ICMP engine (default: fping if installed)")
+    p.add_argument("--config", help="TOML config file (tunnels); default: <data dir>/config.toml")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("discover", help="show gateway, ISP, DNS, CGNAT, IPv6 and the path segments")
@@ -281,12 +346,19 @@ def build_parser() -> argparse.ArgumentParser:
     mon.add_argument("-i", "--interval", type=float, default=2.0, help="seconds between pings")
     mon.add_argument("--rediscover", type=int, default=15, help="re-discover the path every N minutes")
     mon.add_argument("--db", help="SQLite path (default: ~/.local/share/isitmyisp/data.db)")
+    mon.add_argument("--web", default="127.0.0.1:8080",
+                     help="dashboard address, or 'off' (default 127.0.0.1:8080; use 0.0.0.0:8080 to expose on your LAN)")
 
     rep = sub.add_parser("report", help="write the HTML evidence report")
     rep.add_argument("--since", default="7d", help="7d, 24h, 90m or YYYY-MM-DD[ HH:MM] (default: 7d)")
     rep.add_argument("--until", help="same formats (default: now)")
     rep.add_argument("-o", "--out", help="output file (default: isitmyisp-report-<date>.html)")
     rep.add_argument("--db", help="SQLite path (default: ~/.local/share/isitmyisp/data.db)")
+    rep.add_argument("--pdf", action="store_true", help="write PDF instead of HTML (needs WeasyPrint)")
+
+    web = sub.add_parser("web", help="serve the dashboard, /metrics and /api/status from an existing database")
+    web.add_argument("--bind", default="127.0.0.1:8080")
+    web.add_argument("--db", help="SQLite path (default: ~/.local/share/isitmyisp/data.db)")
 
     sub.add_parser("update-asn", help="download the public IP-to-ASN dataset for offline lookups")
     return p
@@ -296,7 +368,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     t = pick(args.lang)
     handlers = {"discover": cmd_discover, "status": cmd_status, "mtr": cmd_mtr,
-                "monitor": cmd_monitor, "report": cmd_report, "update-asn": cmd_update_asn}
+                "monitor": cmd_monitor, "report": cmd_report, "web": cmd_web, "update-asn": cmd_update_asn}
     return handlers[args.cmd](args, t)
 
 

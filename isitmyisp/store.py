@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS incidents (
     closed REAL,
     code TEXT NOT NULL,
     evidence TEXT NOT NULL,      -- JSON list of strings, from the window that opened it
-    peak_loss REAL NOT NULL DEFAULT 0
+    peak_loss REAL NOT NULL DEFAULT 0,
+    scope TEXT NOT NULL DEFAULT 'internet'   -- 'internet' or 'tunnel:<name>'
 );
 CREATE INDEX IF NOT EXISTS incidents_opened ON incidents(opened);
 
@@ -82,6 +83,11 @@ class Incident:
     code: str
     evidence: list[str]
     peak_loss: float
+    scope: str = "internet"
+
+    @property
+    def tunnel(self) -> str | None:
+        return self.scope[len("tunnel:"):] if self.scope.startswith("tunnel:") else None
 
     def duration(self, now: float | None = None) -> float:
         return (self.closed or now or time.time()) - self.opened
@@ -108,6 +114,9 @@ class Store:
             cols = {r[1] for r in self.db.execute("PRAGMA table_info(samples)")}
             if "rtt_median" not in cols:  # databases created by v0.1.0.dev0
                 self.db.execute("ALTER TABLE samples ADD COLUMN rtt_median REAL")
+            icols = {r[1] for r in self.db.execute("PRAGMA table_info(incidents)")}
+            if "scope" not in icols:  # databases created before tunnel mode
+                self.db.execute("ALTER TABLE incidents ADD COLUMN scope TEXT NOT NULL DEFAULT 'internet'")
 
     # ------------------------------------------------------------ writes
 
@@ -124,10 +133,11 @@ class Store:
         with self._lock:
             self.db.execute("INSERT INTO windows VALUES (?,?,?)", (ts or time.time(), seconds, code))
 
-    def open_incident(self, code: str, evidence: list[str], ts: float | None = None) -> int:
+    def open_incident(self, code: str, evidence: list[str], ts: float | None = None,
+                      scope: str = "internet") -> int:
         with self._lock:
-            cur = self.db.execute("INSERT INTO incidents (opened, code, evidence) VALUES (?,?,?)",
-                                  (ts or time.time(), code, json.dumps(evidence)))
+            cur = self.db.execute("INSERT INTO incidents (opened, code, evidence, scope) VALUES (?,?,?,?)",
+                                  (ts or time.time(), code, json.dumps(evidence), scope))
             self.db.commit()
             return int(cur.lastrowid)
 
@@ -190,12 +200,44 @@ class Store:
             cols = [c[0] for c in cur.description]
             return [dict(zip(cols, r)) for r in cur.fetchall()]
 
-    def incidents_between(self, start: float, end: float) -> list[Incident]:
+    def incidents_between(self, start: float, end: float, scope: str | None = "internet") -> list[Incident]:
+        """scope='internet' (default), 'tunnel:<name>', 'tunnels' (any tunnel) or None (everything)."""
+        q = ("SELECT id, opened, closed, code, evidence, peak_loss, scope FROM incidents"
+             " WHERE opened <= ? AND (closed IS NULL OR closed >= ?)")
+        args: list = [end, start]
+        if scope == "tunnels":
+            q += " AND scope LIKE 'tunnel:%'"
+        elif scope is not None:
+            q += " AND scope = ?"
+            args.append(scope)
         with self._lock:
-            rows = self.db.execute(
-                "SELECT id, opened, closed, code, evidence, peak_loss FROM incidents"
-                " WHERE opened <= ? AND (closed IS NULL OR closed >= ?) ORDER BY opened", (end, start)).fetchall()
-        return [Incident(r[0], r[1], r[2], r[3], json.loads(r[4]), r[5]) for r in rows]
+            rows = self.db.execute(q + " ORDER BY opened", args).fetchall()
+        return [Incident(r[0], r[1], r[2], r[3], json.loads(r[4]), r[5], r[6]) for r in rows]
+
+    def active_incidents(self) -> list[Incident]:
+        with self._lock:
+            rows = self.db.execute("SELECT id, opened, closed, code, evidence, peak_loss, scope FROM incidents"
+                                   " WHERE closed IS NULL ORDER BY opened").fetchall()
+        return [Incident(r[0], r[1], r[2], r[3], json.loads(r[4]), r[5], r[6]) for r in rows]
+
+    def last_window(self) -> tuple[float, float, str] | None:
+        with self._lock:
+            return self.db.execute("SELECT ts, seconds, code FROM windows ORDER BY ts DESC LIMIT 1").fetchone()
+
+    def latest_samples(self) -> list[dict]:
+        """Every target's most recent window."""
+        with self._lock:
+            cur = self.db.execute(
+                "SELECT s.ts, s.role, s.target, s.sent, s.received, s.rtt_median, s.jitter FROM samples s"
+                " JOIN (SELECT target, MAX(ts) AS ts FROM samples GROUP BY target) m"
+                " ON s.target = m.target AND s.ts = m.ts ORDER BY s.role, s.target")
+            cols = [c[0] for c in cur.description]
+            return [dict(zip(cols, r)) for r in cur.fetchall()]
+
+    def incident_counts(self) -> dict[tuple[str, str], int]:
+        with self._lock:
+            rows = self.db.execute("SELECT scope, code, COUNT(*) FROM incidents GROUP BY scope, code").fetchall()
+        return {(r[0], r[1]): r[2] for r in rows}
 
     def captures_for(self, incident_ids: list[int]) -> dict[int, list[Capture]]:
         if not incident_ids:

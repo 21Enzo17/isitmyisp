@@ -38,6 +38,12 @@ MSG = {
         "asn_done": "Saved to {p}. ASN lookups are now offline.",
         "opened": "⚠️  Incident opened", "closed": "✅ Incident closed", "rediscover": "🔄 Network changed, re-discovering",
         "stop_hint": "(Ctrl+C to stop)",
+        "tunnels": "Tunnels",
+        "tun_up": "✅ up", "tun_no_data": "❔ no data yet",
+        "tun_path_local": "📡 down: loss on YOUR connection (outside the tunnel too)",
+        "tun_path_remote": "🌐 down: the far site or the path to it is losing packets (your internet is fine)",
+        "tun_config": "⚙️  down while the path outside is clean: tunnel configuration (DPD, lifetimes/rekey, NAT-T, MTU)",
+        "tun_unknown": "❔ down, and the far end never answers ICMP outside the tunnel: can't tell path from config",
     },
     "es": {
         "ok": "✅ Tu conexión se ve sana.",
@@ -72,6 +78,12 @@ MSG = {
         "asn_done": "Guardado en {p}. Las consultas de ASN ahora son offline.",
         "opened": "⚠️  Incidente abierto", "closed": "✅ Incidente cerrado", "rediscover": "🔄 La red cambió, re-descubriendo",
         "stop_hint": "(Ctrl+C para detener)",
+        "tunnels": "Túneles",
+        "tun_up": "✅ arriba", "tun_no_data": "❔ todavía sin datos",
+        "tun_path_local": "📡 caído: hay pérdida en TU conexión (también por fuera del túnel)",
+        "tun_path_remote": "🌐 caído: el sitio remoto o el camino hacia él pierde paquetes (tu internet anda bien)",
+        "tun_config": "⚙️  caído con el camino por fuera limpio: configuración del túnel (DPD, lifetimes/rekey, NAT-T, MTU)",
+        "tun_unknown": "❔ caído, y el otro extremo nunca responde ICMP por fuera: no se puede separar camino de configuración",
     },
 }
 

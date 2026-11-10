@@ -12,6 +12,9 @@ authors = [{ name = "Enzo Meneghini" }]
 requires-python = ">=3.10"
 dependencies = []
 
+[project.optional-dependencies]
+pdf = ["weasyprint>=60"]
+
 [project.scripts]
 isitmyisp = "isitmyisp.cli:main"
 
