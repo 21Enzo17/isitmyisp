@@ -30,6 +30,8 @@ DEFAULTS: dict = {
     "trusted_proxies": ["127.0.0.1/32", "::1/128"],
     "tunnels": [],             # list of {name, underlay, overlay, type}
     "services": [],            # list of {name, kind: http|tcp, target}
+    "link": {"enabled": False, "host": "", "community": "", "port": 161, "interface": "",
+             "down_mbps": 0, "up_mbps": 0},  # WAN usage read from the router by SNMP
 }
 
 SETUP_TOKEN_TTL = 24 * 3600
@@ -51,6 +53,7 @@ class Settings:
     tunnels: list[Tunnel] = field(default_factory=list)
     tunnels_from_file: Path | None = None  # set when a TOML file provides the tunnels
     services: list = field(default_factory=list)  # list[services.Service]
+    link: dict = field(default_factory=lambda: dict(DEFAULTS["link"]))
     version: int = 0
 
 
@@ -117,6 +120,8 @@ def validate(values: dict) -> dict:
         except ConfigError as exc:
             raise SettingsError(str(exc)) from exc
         out["tunnels"] = [t.__dict__ for t in parsed]
+    if "link" in values:
+        out["link"] = _validate_link(values["link"])
     if "services" in values:
         from .services import ServiceError, validate as validate_services
         try:
@@ -124,6 +129,32 @@ def validate(values: dict) -> dict:
         except ServiceError as exc:
             raise SettingsError(str(exc)) from exc
     return out
+
+
+def _validate_link(raw: dict) -> dict:
+    link = {**DEFAULTS["link"], **raw}
+    link["enabled"] = bool(link.get("enabled"))
+    link["host"] = str(link.get("host", "")).strip()
+    link["community"] = str(link.get("community", "")).strip()
+    link["interface"] = str(link.get("interface", "")).strip()
+    try:
+        link["port"] = int(link.get("port") or 161)
+        link["down_mbps"] = float(link.get("down_mbps") or 0)
+        link["up_mbps"] = float(link.get("up_mbps") or 0)
+    except (TypeError, ValueError) as exc:
+        raise SettingsError("port and speeds must be numbers") from exc
+    if not 0 < link["port"] < 65536 or link["down_mbps"] < 0 or link["up_mbps"] < 0:
+        raise SettingsError("invalid port or speed")
+    if link["enabled"]:
+        try:
+            ipaddress.ip_address(link["host"])
+        except ValueError as exc:
+            raise SettingsError("router address must be an IP") from exc
+        if not link["community"] or len(link["community"]) > 64:
+            raise SettingsError("a read-only community is required")
+        if link["down_mbps"] <= 0 or link["up_mbps"] <= 0:
+            raise SettingsError("set the contracted download and upload speeds (needed to tell if the link is full)")
+    return link
 
 
 # ------------------------------------------------------------------ load / save
@@ -139,6 +170,7 @@ def load(store: Store, toml_path: str | None = None, data_dir: Path | None = Non
         trusted_proxies=list(raw["trusted_proxies"]),
         tunnels=[Tunnel(**t) for t in raw["tunnels"]], version=store.settings_version(),
         services=[Service(**sv) for sv in raw["services"]],
+        link={**DEFAULTS["link"], **(raw.get("link") or {})},
     )
     if data_dir is not None or toml_path:
         cfg: Config = load_toml(toml_path, data_dir or Path("."))

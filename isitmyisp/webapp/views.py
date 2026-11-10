@@ -14,7 +14,7 @@ from ..api import is_stale
 ROLE_ORDER = {"home": 0, "isp": 1, "anchor": 2, "tcp": 3, "dns": 4}
 CAUSE_CLASS = {"ok": "ok", "local": "warn", "access": "bad", "isp": "bad", "remote": "info", "dns": "info",
                "no_data": "muted", "stale": "muted", "config": "warn", "path_local": "bad",
-               "path_remote": "info", "unknown": "muted"}
+               "path_remote": "info", "unknown": "muted", "saturation": "warn"}
 
 
 def spark(values: list[float], css: str = "spark", w: int = 240, h: int = 44) -> str:
@@ -63,6 +63,8 @@ class Dashboard:
     tunnels: list = field(default_factory=list)
     brief: list = field(default_factory=list)
     services: list = field(default_factory=list)
+    link: dict | None = None
+    link_enabled: bool = False
 
 
 def _sample_loss(s: dict) -> float:
@@ -119,6 +121,12 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None,
                                     spark([h["rtt_median"] for h in hist])))
     d.tunnels = tunnel_cards(store, settings, now)
     d.services = service_cards(store, settings, now)
+    d.link_enabled = bool(settings.link.get("enabled"))
+    rows = store.link_usage_between(now - 3 * 3600, now)
+    if rows:
+        ts, down, up, dpct, upct, cpu = rows[-1]
+        d.link = {"down": down, "up": up, "down_pct": dpct, "up_pct": upct, "cpu": cpu,
+                  "chart": spark([r[3] if r[3] is not None else r[1] for r in rows[-90:]])}
     return d
 
 
@@ -158,6 +166,7 @@ def tunnel_cards(store: Store, settings: Settings, now: float | None = None) -> 
 @dataclass
 class IncidentRow:
     id: int
+    details: dict | None
     scope: str
     code: str
     css: str
@@ -172,7 +181,8 @@ def incident_rows(store: Store, t: dict, days: int = 30, now: float | None = Non
     rows = []
     for i in reversed(store.incidents_between(now - days * 86400, now, scope=None)):
         scope = t["scope_internet"] if i.scope == "internet" else (i.tunnel or i.scope.split(":", 1)[-1])
-        rows.append(IncidentRow(i.id, scope, i.code, CAUSE_CLASS.get(i.code, "muted"), i.opened, i.closed,
+        rows.append(IncidentRow(i.id, i.details if i.code in ("access", "isp") else None, scope, i.code,
+                                CAUSE_CLASS.get(i.code, "muted"), i.opened, i.closed,
                                 fmt_duration(i.duration(now)), i.evidence[:3]))
     return rows
 

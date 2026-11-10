@@ -12,6 +12,7 @@ Most tools either run speedtests, which measure the thing that rarely breaks and
 - **It doesn't trust ICMP alone.** For each destination it also times TCP handshakes to port 443, and it times real DNS queries to your resolvers. ICMP loss with clean TCP is deprioritization, not a problem.
 - **It doesn't cry wolf.** "1 packet lost out of 50" is not 2% loss, it's noise. Loss only counts when it's statistically significant (95% Wilson interval), latency is judged against each target's own baseline, and incidents need consecutive bad windows to open.
 - **It blames the right segment,** using address types and AS numbers, not hop positions: your home (including a second router if you have double NAT), your ISP's access network, your ISP's backbone, or a single remote destination.
+- **It doesn't over-claim.** A verdict places the problem in a segment of the path; every ISP-side incident lists **what the evidence rules out** (your LAN, ICMP noise, a single website, a full link) and **what it can't**. Connect it to your router (SNMP, read-only) and it rules out the ISP's favourite objection, "you saturated your own link", or tells you that you did.
 - **It detects CGNAT, double NAT and IPv6** and explains what that means for you.
 - **Your services:** "is it my internet, or is my bank / my ERP / the tax agency down?" Add any HTTP(S) or TCP service; when it's unreachable while your connection is healthy, the verdict says so.
 - **Alerts** by Telegram, email or webhook (Discord, Slack, Home Assistant…), only for problems that last, each one saying whose fault it is and what to do.
@@ -76,6 +77,7 @@ isitmyisp is meant to run on your network for months. By default it **never send
 | Team Cymru whois | only with `--asn-online` | the public IPs of your path | **off** |
 | api.ipify.org | only with `--public-ip` | an HTTPS request (reveals your public IP to them) | **off** |
 | Your services | only the ones you add | an HTTP GET (or TCP connect) every 30 s | **off** |
+| Your router (SNMP v2c, read-only) | only if you connect it | GET of the WAN interface counters and CPU, once per window | **off** |
 | api.telegram.org / your SMTP server / your webhook | only if you enable alerts | the alert text | **off** |
 
 Bandwidth: about 1.3 GB/month at the default `monitor` settings (one ping every 2 s to 5–6 targets).
@@ -163,7 +165,8 @@ ICMP and TCP must agree before blaming anyone, and nothing is blamed on a handfu
 - [x] CI workflow: tests on Python 3.10–3.13, multi-arch image (amd64/arm64) to GHCR
 - [x] Web UI with settings applied live, local/proxy/none authentication, console recovery
 - [x] Alerts (Telegram, email, webhook), your own services (HTTP/TCP), brief events with advice, automatic retention
-- [ ] MTU/MSS probing through tunnels, read-only users, scheduled bandwidth tests (LibreSpeed), monthly SLA report, Wi-Fi signal (`iw`)
+- [x] "What the evidence rules out / can't rule out" per incident; WAN usage and router CPU via SNMP; "link full: your own traffic" verdict
+- [ ] Failover detection, call quality (MOS), bandwidth vs contract with a data budget, multi-site hub, read-only users, monthly SLA report
 
 ## License
 MIT

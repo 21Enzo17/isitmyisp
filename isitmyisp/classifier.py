@@ -17,7 +17,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .probes.icmp import WindowStats
+from .snmp import LinkUsage
 from .stats import Baseline, loss_is_significant
+
+SATURATION_PCT = 85.0   # link use (% of contracted speed) at which your own traffic explains the problem
+CLEAN_LINK_PCT = 70.0   # below this, saturation is ruled out
+ROUTER_CPU_BUSY = 80.0
 
 WIFI_LATENCY_MS = 15.0
 JITTER_BAD_MS = 20.0
@@ -31,6 +36,7 @@ class Measurements:
     anchors_tcp: dict[str, WindowStats] = field(default_factory=dict)  # anchor ip -> TCP stats
     dns: list[WindowStats] = field(default_factory=list)
     wireless: bool = False
+    link: LinkUsage | None = None  # WAN usage read from the router (SNMP), if configured
 
 
 @dataclass
@@ -91,6 +97,10 @@ def classify(m: Measurements, baselines: dict[str, Baseline] | None = None) -> V
             hints.append("router_icmp")
 
     isp_why = _why(m.isp_hop, baselines) if m.isp_hop else None
+    # Your own traffic filling the link looks exactly like an ISP problem from the outside.
+    if bad and m.link is not None and (m.link.peak_pct or 0) >= SATURATION_PCT:
+        return Verdict("saturation", evidence=[_link_text(m.link)] + [f"{a.target}: {w}" for a, w in bad[:2]],
+                       hints=hints)
     if anchors and len(bad) == len(anchors):
         ev = [f"{a.target}: {why}" for a, why in bad]
         if isp_why:
@@ -122,3 +132,40 @@ def classify(m: Measurements, baselines: dict[str, Baseline] | None = None) -> V
         hints.append("jitter")
     v.hints += [h for h in dict.fromkeys(hints) if h not in v.hints]
     return v
+
+
+def _link_text(link: LinkUsage) -> str:
+    def part(label, mbps, pct):
+        return f"{label} {mbps:.0f} Mbps" + (f" ({pct:.0f}% of contract)" if pct is not None else "")
+    return "WAN link use: " + ", ".join([part("down", link.down_mbps, link.down_pct), part("up", link.up_mbps, link.up_pct)])
+
+
+def assess(m: Measurements, v: Verdict, baselines: dict[str, Baseline] | None = None) -> dict:
+    """What the evidence rules out, and what it can't, for an ISP-side verdict.
+
+    Stored with every incident so the report can say it plainly instead of over-claiming.
+    """
+    baselines = baselines or {}
+    ruled_out: list[str] = []
+    not_ruled_out: list[str] = []
+    if v.code not in ("access", "isp"):
+        return {"ruled_out": ruled_out, "not_ruled_out": not_ruled_out}
+    if m.home and all(_why(h, baselines) is None for h in m.home if _has_data(h)):
+        ruled_out.append("home")                    # your LAN and router answered normally
+    tcp_bad = [a for a in m.anchors if _has_data(m.anchors_tcp.get(a.target)) and _why(m.anchors_tcp[a.target], baselines)]
+    if tcp_bad:
+        ruled_out.append("icmp_noise")              # real TCP connections were affected too
+    if len([a for a in m.anchors if _has_data(a)]) >= 2:
+        ruled_out.append("single_destination")      # several independent networks at once
+    if m.link is not None and m.link.peak_pct is not None and m.link.peak_pct < CLEAN_LINK_PCT:
+        ruled_out.append("saturation")              # the link wasn't full
+    else:
+        not_ruled_out.append("saturation")
+    if m.link is not None and m.link.cpu_pct is not None and m.link.cpu_pct < ROUTER_CPU_BUSY:
+        ruled_out.append("router_overload")
+    else:
+        not_ruled_out.append("router_overload")
+    if v.code == "isp":
+        not_ruled_out.append("transit")             # beyond the first hop it may be the ISP's own providers
+    return {"ruled_out": ruled_out, "not_ruled_out": not_ruled_out,
+            "link": None if m.link is None else m.link.__dict__}

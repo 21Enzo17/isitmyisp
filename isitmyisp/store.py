@@ -45,7 +45,8 @@ CREATE TABLE IF NOT EXISTS incidents (
     peak_loss REAL NOT NULL DEFAULT 0,
     scope TEXT NOT NULL DEFAULT 'internet',  -- 'internet', 'tunnel:<name>' or 'service:<name>'
     alerted INTEGER NOT NULL DEFAULT 0,      -- 'opened' alert sent
-    close_alerted INTEGER NOT NULL DEFAULT 0 -- 'closed' alert sent
+    close_alerted INTEGER NOT NULL DEFAULT 0,-- 'closed' alert sent
+    details TEXT                             -- JSON: what the evidence rules out / can't rule out
 );
 CREATE INDEX IF NOT EXISTS incidents_opened ON incidents(opened);
 
@@ -64,6 +65,13 @@ CREATE TABLE IF NOT EXISTS networks (
     ts REAL NOT NULL,
     data TEXT NOT NULL           -- JSON
 );
+
+-- WAN usage read from the router (SNMP), one row per window
+CREATE TABLE IF NOT EXISTS link_usage (
+    ts REAL NOT NULL,
+    down_mbps REAL, up_mbps REAL, down_pct REAL, up_pct REAL, cpu_pct REAL
+);
+CREATE INDEX IF NOT EXISTS link_usage_ts ON link_usage(ts);
 
 -- settings edited from the web UI (JSON values); 'version' changes on every write
 CREATE TABLE IF NOT EXISTS settings (
@@ -100,6 +108,7 @@ class Incident:
     evidence: list[str]
     peak_loss: float
     scope: str = "internet"
+    details: dict | None = None
 
     @property
     def tunnel(self) -> str | None:
@@ -139,6 +148,8 @@ class Store:
             for col in ("alerted", "close_alerted"):  # databases created before alerts
                 if col not in icols:
                     self.db.execute(f"ALTER TABLE incidents ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0")
+            if "details" not in icols:
+                self.db.execute("ALTER TABLE incidents ADD COLUMN details TEXT")
 
     # ------------------------------------------------------------ writes
 
@@ -203,6 +214,7 @@ class Store:
         now = now or time.time()
         with self._lock:
             n = self.db.execute("DELETE FROM samples WHERE ts < ?", (now - samples_days * 86400,)).rowcount
+            n += self.db.execute("DELETE FROM link_usage WHERE ts < ?", (now - samples_days * 86400,)).rowcount
             for table in ("windows", "networks"):
                 n += self.db.execute(f"DELETE FROM {table} WHERE ts < ?", (now - windows_days * 86400,)).rowcount
             self.db.commit()
@@ -249,7 +261,7 @@ class Store:
 
     def incidents_between(self, start: float, end: float, scope: str | None = "internet") -> list[Incident]:
         """scope='internet' (default), 'tunnel:<name>', 'tunnels' (any tunnel) or None (everything)."""
-        q = ("SELECT id, opened, closed, code, evidence, peak_loss, scope FROM incidents"
+        q = ("SELECT id, opened, closed, code, evidence, peak_loss, scope, details FROM incidents"
              " WHERE opened <= ? AND (closed IS NULL OR closed >= ?)")
         args: list = [end, start]
         if scope == "tunnels":
@@ -259,7 +271,22 @@ class Store:
             args.append(scope)
         with self._lock:
             rows = self.db.execute(q + " ORDER BY opened", args).fetchall()
-        return [Incident(r[0], r[1], r[2], r[3], json.loads(r[4]), r[5], r[6]) for r in rows]
+        return [Incident(r[0], r[1], r[2], r[3], json.loads(r[4]), r[5], r[6], json.loads(r[7]) if r[7] else None)
+                for r in rows]
+
+    def set_incident_details(self, incident_id: int, details: dict) -> None:
+        with self._lock:
+            self.db.execute("UPDATE incidents SET details = ? WHERE id = ?", (json.dumps(details), incident_id))
+
+    def add_link_usage(self, ts: float, u) -> None:
+        with self._lock:
+            self.db.execute("INSERT INTO link_usage VALUES (?,?,?,?,?,?)",
+                            (ts, u.down_mbps, u.up_mbps, u.down_pct, u.up_pct, u.cpu_pct))
+
+    def link_usage_between(self, start: float, end: float) -> list[tuple]:
+        with self._lock:
+            return self.db.execute("SELECT ts, down_mbps, up_mbps, down_pct, up_pct, cpu_pct FROM link_usage"
+                                   " WHERE ts BETWEEN ? AND ? ORDER BY ts", (start, end)).fetchall()
 
     def incidents_to_alert(self) -> tuple[list[Incident], list[Incident]]:
         """(open incidents not alerted yet, closed incidents whose 'opened' alert went out but not the 'closed' one)."""

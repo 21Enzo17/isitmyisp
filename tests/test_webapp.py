@@ -222,6 +222,22 @@ class CsrfAndSettings(WebAppBase):
         self.assertNotIn("B" * 35, html)  # the token is never rendered back
         self.assertEqual(alerts.load(self.store)["min_minutes"], 3)
 
+    def test_link_settings_and_interface_listing(self):
+        from unittest import mock
+        form = {"csrf_token": csrf(self.page()), "enabled": "1", "host": "192.168.1.1", "community": "ro-secret",
+                "port": "161", "interface": "ether1", "down_mbps": "1000", "up_mbps": "300"}
+        with mock.patch("isitmyisp.snmp.interfaces", return_value=[(1, "lo"), (2, "ether1"), (3, "bridge")]):
+            r = self.client.post("/settings/link", data={**form, "action": "test"})
+        self.assertEqual(r.status_code, 200)
+        html = r.get_data(as_text=True)
+        self.assertIn("ether1 · bridge", html)
+        self.assertEqual(settings_mod.load(self.store).link["enabled"], False)  # listing saves nothing
+        r = self.client.post("/settings/link", data={**form, "action": "save"})
+        self.assertEqual(r.status_code, 302)
+        link = settings_mod.load(self.store).link
+        self.assertEqual((link["enabled"], link["up_mbps"]), (True, 300.0))
+        self.assertNotIn("ro-secret", self.client.get("/settings").get_data(as_text=True))  # never rendered back
+
     def test_language_switch_is_remembered(self):
         r = self.client.get("/?lang=es")
         self.assertIn("isitmyisp_lang=es", r.headers.get("Set-Cookie", ""))

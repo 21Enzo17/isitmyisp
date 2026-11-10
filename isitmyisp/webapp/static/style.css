@@ -174,3 +174,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 label.check { display: flex; align-items: center; gap: 8px; color: var(--ink); margin: 10px 0; }
 label.check input { width: auto; accent-color: var(--accent); }
 p.small, .small { font-size: 12px; }
+.ruled-box { margin-top: 10px; font-size: 12.5px; }
+.ruled-h { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; margin: 8px 0 2px; }
+.ruled { color: var(--ok); } .notruled { color: var(--warn); }
+.kpi .v small { font-size: 13px; color: var(--muted); }

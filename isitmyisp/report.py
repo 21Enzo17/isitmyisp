@@ -21,7 +21,7 @@ ISP_CODES = ("access", "isp")
 TUNNEL_COLORS = {"path_local": "#d9534f", "path_remote": "#7b6fd0", "config": "#e0a526", "unknown": "#9aa0a6"}
 COLORS = {
     "ok": "#3fa66b", "local": "#e0a526", "access": "#d9534f", "isp": "#b83a6e",
-    "remote": "#7b6fd0", "dns": "#3b8ad9", "no_data": "#c9ccd1",
+    "remote": "#7b6fd0", "dns": "#3b8ad9", "no_data": "#c9ccd1", "saturation": "#e07b26",
 }
 
 R = {
@@ -37,21 +37,25 @@ R = {
         "hero_home": "Most problems ({k} of {n}) were on your side (Wi-Fi, LAN or your router), not your ISP's.",
         "by_segment": "Where the problems were",
         "seg": {"local": "Your side (Wi-Fi, LAN, router)", "access": "ISP access network",
-                "isp": "ISP backbone / upstream", "remote": "Remote destinations only", "dns": "DNS resolver"},
+                "isp": "ISP backbone / upstream", "remote": "Remote destinations only", "dns": "DNS resolver",
+                "saturation": "Link full: your own traffic"},
         "count": "Count", "duration": "Duration",
         "timeline": "Timeline", "status": "Status per window", "loss_chart": "Packet loss to the internet (%)",
         "lat_chart": "Latency to the internet (median, ms)",
         "legend": {"ok": "healthy", "local": "your side", "access": "ISP access", "isp": "ISP backbone",
-                   "remote": "remote", "dns": "DNS", "no_data": "not measuring (start-up, re-discovery, settings change)"},
+                   "remote": "remote", "dns": "DNS", "saturation": "link full (yours)",
+                   "no_data": "not measuring (start-up, re-discovery, settings change)"},
         "incident_list": "Incidents", "start": "Start", "end": "End", "where": "Where", "evidence": "Evidence",
         "ongoing": "ongoing", "capture": "mtr",
         "message": "Message for your ISP",
         "message_hint": "Copy and paste this into your support ticket. It only includes incidents inside the ISP's network.",
         "msg_none": "In this period there were no incidents attributable to the ISP's network.",
-        "msg_intro": ("Hello. Between {start} and {end} my connection had {n} {incidents} inside your network, "
-                      "{dur} in total. They were measured continuously from my home with isitmyisp: loss was "
-                      "confirmed with both ICMP and TCP, my own network (router and LAN) was healthy at the same time, "
-                      "and an mtr was captured during each incident."),
+        "msg_intro": ("Hello. Between {start} and {end} my connection had {n} {incidents} that the evidence places "
+                      "in your network, {dur} in total. They were measured continuously from my premises with isitmyisp: "
+                      "loss was confirmed with both ICMP and TCP, several independent destinations were affected at once, "
+                      "my own network (router and LAN) answered normally at the same time{sat}, and an mtr was captured "
+                      "during each incident."),
+        "msg_sat": ", and my link usage read from my router was below {pct}% of the contracted speed",
         "msg_item": "- {start} to {end} ({dur}): {where}{hop}.",
         "msg_hop": "; loss starts at hop {i} ({host}{asn})",
         "msg_outro": "Full report with every capture attached. Please escalate it to your network team.",
@@ -73,6 +77,8 @@ R = {
             "mistaken for loss.",
             "An incident opens after two consecutive bad windows and closes after two good ones.",
             "In mtr captures, loss on an intermediate hop is only real if it persists to the destination.",
+            "A verdict places the problem in a segment of the path; it is strong evidence, not legal proof. Each "
+            "ISP-side incident lists what the evidence rules out and what it cannot.",
         ],
         "tunnels": "Tunnels",
         "tun_cause": {"path_local": "Loss on your connection", "path_remote": "Far site or path to it",
@@ -100,21 +106,24 @@ R = {
         "hero_home": "La mayoría de los problemas ({k} de {n}) fueron de tu lado (Wi-Fi, LAN o tu router), no de tu ISP.",
         "by_segment": "Dónde estuvieron los problemas",
         "seg": {"local": "Tu lado (Wi-Fi, LAN, router)", "access": "Red de acceso del ISP",
-                "isp": "Red troncal / salida del ISP", "remote": "Solo destinos remotos", "dns": "Servidor DNS"},
+                "isp": "Red troncal / salida del ISP", "remote": "Solo destinos remotos", "dns": "Servidor DNS",
+                "saturation": "Enlace lleno: tu propio tráfico"},
         "count": "Cantidad", "duration": "Duración",
         "timeline": "Línea de tiempo", "status": "Estado por ventana", "loss_chart": "Pérdida de paquetes hacia internet (%)",
         "lat_chart": "Latencia hacia internet (mediana, ms)",
         "legend": {"ok": "sana", "local": "tu lado", "access": "acceso ISP", "isp": "troncal ISP",
-                   "remote": "remoto", "dns": "DNS", "no_data": "sin medir (arranque, redescubrimiento, cambio de configuración)"},
+                   "remote": "remoto", "dns": "DNS", "saturation": "enlace lleno (tuyo)",
+                   "no_data": "sin medir (arranque, redescubrimiento, cambio de configuración)"},
         "incident_list": "Incidentes", "start": "Inicio", "end": "Fin", "where": "Dónde", "evidence": "Evidencia",
         "ongoing": "en curso", "capture": "mtr",
         "message": "Mensaje para tu ISP",
         "message_hint": "Copialo y pegalo en tu reclamo. Solo incluye los incidentes dentro de la red del ISP.",
         "msg_none": "En este período no hubo incidentes atribuibles a la red del ISP.",
-        "msg_intro": ("Hola. Entre el {start} y el {end} mi conexión tuvo {n} {incidents} dentro de su red, "
-                      "{dur} en total. Los medí de forma continua desde mi casa con isitmyisp: la pérdida se confirmó "
-                      "por ICMP y por TCP, mi propia red (router y LAN) estaba sana al mismo tiempo, y se capturó un "
-                      "mtr durante cada incidente."),
+        "msg_intro": ("Hola. Entre el {start} y el {end} mi conexión tuvo {n} {incidents} que la evidencia ubica "
+                      "en su red, {dur} en total. Los medí de forma continua desde mis instalaciones con isitmyisp: la "
+                      "pérdida se confirmó por ICMP y por TCP, fallaban varios destinos independientes a la vez, mi propia "
+                      "red (router y LAN) respondía normal al mismo tiempo{sat}, y se capturó un mtr durante cada incidente."),
+        "msg_sat": ", y el uso de mi enlace leído de mi router estaba por debajo del {pct}% de la velocidad contratada",
         "msg_item": "- {start} a {end} ({dur}): {where}{hop}.",
         "msg_hop": "; la pérdida empieza en el salto {i} ({host}{asn})",
         "msg_outro": "Adjunto el informe completo con todas las capturas. Les pido que lo escalen al área de red.",
@@ -136,6 +145,8 @@ R = {
             "no se confunden con pérdida.",
             "Un incidente se abre tras dos ventanas malas seguidas y se cierra tras dos buenas.",
             "En las capturas mtr, la pérdida en un salto intermedio solo es real si sigue hasta el destino.",
+            "Un veredicto ubica el problema en un tramo del camino: es evidencia sólida, no una prueba legal. Cada "
+            "incidente atribuido al ISP indica qué descarta la evidencia y qué no puede descartar.",
         ],
         "tunnels": "Túneles",
         "tun_cause": {"path_local": "Pérdida en tu conexión", "path_remote": "Sitio remoto o camino hacia él",
@@ -309,6 +320,32 @@ def localize_evidence(line: str, lang: str) -> str:
     return line
 
 
+def describe_link(link: dict | None) -> str:
+    if not link:
+        return ""
+    def part(mbps, pct):
+        return f"{mbps:.0f} Mbps" + (f" ({pct:.0f}%)" if pct is not None else "")
+    return f"↓ {part(link['down_mbps'], link.get('down_pct'))} · ↑ {part(link['up_mbps'], link.get('up_pct'))}"
+
+
+def ruled_out_html(inc: Incident, lang: str) -> str:
+    """'What the evidence rules out / can't rule out' for ISP-side incidents."""
+    from .texts import NOT_RULED, RULED
+    d = inc.details or {}
+    if inc.code not in ISP_CODES or not d:
+        return ""
+    link = d.get("link") or {}
+    ok = [RULED[lang][c].format(link=describe_link(link), cpu=link.get("cpu_pct", "?"))
+          for c in d.get("ruled_out", []) if c in RULED[lang]]
+    no = [NOT_RULED[lang][c] for c in d.get("not_ruled_out", []) if c in NOT_RULED[lang]]
+    out = ""
+    if ok:
+        out += '<div class="ruled">' + "".join(f"<div>✓ {_e(x)}</div>" for x in ok) + "</div>"
+    if no:
+        out += '<div class="notruled">' + "".join(f"<div>? {_e(x)}</div>" for x in no) + "</div>"
+    return out
+
+
 def compress_evidence(lines: list[str]) -> list[str]:
     """'1.1.1.1: 33.3% loss (5/15)', '8.8.8.8: 33.3% loss (5/15)' -> '1.1.1.1, 8.8.8.8: 33.3% loss (5/15)'."""
     groups: dict[str, list[str]] = {}
@@ -394,8 +431,11 @@ def isp_message(incidents: list[Incident], captures: dict[int, list[Capture]], t
     if not isp:
         return t["msg_none"]
     total = sum(i.duration(now) for i in isp)
+    sat_ok = all(i.details and "saturation" in i.details.get("ruled_out", []) for i in isp)
+    from .classifier import CLEAN_LINK_PCT
     lines = [t["msg_intro"].format(start=_dt(start), end=_dt(end), n=len(isp), dur=fmt_duration(total),
-                                 incidents=t["plural"](len(isp))["incidents"]), ""]
+                                 incidents=t["plural"](len(isp))["incidents"],
+                                 sat=t["msg_sat"].format(pct=int(CLEAN_LINK_PCT)) if sat_ok else ""), ""]
     for inc in isp:
         hop_txt = ""
         for c in captures.get(inc.id, []):
@@ -447,6 +487,7 @@ table.incidents td.ev { font-size:12px; overflow-wrap:anywhere; }
 tr.muted td, .muted { color:var(--muted); }
 .verdict-line { font-weight:600; margin:6px 0 0; }
 ul.method li { margin:4px 0; }
+.ruled { margin-top:6px; color:#1f7a4d; } .notruled { margin-top:4px; color:#8a5a00; }
 footer { margin-top:36px; color:var(--muted); font-size:12px; border-top:1px solid var(--line); padding-top:10px; }
 @media print { main { padding: 0; } h2 { break-after: avoid; } table, svg, .tile { break-inside: avoid; } }
 """
@@ -515,7 +556,7 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
         rows = "".join(
             f'<tr><td><span class="dot" style="background:{COLORS[c]}"></span>{_e(t["seg"][c])}</td>'
             f'<td class="num">{len(agg[c])}</td><td class="num">{fmt_duration(sum(agg[c]))}</td></tr>'
-            for c in ("local", "access", "isp", "remote", "dns") if c in agg)
+            for c in ("local", "saturation", "access", "isp", "remote", "dns") if c in agg)
         out.append(f'<h2>{_e(t["by_segment"])}</h2><table><thead><tr><th></th><th class="num">{t["count"]}</th>'
                    f'<th class="num">{t["duration"]}</th></tr></thead><tbody>{rows}</tbody></table>')
 
@@ -538,6 +579,7 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
             caps = captures.get(inc.id, [])
             links = " ".join(f'<a href="#cap-{c.id}">{_e(t["capture"])} {_e(_dt(c.ts, False))}</a>' for c in caps)
             ev = "<br>".join(_e(localize_evidence(e, lang)) for e in compress_evidence(inc.evidence)[:3])
+            ev += ruled_out_html(inc, lang)
             rows.append(
                 f'<tr><td class="num">{idx}</td><td class="dt">{_dt_html(inc.opened)}</td>'
                 f'<td class="dt">{_dt_html(inc.closed) if inc.closed else _e(t["ongoing"])}</td>'

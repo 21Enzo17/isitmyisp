@@ -44,6 +44,26 @@
     </form>{% endif %}
   </div>
 
+  <div class="card" id="link"><h3>{{ t.snmp_title }}</h3><p class="muted">{{ t.link_sub }}</p>
+    {% if ifaces %}<div class="flash ok"><b>{{ t.snmp_ifaces }}:</b> {{ ifaces|join(' · ') }}</div>{% endif %}
+    <form method="post" action="{{ url_for('settings_link') }}">{{ csrf() }}
+      <label class="check"><input type="checkbox" name="enabled" value="1" {{ 'checked' if s.link.enabled }} {{ 'disabled' if readonly }}> {{ t.enabled }}</label>
+      <div class="form-row">
+        <div><label for="lh">{{ t.snmp_host }}</label><input type="text" id="lh" name="host" value="{{ s.link.host }}" placeholder="192.168.1.1" {{ 'disabled' if readonly }}></div>
+        <div><label for="lc">{{ t.snmp_community }}</label><input type="password" id="lc" name="community" autocomplete="off" placeholder="{{ t.secret_set if s.link.community else '' }}" {{ 'disabled' if readonly }}></div>
+        <div><label for="lp">{{ t.snmp_port }}</label><input type="number" id="lp" name="port" value="{{ s.link.port }}" {{ 'disabled' if readonly }}></div>
+      </div>
+      <div class="form-row">
+        <div><label for="li">{{ t.snmp_iface }}</label><input type="text" id="li" name="interface" value="{{ s.link.interface }}" placeholder="ether1" {{ 'disabled' if readonly }}></div>
+        <div><label for="ld">{{ t.down_c }}</label><input type="number" step="1" min="0" id="ld" name="down_mbps" value="{{ s.link.down_mbps|int }}" {{ 'disabled' if readonly }}></div>
+        <div><label for="lu">{{ t.up_c }}</label><input type="number" step="1" min="0" id="lu" name="up_mbps" value="{{ s.link.up_mbps|int }}" {{ 'disabled' if readonly }}></div>
+      </div>
+      <p class="muted small">{{ t.snmp_help }}</p>
+      {% if not readonly %}<div class="actions"><button class="btn primary" type="submit" name="action" value="save">{{ t.save }}</button>
+        <button class="btn" type="submit" name="action" value="test">{{ t.snmp_test }}</button></div>{% endif %}
+    </form>
+  </div>
+
   <div class="card" id="services"><h3>{{ t.services_title }}</h3><p class="muted">{{ t.services_sub }}</p>
     {% if s.services %}
     <table><thead><tr><th>{{ t.svc_name }}</th><th>{{ t.svc_kind }}</th><th>{{ t.svc_target }}</th><th></th></tr></thead><tbody>

@@ -8,13 +8,37 @@ VERDICT = {
            "dns": "DNS problem", "no_data": "No data", "stale": "Monitor not reporting",
            "config": "Tunnel down: configuration (path was clean)", "path_local": "Tunnel down: your connection",
            "path_remote": "Tunnel down: far site or the path to it", "unknown": "Tunnel down: undetermined",
-           "service_down": "Service unreachable (your internet is fine)"},
+           "service_down": "Service unreachable (your internet is fine)",
+           "saturation": "Link full: your own traffic"},
     "es": {"ok": "Sana", "local": "Problema de tu lado", "access": "Problema en el acceso del ISP",
            "isp": "Problema en la red del ISP", "remote": "Solo algunos destinos fallan",
            "dns": "Problema de DNS", "no_data": "Sin datos", "stale": "El monitor no reporta",
            "config": "Túnel caído: configuración (camino limpio)", "path_local": "Túnel caído: tu conexión",
            "path_remote": "Túnel caído: el sitio remoto o el camino", "unknown": "Túnel caído: indeterminado",
-           "service_down": "Servicio inaccesible (tu internet anda bien)"},
+           "service_down": "Servicio inaccesible (tu internet anda bien)",
+           "saturation": "Enlace lleno: tu propio tráfico"},
+}
+
+# What an ISP-side verdict rules out / can't rule out (stored per incident by classifier.assess)
+RULED = {
+    "en": {"home": "Your router and local network answered normally at the same time",
+           "icmp_noise": "Real TCP connections were affected too (not just ping being deprioritized)",
+           "single_destination": "Several independent networks were affected at once (not one website)",
+           "saturation": "Your link was not full (read from your router: {link})",
+           "router_overload": "Your router's CPU was not overloaded ({cpu}%)"},
+    "es": {"home": "Tu router y tu red local respondían normal al mismo tiempo",
+           "icmp_noise": "Las conexiones TCP reales también fallaban (no es solo ping despriorizado)",
+           "single_destination": "Fallaban varias redes independientes a la vez (no un sitio puntual)",
+           "saturation": "Tu enlace no estaba lleno (leído de tu router: {link})",
+           "router_overload": "La CPU de tu router no estaba sobrecargada ({cpu}%)"},
+}
+NOT_RULED = {
+    "en": {"saturation": "Saturation by your own traffic (downloads, backups): connect isitmyisp to your router (SNMP) to rule it out",
+           "router_overload": "An overloaded router (CPU): not exposed by your router",
+           "transit": "That the fault is in your ISP's own upstream providers; towards you, it is still your ISP's service"},
+    "es": {"saturation": "Saturación por tu propio tráfico (descargas, backups): conectá isitmyisp a tu router (SNMP) para descartarlo",
+           "router_overload": "Un router sobrecargado (CPU): tu router no lo informa",
+           "transit": "Que la falla esté en los proveedores de tu ISP hacia afuera; frente a vos, sigue siendo el servicio de tu ISP"},
 }
 
 ADVICE = {
@@ -30,6 +54,7 @@ ADVICE = {
         "path_remote": "Your internet is fine but the far site's connection, or the path to it, is losing packets: check the far site's link or ISP.",
         "unknown": "The far end doesn't answer ping outside the tunnel, so the cause can't be separated. Allow ICMP on its public IP to get a verdict.",
         "service_down": "Your internet works: the problem is that service (its servers or its own provider). Check its status page or contact it; there is nothing to fix on your network.",
+        "saturation": "Your own traffic is filling the link (a big download, a backup, video). Find who's using it (your router shows it), schedule backups at night, or prioritize critical traffic (QoS). Your ISP is not at fault.",
     },
     "es": {
         "local": "Revisá primero el Wi-Fi: acercate al router o conectá un cable. Si es por cable, probá otro cable o puerto y reiniciá el router. Acá la culpa no es del ISP.",
@@ -43,5 +68,6 @@ ADVICE = {
         "path_remote": "Tu internet anda bien, pero la conexión del otro sitio (o el camino hacia él) pierde paquetes: revisá el enlace o el ISP del otro sitio.",
         "unknown": "El otro extremo no responde ping por fuera del túnel, así que no se puede separar la causa. Permití ICMP en su IP pública para tener un veredicto.",
         "service_down": "Tu internet anda: el problema es ese servicio (sus servidores o su proveedor). Mirá su página de estado o contactalo; no hay nada que arreglar en tu red.",
+        "saturation": "Tu propio tráfico está llenando el enlace (una descarga grande, un backup, video). Buscá quién lo usa (tu router lo muestra), programá los backups de noche o priorizá el tráfico crítico (QoS). Acá la culpa no es del ISP.",
     },
 }

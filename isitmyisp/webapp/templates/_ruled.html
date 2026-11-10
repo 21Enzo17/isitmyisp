@@ -1,0 +1,9 @@
+{% set dd = details if details is defined else (d.active.details if d is defined and d.active and d.active.code in ('access', 'isp') else none) %}
+{% if dd %}
+<div class="ruled-box">
+  {% if dd.ruled_out %}<div class="ruled-h">{{ t.ruled_title }}</div>
+  {% for c in dd.ruled_out %}{% if c in t.ruled %}<div class="ruled">✓ {{ t.ruled[c].format(link=dd.link|linktext, cpu=(dd.link.cpu_pct if dd.link else '?')) }}</div>{% endif %}{% endfor %}{% endif %}
+  {% if dd.not_ruled_out %}<div class="ruled-h">{{ t.not_ruled_title }}</div>
+  {% for c in dd.not_ruled_out %}{% if c in t.not_ruled %}<div class="notruled">? {{ t.not_ruled[c] }}</div>{% endif %}{% endfor %}{% endif %}
+</div>
+{% endif %}

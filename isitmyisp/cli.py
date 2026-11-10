@@ -97,9 +97,15 @@ class Session:
     """Everything probed for one discovered network, with the current settings."""
 
     def __init__(self, net: Network, interval: float, socket_interval: float, engine: str | None = None,
-                 anchors: list[str] | None = None, tunnels: list | None = None, services: list | None = None):
+                 anchors: list[str] | None = None, tunnels: list | None = None, services: list | None = None,
+                 link: dict | None = None):
         from .services import ServiceProber
         self.net = net
+        self.link = None
+        if link and link.get("enabled"):
+            from .snmp import LinkMonitor, SnmpClient
+            self.link = LinkMonitor(SnmpClient(link["host"], link["community"], int(link["port"])),
+                                    link["interface"], link["down_mbps"], link["up_mbps"])
         self.services = ServiceProber(list(services or []))
         self.last_services: list = []
         self.anchors = list(anchors or ANCHORS_V4)
@@ -134,6 +140,7 @@ class Session:
             anchors_tcp={a: socks[SocketProber.tcp_name(a)] for a in self.anchors},
             dns=[socks[SocketProber.dns_name(s)] for s in self.net.dns_servers[:MAX_DNS]],
             wireless=self.net.wireless,
+            link=self.link.sample() if self.link else None,
         )
         rows = [(role, icmp[ip]) for role, ip in self.roles]
         rows += [("tcp", socks[SocketProber.tcp_name(a)]) for a in self.anchors]
@@ -269,7 +276,7 @@ def cmd_monitor(args, t) -> int:
             store.add_network(snapshot)
             route = default_route()
             with Session(net, interval, socket_interval=3.0, engine=args.engine,
-                         anchors=cfg.anchors, tunnels=cfg.tunnels, services=cfg.services) as s:
+                         anchors=cfg.anchors, tunnels=cfg.tunnels, services=cfg.services, link=cfg.link) as s:
                 print_network(net, t, engine=s.icmp.name)
                 started = time.time()
                 time.sleep(window + 1.5)

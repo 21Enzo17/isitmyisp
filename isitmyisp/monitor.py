@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Callable
 
 from . import asn
-from .classifier import Measurements, Verdict, classify
+from .classifier import Measurements, Verdict, assess, classify
 from .config import Tunnel
 from .probes.icmp import WindowStats
 from .probes.mtr import MtrError, analyze_path, path_to_dict, run_mtr
@@ -62,6 +62,17 @@ class Monitor:
         self._tunnels: dict[str, _TunnelState] = {}
         self._services: dict[str, int | None] = {}  # service name -> open incident id
 
+    def _merge_details(self, new: dict) -> None:
+        """Across the whole incident, a cause is ruled out only if every window ruled it out."""
+        old = getattr(self, "_details", None) or new
+        ruled = [c for c in old["ruled_out"] if c in new["ruled_out"]]
+        not_ruled = list(dict.fromkeys(old["not_ruled_out"] + new["not_ruled_out"]
+                                       + [c for c in old["ruled_out"] if c not in new["ruled_out"]]))
+        links = [d for d in (old.get("link"), new.get("link")) if d]
+        peak = max(links, key=lambda d: max(d.get("down_pct") or 0, d.get("up_pct") or 0)) if links else None
+        self._details = {"ruled_out": ruled, "not_ruled_out": not_ruled, "link": peak}
+        self.store.set_incident_details(self.incident_id, self._details)
+
     def resume(self) -> None:
         """Close incidents left open by a previous run (crash, reboot, upgrade)."""
         self.store.close_dangling()
@@ -88,6 +99,8 @@ class Monitor:
             self.store.add_window(role, st, ts=now)
             self.baselines.setdefault(st.target, Baseline()).update(st.rtt_median, healthy=v.code == "ok")
         self.store.add_window_verdict(v.code, self.window, ts=now, evidence=v.evidence if v.code != "ok" else None)
+        if m.link is not None:
+            self.store.add_link_usage(now, m.link)
         if now - self._last_prune > 3600:  # retention, once an hour
             self._last_prune = now
             self.store.prune(now=now)
@@ -102,11 +115,15 @@ class Monitor:
             self.incident_id = None
         if tr.opened:
             self.incident_id = self.store.open_incident(tr.opened, v.evidence, ts=opened)
+            self._details = assess(m, v, self.baselines)
+            self.store.set_incident_details(self.incident_id, self._details)
             self._capture(m, now, force=True)
         elif self.incident_id is not None:
             self._capture(m, now)
         if self.incident_id is not None:
             self.store.bump_peak_loss(self.incident_id, self.worst_loss(m, self.hyst.active or v.code))
+            if v.code == self.hyst.active:
+                self._merge_details(assess(m, v, self.baselines))
         tunnel_results = [self._step_tunnel(t, under, over, v.code in INTERNET_OK, now)
                           for t, under, over in tunnels]
         for svc, checks in services:

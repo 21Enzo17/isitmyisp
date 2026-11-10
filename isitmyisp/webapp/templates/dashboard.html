@@ -24,7 +24,8 @@
     {% endif %}
     {% if d.active %}
     <div class="evidence"><b>{{ t.active }}</b> · {{ t.since }} {{ d.active.opened|dt }} ({{ d.active_for }})<br>
-      {% for e in d.active.evidence[:3] %}<span class="mono">{{ e|ev }}</span><br>{% endfor %}</div>
+      {% for e in d.active.evidence[:3] %}<span class="mono">{{ e|ev }}</span><br>{% endfor %}
+      {% include "_ruled.html" %}</div>
     {% endif %}
     <div class="chart-label">{{ t.last24 }}</div>
     {{ d.strip|safe }}
@@ -53,6 +54,22 @@
 <div class="grid cols-2 mt-16">
   <div class="card"><h2>{{ t.loss }} · {{ t.last24 }}</h2>{{ d.loss_chart|safe }}</div>
   <div class="card"><h2>{{ t.latency }} · {{ t.last24 }}</h2>{{ d.latency_chart|safe }}</div>
+</div>
+
+<div class="section-title"><h2>{{ t.link_title }}</h2><a href="{{ url_for('settings_page') }}#link">◎</a></div>
+<div class="card">
+  {% if not d.link_enabled %}<p class="muted">{{ t.link_off }}</p>
+  {% elif not d.link %}<p class="muted">{{ t.link_err }}…</p>
+  {% else %}
+  <div class="kpis">
+    <div class="kpi"><div class="k">{{ t.link_down }}</div><div class="v">{{ '%.0f'|format(d.link.down) }}<small> Mbps</small></div>
+      <div class="muted small">{{ '%.0f%%'|format(d.link.down_pct) if d.link.down_pct is not none }} {{ t.of_contract }}</div></div>
+    <div class="kpi"><div class="k">{{ t.link_up }}</div><div class="v">{{ '%.0f'|format(d.link.up) }}<small> Mbps</small></div>
+      <div class="muted small">{{ '%.0f%%'|format(d.link.up_pct) if d.link.up_pct is not none }} {{ t.of_contract }}</div></div>
+    <div class="kpi"><div class="k">{{ t.link_cpu }}</div><div class="v">{{ '%.0f%%'|format(d.link.cpu) if d.link.cpu is not none else '—' }}</div></div>
+  </div>
+  {{ d.link.chart|safe }}
+  {% endif %}
 </div>
 
 <div class="section-title"><h2>{{ t.services_title }}</h2><a href="{{ url_for('settings_page') }}#services">+</a></div>

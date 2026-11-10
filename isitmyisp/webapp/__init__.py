@@ -141,6 +141,11 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         from ..report import localize_evidence
         return localize_evidence(str(line), g.get("lang", "en"))
 
+    @app.template_filter("linktext")
+    def _linktext_filter(link):
+        from ..report import describe_link
+        return describe_link(link)
+
     @app.template_filter("css")
     def _css_filter(code):
         return views.CAUSE_CLASS.get(code, "muted")
@@ -205,13 +210,15 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
 
     # ---------------------------------------------------------------- settings
 
-    def _settings_page(error: str | None = None, status: int = 200, results: dict | None = None):
+    def _settings_page(error: str | None = None, status: int = 200, results: dict | None = None,
+                       ifaces: list | None = None):
         from .. import alerts as alerts_mod
         token = settings_mod.metrics_token(store) if not g.readonly else None
         return render_template("settings.html", active="settings", s=g.settings, error=error,
                                metrics_token=token, bind=app.config["BIND"],
                                alerts=alerts_mod.masked(alerts_mod.load(store)),
-                               alerts_last=store.get_setting("_alerts_last"), test_results=results), status
+                               alerts_last=store.get_setting("_alerts_last"), test_results=results,
+                               ifaces=ifaces), status
 
     @app.get("/settings")
     def settings_page():
@@ -270,6 +277,27 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         _guard_write()
         name = request.form.get("name")
         return _save({"services": [sv.__dict__ for sv in g.settings.services if sv.name != name]})
+
+    @app.post("/settings/link")
+    def settings_link():
+        _guard_write()
+        f = request.form
+        values = {"enabled": bool(f.get("enabled")), "host": f.get("host", "").strip(),
+                  # an empty community field keeps the stored one (it's a credential: never rendered back)
+                  "community": f.get("community", "").strip() or g.settings.link.get("community", ""),
+                  "port": f.get("port") or 161, "interface": f.get("interface", "").strip(),
+                  "down_mbps": f.get("down_mbps") or 0, "up_mbps": f.get("up_mbps") or 0}
+        if f.get("action") != "test":
+            return _save({"link": values})
+        # "List interfaces": read-only probe of the router, nothing is saved
+        from ..snmp import SnmpClient, SnmpError, interfaces
+        try:
+            client = SnmpClient(values["host"], values["community"], int(values["port"]), timeout=2, retries=1)
+            found = [name for _, name in interfaces(client)]
+        except (SnmpError, ValueError, OSError) as exc:
+            return _settings_page(f"{g.t['link_err']}: {exc}", 400)
+        g.settings.link = {**g.settings.link, **{k: v for k, v in values.items() if k != "community"}}
+        return _settings_page(ifaces=found)
 
     @app.post("/settings/access")
     def settings_access():

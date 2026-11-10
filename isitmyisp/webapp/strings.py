@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..texts import ADVICE, VERDICT
+from ..texts import ADVICE, NOT_RULED, RULED, VERDICT
 
 S = {
     "en": {
@@ -13,8 +13,9 @@ S = {
                     "dns": "DNS problem", "no_data": "No data", "stale": "Monitor not reporting"},
         "verdict_sub": {"ok": "Your Wi-Fi, your router and your ISP all look fine.",
                         "local": "Between this device and your router(s): Wi-Fi, cable or the router itself.",
-                        "access": "Right after your router: your ISP's access network.",
-                        "isp": "Inside your ISP or its upstream: every destination is affected.",
+                        "access": "The evidence places it right after your router: your ISP's access network.",
+                        "isp": "The evidence places it inside your ISP or its upstream: every destination is affected.",
+                        "saturation": "Your link is full of your own traffic: from outside it looks like an ISP problem, but it isn't.",
                         "remote": "Your connection is fine; some destinations are having trouble.",
                         "dns": "Connections work, but your DNS resolver fails or is slow.",
                         "no_data": "Waiting for the first measurements.",
@@ -63,6 +64,15 @@ S = {
         "no_brief": "No brief events in the last 24 hours.",
         "what_to_do": "What to do",
         "lang_switch": "Language",
+        "ruled_title": "What the evidence rules out", "not_ruled_title": "What it can't rule out",
+        "link_title": "Your link (from your router)", "link_sub": "Read from your router by SNMP, so nobody can say you filled the link yourself.",
+        "link_off": "Not connected. Add your router in Settings to rule out saturation by your own traffic.",
+        "link_down": "Download", "link_up": "Upload", "link_cpu": "Router CPU", "of_contract": "of contract",
+        "link_err": "Can't read the router",
+        "snmp_title": "Your router (SNMP, read-only)", "snmp_host": "Router address", "snmp_community": "Read-only community",
+        "snmp_port": "Port", "snmp_iface": "WAN interface name", "down_c": "Contracted download (Mbps)", "up_c": "Contracted upload (Mbps)",
+        "snmp_test": "Save and list interfaces", "snmp_ifaces": "Interfaces on the router",
+        "snmp_help": "Enable SNMP v2c read-only on the router, restricted to this device's IP. MikroTik: /snmp set enabled=yes; /snmp community add name=... addresses=<this IP> read-access=yes write-access=no.",
         "services_title": "Your services", "services_sub": "Is it your internet, or is that service down? (e.g. ARCA/AFIP, your bank, your ERP, your cloud)",
         "no_services": "No services yet. Add the ones your business depends on in Settings.",
         "svc_name": "Name", "svc_kind": "Check", "svc_target": "URL or host:port", "svc_add": "Add service",
@@ -88,8 +98,9 @@ S = {
                     "dns": "Problema de DNS", "no_data": "Sin datos", "stale": "El monitor no reporta"},
         "verdict_sub": {"ok": "Tu Wi-Fi, tu router y tu ISP se ven bien.",
                         "local": "Entre este equipo y tu(s) router(s): Wi-Fi, cable o el router.",
-                        "access": "Justo después de tu router: la red de acceso de tu ISP.",
-                        "isp": "Dentro de tu ISP o en su salida: afecta a todos los destinos.",
+                        "access": "La evidencia lo ubica justo después de tu router: la red de acceso de tu ISP.",
+                        "isp": "La evidencia lo ubica dentro de tu ISP o en su salida: afecta a todos los destinos.",
+                        "saturation": "Tu enlace está lleno de tu propio tráfico: desde afuera parece un problema del ISP, pero no lo es.",
                         "remote": "Tu conexión está bien; algunos destinos tienen problemas.",
                         "dns": "Las conexiones andan, pero tu DNS falla o está lento.",
                         "no_data": "Esperando las primeras mediciones.",
@@ -138,6 +149,15 @@ S = {
         "no_brief": "Sin eventos breves en las últimas 24 horas.",
         "what_to_do": "Qué hacer",
         "lang_switch": "Idioma",
+        "ruled_title": "Qué descarta la evidencia", "not_ruled_title": "Qué no puede descartar",
+        "link_title": "Tu enlace (desde tu router)", "link_sub": "Leído de tu router por SNMP, para que nadie pueda decir que llenaste el enlace vos.",
+        "link_off": "Sin conectar. Agregá tu router en Configuración para descartar la saturación por tu propio tráfico.",
+        "link_down": "Bajada", "link_up": "Subida", "link_cpu": "CPU del router", "of_contract": "del contratado",
+        "link_err": "No se puede leer el router",
+        "snmp_title": "Tu router (SNMP, solo lectura)", "snmp_host": "Dirección del router", "snmp_community": "Community de solo lectura",
+        "snmp_port": "Puerto", "snmp_iface": "Nombre de la interfaz WAN", "down_c": "Bajada contratada (Mbps)", "up_c": "Subida contratada (Mbps)",
+        "snmp_test": "Guardar y listar interfaces", "snmp_ifaces": "Interfaces del router",
+        "snmp_help": "Activá SNMP v2c de solo lectura en el router, limitado a la IP de este equipo. MikroTik: /snmp set enabled=yes; /snmp community add name=... addresses=<esta IP> read-access=yes write-access=no.",
         "services_title": "Tus servicios", "services_sub": "¿Es tu internet, o se cayó ese servicio? (por ej. ARCA/AFIP, tu banco, tu ERP, tu nube)",
         "no_services": "Todavía no hay servicios. Agregá en Configuración los que usa tu empresa.",
         "svc_name": "Nombre", "svc_kind": "Chequeo", "svc_target": "URL o host:puerto", "svc_add": "Agregar servicio",
@@ -161,3 +181,4 @@ S = {
 for _lang, _t in S.items():  # shared plain-language texts (also used by alerts)
     _t["advice"] = ADVICE[_lang]
     _t["verdict"] = {**VERDICT[_lang], **_t["verdict"]}
+    _t["ruled"], _t["not_ruled"] = RULED[_lang], NOT_RULED[_lang]
