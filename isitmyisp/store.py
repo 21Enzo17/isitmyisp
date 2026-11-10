@@ -189,7 +189,8 @@ class Store:
         """Incidents left open by a crash/restart are closed at the last window we have."""
         with self._lock:
             last = self.db.execute("SELECT MAX(ts) FROM windows").fetchone()[0]
-            self.db.execute("UPDATE incidents SET closed = ? WHERE closed IS NULL", (last or ts or time.time(),))
+            self.db.execute("UPDATE incidents SET closed = ? WHERE closed IS NULL AND scope != 'failover'",
+                            (last or ts or time.time(),))
             self.db.commit()
 
     def add_capture(self, incident_id: int | None, kind: str, target: str, data: dict,

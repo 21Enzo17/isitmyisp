@@ -69,6 +69,7 @@ class Dashboard:
     link: dict | None = None
     link_enabled: bool = False
     recent: list = field(default_factory=list)
+    failover: dict | None = None   # on the backup link right now
 
 
 def _sample_loss(s: dict) -> float:
@@ -109,7 +110,8 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
         d.day = {"n": len(incs), "dur": fmt_duration(sum(i.duration(now) for i in incs)), "by": by}
         end = last[0]  # draw up to the last finished window: the one in progress isn't "missing data"
         series = _anchor_series(store.samples_between(start, end, role="anchor"))
-        d.timeline = charts.timeline(windows, series, start, end)
+        backup = [(i.opened, i.closed or now) for i in store.incidents_between(start, now, scope="failover")]
+        d.timeline = charts.timeline(windows, series, start, end, backup=backup)
         d.brief = list(reversed(store.brief_events(start, end)))[:12]
 
     # the latest measurement of every target (they make up the path in the hero), with 6 h of history
@@ -132,6 +134,12 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
     d.isp_name = net.get("isp_name") or ""
     d.path = _path(d, net)
     d.recent = recent_incidents(store, now)
+    fo = next((i for i in store.incidents_between(now - 400 * 86400, now, scope="failover") if i.closed is None), None)
+    if fo:
+        det = fo.details or {}
+        d.failover = {"since": fo.opened, "for": fmt_duration(now - fo.opened),
+                      "primary": (det.get("primary") or {}).get("name") or "",
+                      "backup": (det.get("backup") or {}).get("name") or d.isp_name}
     d.tunnels = tunnel_cards(store, settings, now)
     d.services = service_cards(store, settings, now)
     d.link_enabled = bool(settings.link.get("enabled"))
@@ -302,3 +310,19 @@ def recent_incidents(store: Store, now: float | None = None, limit: int = 6, day
         seen[key] = row
         out.append(row)
     return out
+
+
+def isp_status(store: Store, data_dir, job: dict | None = None, now: float | None = None) -> dict:
+    """Main ISP vs the one in use, and the state of the ASN dataset (settings page)."""
+    from .. import asn
+    from ..failover import Provider, provider_of
+    now = now or time.time()
+    primary = Provider.from_dict(store.get_setting("primary_isp"))
+    current = provider_of(store.network_at(now) or {})
+    path = asn.db_path(data_dir) if data_dir is not None else None
+    have = bool(path and path.exists())
+    return {"primary": primary, "current": current,
+            "on_backup": bool(primary and current and not current.same_as(primary)),
+            "asn_installed": have, "asn_date": path.stat().st_mtime if have else None,
+            "asn_running": bool(job and job.get("running")), "asn_error": (job or {}).get("error"),
+            "asn_available": data_dir is not None}

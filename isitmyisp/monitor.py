@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Callable
 
 from . import asn
+from .failover import Change, Provider, compare as compare_provider
 from .classifier import Measurements, Verdict, assess, classify
 from .config import Tunnel
 from .probes.icmp import WindowStats
@@ -73,8 +74,32 @@ class Monitor:
         self._details = {"ruled_out": ruled, "not_ruled_out": not_ruled, "link": peak}
         self.store.set_incident_details(self.incident_id, self._details)
 
+    def observe_network(self, snapshot: dict, now: float | None = None) -> Change:
+        """After every discovery: are we leaving through the main ISP? Opens/closes the failover incident.
+
+        The main ISP is learned the first time one is seen (stored without bumping the settings
+        version, so learning it doesn't restart the measuring session)."""
+        now = now or time.time()
+        primary = Provider.from_dict(self.store.get_setting("primary_isp"))
+        change = compare_provider(snapshot, primary)
+        if change.kind == "learn":
+            self.store.set_settings({"primary_isp": change.current.to_dict()}, bump=False)
+            return change
+        open_ = [i for i in self.store.active_incidents() if i.scope == "failover"]
+        if change.kind == "failover" and not open_:
+            iid = self.store.open_incident("failover", change.evidence, ts=now, scope="failover")
+            self.store.set_incident_details(iid, {"primary": primary.to_dict(), "backup": change.current.to_dict()})
+        elif change.kind == "failback":
+            for inc in open_:
+                self.store.close_incident(inc.id, ts=now)
+            if primary and not primary.asn and change.current.asn:  # ASN dataset arrived: remember the ASN too
+                self.store.set_settings({"primary_isp": {**primary.to_dict(), "asn": change.current.asn,
+                                                         "name": change.current.name}}, bump=False)
+        return change
+
     def resume(self) -> None:
-        """Close incidents left open by a previous run (crash, reboot, upgrade)."""
+        """Close incidents left open by a previous run (crash, reboot, upgrade).
+        A failover stays open: the first discovery after the restart decides whether it's still on."""
         self.store.close_dangling()
 
     @staticmethod

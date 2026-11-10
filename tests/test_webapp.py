@@ -314,3 +314,51 @@ class RecentIncidents(unittest.TestCase):
                              [("internet", "isp", 1, True), ("tunnel", "config", 4, False)])
             self.assertEqual(rows[1].name, "office")
             store.close()
+
+
+@unittest.skipUnless(HAVE_WEB, "web extra not installed")
+class FailoverOnDashboard(WebAppBase):
+    def test_backup_link_is_the_headline_with_both_names(self):
+        from isitmyisp.webapp import views
+        main = {"isp_hop": "181.89.4.100", "isp_asn": "AS7303", "isp_name": "Telecom",
+                "path": [{"index": 2, "host": "181.89.4.100", "segment": "isp", "asn": "AS7303", "as_name": "Telecom"}]}
+        backup = {"isp_hop": "190.2.3.4", "isp_asn": "AS11664", "isp_name": "Claro",
+                  "path": [{"index": 2, "host": "190.2.3.4", "segment": "isp", "asn": "AS11664", "as_name": "Claro"}]}
+        mon = Monitor(self.store, 30.0)
+        mon.observe_network(main)
+        mon.observe_network(backup)
+        self.store.add_network(backup)
+        d = views.dashboard_data(self.store, settings_mod.load(self.store))
+        self.assertEqual((d.failover["primary"], d.failover["backup"]), ("Telecom", "Claro"))
+        self.create_admin()
+        html = self.client.get("/?lang=en").get_data(as_text=True)
+        self.assertIn("Internet works, on the backup link", html)
+        self.assertIn("Your main ISP, Telecom, is not in use", html)
+        page = self.client.get("/settings").get_data(as_text=True)
+        self.assertIn("Backup link", page)
+        r = self.client.post("/settings/isp/primary", data={"csrf_token": csrf(page)})
+        self.assertEqual(r.status_code, 302)                        # "I changed providers": Claro is now main
+        self.assertEqual(self.store.get_setting("primary_isp")["asn"], "AS11664")
+        self.assertIsNone(views.dashboard_data(self.store, settings_mod.load(self.store)).failover)
+
+    def test_asn_download_button_runs_in_the_background_and_reloads(self):
+        from unittest import mock
+        from isitmyisp import asn
+        self.create_admin()
+        page = self.client.get("/settings").get_data(as_text=True)
+        self.assertIn("Download the ASN dataset", page)
+        before = self.store.settings_version()
+        done = __import__("threading").Event()
+
+        def fake_download(data_dir):
+            done.set()
+            return asn.db_path(data_dir)
+        with mock.patch.object(asn, "download", side_effect=fake_download):
+            r = self.client.post("/settings/isp/asn", data={"csrf_token": csrf(page)})
+            self.assertEqual(r.status_code, 302)
+            self.assertTrue(done.wait(5))
+            for _ in range(50):          # the job bumps the settings version: the monitor re-discovers
+                if self.store.settings_version() > before:
+                    break
+                __import__("time").sleep(0.05)
+        self.assertGreater(self.store.settings_version(), before)

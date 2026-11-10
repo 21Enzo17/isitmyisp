@@ -84,6 +84,9 @@ R = {
         "tun_cause": {"path_local": "Loss on your connection", "path_remote": "Far site or path to it",
                       "config": "Tunnel configuration (path was clean)", "unknown": "Undetermined (far end filters ICMP)"},
         "tun_none": "No tunnel drops in this period.",
+        "failover": "Backup link in use",
+        "fo_intro": "During these periods your router sent the traffic through the backup link because the main ISP was down or failing ({dur} in total). Measurements in those periods describe the backup link.",
+        "fo_col": "Went out through",
         "services": "Your services: it wasn't your internet",
         "svc_intro": "These services were unreachable while your own connection was healthy: the problem was on their side.",
         "svc_col": "Service",
@@ -152,6 +155,9 @@ R = {
         "tun_cause": {"path_local": "Pérdida en tu conexión", "path_remote": "Sitio remoto o camino hacia él",
                       "config": "Configuración del túnel (camino limpio)", "unknown": "Indeterminado (el otro extremo filtra ICMP)"},
         "tun_none": "Sin caídas de túneles en este período.",
+        "failover": "Enlace de respaldo en uso",
+        "fo_intro": "En estos períodos tu router mandó el tráfico por el enlace de respaldo porque el ISP principal estaba caído o fallando ({dur} en total). Las mediciones de esos períodos describen al respaldo.",
+        "fo_col": "Salió por",
         "services": "Tus servicios: no era tu internet",
         "svc_intro": "Estos servicios no respondían mientras tu propia conexión andaba bien: el problema era de ellos.",
         "svc_col": "Servicio",
@@ -610,6 +616,22 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
         out.append(f'<h2>{_e(t["services"])}</h2><p class="muted">{_e(t["svc_intro"])}</p>'
                    f'<table class="incidents"><thead><tr><th>{t["svc_col"]}</th><th class="num">{t["start"]}</th>'
                    f'<th class="num">{t["end"]}</th><th class="num">{t["duration"]}</th><th>{t["evidence"]}</th></tr>'
+                   f'</thead><tbody>{rows}</tbody></table>')
+
+    # ---- backup link (failover): the main ISP was not carrying the traffic
+    fo_incidents = store.incidents_between(start, end, scope="failover")
+    if fo_incidents:
+        total = sum(min(i.closed or now, end) - max(i.opened, start) for i in fo_incidents)
+        rows = "".join(
+            f'<tr><td class="dt">{_dt_html(i.opened)}</td>'
+            f'<td class="dt">{_dt_html(i.closed) if i.closed else _e(t["ongoing"])}</td>'
+            f'<td class="num">{fmt_duration(i.duration(now))}</td>'
+            f'<td>{_e(((i.details or {}).get("backup") or {}).get("name", ""))}</td>'
+            f'<td class="ev">{_e("; ".join(i.evidence[:2]))}</td></tr>'
+            for i in fo_incidents)
+        out.append(f'<h2>{_e(t["failover"])}</h2><p class="muted">{_e(t["fo_intro"].format(dur=fmt_duration(total)))}</p>'
+                   f'<table class="incidents"><thead><tr><th class="num">{t["start"]}</th><th class="num">{t["end"]}</th>'
+                   f'<th class="num">{t["duration"]}</th><th>{t["fo_col"]}</th><th>{t["evidence"]}</th></tr>'
                    f'</thead><tbody>{rows}</tbody></table>')
 
     # ---- message for the ISP

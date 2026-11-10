@@ -9,14 +9,14 @@ VERDICT = {
            "config": "Tunnel down: configuration (path was clean)", "path_local": "Tunnel down: your connection",
            "path_remote": "Tunnel down: far site or the path to it", "unknown": "Tunnel down: undetermined",
            "service_down": "Service unreachable (your internet is fine)",
-           "saturation": "Link full: your own traffic"},
+           "saturation": "Link full: your own traffic", "failover": "Running on the backup link"},
     "es": {"ok": "Sana", "local": "Problema de tu lado", "access": "Problema en el acceso del ISP",
            "isp": "Problema en la red del ISP", "remote": "Solo algunos destinos fallan",
            "dns": "Problema de DNS", "no_data": "Sin datos", "stale": "El monitor no reporta",
            "config": "Túnel caído: configuración (camino limpio)", "path_local": "Túnel caído: tu conexión",
            "path_remote": "Túnel caído: el sitio remoto o el camino", "unknown": "Túnel caído: indeterminado",
            "service_down": "Servicio inaccesible (tu internet anda bien)",
-           "saturation": "Enlace lleno: tu propio tráfico"},
+           "saturation": "Enlace lleno: tu propio tráfico", "failover": "Funcionando por el enlace de respaldo"},
 }
 
 # What an ISP-side verdict rules out / can't rule out (stored per incident by classifier.assess)
@@ -54,6 +54,7 @@ ADVICE = {
         "path_remote": "Your internet is fine but the far site's connection, or the path to it, is losing packets: check the far site's link or ISP.",
         "unknown": "The far end doesn't answer ping outside the tunnel, so the cause can't be separated. Allow ICMP on its public IP to get a verdict.",
         "service_down": "Your internet works: the problem is that service (its servers or its own provider). Check its status page or contact it; there is nothing to fix on your network.",
+        "failover": "Your router moved the traffic to the backup link: the office still has internet, but your main ISP is down or failing. File a complaint with your main ISP; the report shows since when. Watch the backup's data plan if it has one.",
         "saturation": "Your own traffic is filling the link (a big download, a backup, video). Find who's using it (your router shows it), schedule backups at night, or prioritize critical traffic (QoS). Your ISP is not at fault.",
     },
     "es": {
@@ -68,6 +69,7 @@ ADVICE = {
         "path_remote": "Tu internet anda bien, pero la conexión del otro sitio (o el camino hacia él) pierde paquetes: revisá el enlace o el ISP del otro sitio.",
         "unknown": "El otro extremo no responde ping por fuera del túnel, así que no se puede separar la causa. Permití ICMP en su IP pública para tener un veredicto.",
         "service_down": "Tu internet anda: el problema es ese servicio (sus servidores o su proveedor). Mirá su página de estado o contactalo; no hay nada que arreglar en tu red.",
+        "failover": "Tu router pasó el tráfico al enlace de respaldo: la oficina sigue con internet, pero tu ISP principal está caído o fallando. Reclamale a tu ISP principal; el informe muestra desde cuándo. Si el respaldo tiene tope de datos, cuidalo.",
         "saturation": "Tu propio tráfico está llenando el enlace (una descarga grande, un backup, video). Buscá quién lo usa (tu router lo muestra), programá los backups de noche o priorizá el tráfico crítico (QoS). Acá la culpa no es del ISP.",
     },
 }

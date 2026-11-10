@@ -251,6 +251,7 @@ def _start_web(store: Store, args, t):
 
 def cmd_monitor(args, t) -> int:
     from .discovery import network_to_dict
+    from .failover import PathWatch, isp_ttl, provider_of
     from .monitor import Monitor, mtr_capturer
 
     store = Store(args.db)
@@ -264,6 +265,7 @@ def cmd_monitor(args, t) -> int:
     if cfg.tunnels_from_file:
         print(f"⚙️  {cfg.tunnels_from_file}: {len(cfg.tunnels)} tunnel(s)")
     print(f"💾 {store.path}  {t['stop_hint']}")
+    hops_by_provider: dict[str, set[str]] = {}  # ISP routers already seen per provider (ECMP is not a failover)
     try:
         while True:  # one session per (network, settings); rebuilt on route change, timer or new settings
             cfg = _settings(args, store)
@@ -274,6 +276,20 @@ def cmd_monitor(args, t) -> int:
             snapshot = network_to_dict(net)
             snapshot["tunnels"] = [tun.name for tun in cfg.tunnels]
             store.add_network(snapshot)
+            was_on_backup = any(i.scope == "failover" for i in store.active_incidents())
+            change = mon.observe_network(snapshot)
+            if change.kind == "learn":
+                print(t["primary_learned"].format(main=change.current.name))
+            elif change.kind == "failover":
+                print(t["failover_on"].format(to=change.current.name, main=change.primary.name))
+            elif change.kind == "failback" and was_on_backup:
+                print(t["failover_off"].format(main=change.primary.name))
+            watch = None
+            ttl, provider = isp_ttl(snapshot), provider_of(snapshot)
+            if net.isp_hop and ttl:
+                seen = hops_by_provider.setdefault((provider.asn or provider.net16) if provider else "?", set())
+                seen.add(net.isp_hop)
+                watch = PathWatch(net.isp_hop, ttl, cfg.anchors, known=seen)
             route = default_route()
             with Session(net, interval, socket_interval=3.0, engine=args.engine,
                          anchors=cfg.anchors, tunnels=cfg.tunnels, services=cfg.services, link=cfg.link) as s:
@@ -296,6 +312,9 @@ def cmd_monitor(args, t) -> int:
                         if ttr.closed:
                             print(f"\n[{stamp}] {t['closed']} · {tv.name}")
                     time.sleep(window)
+                    if watch is not None and watch.check():
+                        print(f"\n{t['path_changed']}")
+                        break
                     if store.settings_version() != cfg.version:
                         print(f"\n{t['settings_changed']}")
                         break

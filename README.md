@@ -14,6 +14,7 @@ Most tools either run speedtests, which measure the thing that rarely breaks and
 - **It blames the right segment,** using address types and AS numbers, not hop positions: your home (including a second router if you have double NAT), your ISP's access network, your ISP's backbone, or a single remote destination.
 - **It doesn't over-claim.** A verdict places the problem in a segment of the path; every ISP-side incident lists **what the evidence rules out** (your LAN, ICMP noise, a single website, a full link) and **what it can't**. Connect it to your router (SNMP, read-only) and it rules out the ISP's favourite objection, "you saturated your own link", or tells you that you did.
 - **It detects CGNAT, double NAT and IPv6** and explains what that means for you.
+- **Failover detection:** with a dual-WAN router, it notices within about a minute when the traffic moves to the backup link and when it comes back (one TTL-limited ping per window asks who your ISP's first router is). The dashboard, the alerts and the evidence report say from when to when your main ISP wasn't carrying the traffic.
 - **Your services:** "is it my internet, or is my bank / my ERP / the tax agency down?" Add any HTTP(S) or TCP service; when it's unreachable while your connection is healthy, the verdict says so.
 - **Alerts** by Telegram, email or webhook (Discord, Slack, Home Assistant…), only for problems that last, each one saying whose fault it is and what to do.
 - **Tunnel mode:** did your IPsec/L2TP/WireGuard tunnel drop because of its configuration or because of the path? It measures outside and inside the tunnel at the same time, and spots drops that repeat on a schedule (the fingerprint of mismatched rekey lifetimes).
@@ -70,10 +71,11 @@ isitmyisp is meant to run on your network for months. By default it **never send
 | Connection | When | What it sends | Default |
 |---|---|---|---|
 | ICMP to your gateway, your ISP's first hop, 1.1.1.1, 8.8.8.8, 9.9.9.9 | always | ICMP echo (64 bytes) | on |
+| One TTL-limited ping towards 1.1.1.1 | once per window | ICMP echo that expires at your ISP's first router (failover check) | on |
 | TCP handshake to 1.1.1.1, 8.8.8.8, 9.9.9.9 port 443 | always | SYN, then closes (no data, no TLS) | on |
 | DNS queries to your own resolvers | always | A queries for www.google.com, www.cloudflare.com, www.wikipedia.org | on |
 | `mtr` to 1.1.1.1 | on discovery and incidents | ICMP probes | on |
-| iptoasn.com | only when you run `update-asn` | one HTTPS download of the public dataset (no per-IP queries) | manual |
+| iptoasn.com | only when you run `update-asn` or press the button in Settings | one HTTPS download of the public dataset (no per-IP queries) | manual |
 | Team Cymru whois | only with `--asn-online` | the public IPs of your path | **off** |
 | api.ipify.org | only with `--public-ip` | an HTTPS request (reveals your public IP to them) | **off** |
 | Your services | only the ones you add | an HTTP GET (or TCP connect) every 30 s | **off** |
@@ -166,7 +168,8 @@ ICMP and TCP must agree before blaming anyone, and nothing is blamed on a handfu
 - [x] Web UI with settings applied live, local/proxy/none authentication, console recovery
 - [x] Alerts (Telegram, email, webhook), your own services (HTTP/TCP), brief events with advice, automatic retention
 - [x] "What the evidence rules out / can't rule out" per incident; WAN usage and router CPU via SNMP; "link full: your own traffic" verdict
-- [ ] Failover detection, call quality (MOS), bandwidth vs contract with a data budget, multi-site hub, read-only users, monthly SLA report
+- [x] Failover detection (backup link in use), main ISP learned automatically, ASN dataset from the UI
+- [ ] Call quality (MOS), bandwidth vs contract with a data budget, multi-site hub, read-only users, monthly SLA report
 
 ## License
 MIT

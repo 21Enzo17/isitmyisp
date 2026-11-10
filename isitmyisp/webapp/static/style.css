@@ -100,7 +100,7 @@ b, strong { font-weight: 600; }
 .linkish:hover { color: var(--ink); text-decoration: underline; }
 .lang a { color: var(--ink-3); padding: 4px 6px; display: inline-block; }
 .lang a[aria-current] { color: var(--ink); font-weight: 600; }
-.main { padding: 28px 36px 56px; min-width: 0; max-width: 1360px; }
+.main { padding: 28px 40px 56px; min-width: 0; width: 100%; max-width: 1640px; margin-inline: auto; }
 
 /* ---------- hero: the verdict and the path it was drawn from */
 .hero { --blame: var(--other); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
@@ -217,7 +217,7 @@ b, strong { font-weight: 600; }
 .net-state { margin-top: 26px; }
 .panel-head.bare { margin-bottom: 12px; align-items: baseline; justify-content: flex-start; gap: 6px 14px; }
 .net-state h2 { margin: 0; font-size: 17px; }
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
 .tcard { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px 14px;
          display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .tcard header { display: flex; flex-direction: column; gap: 3px; }
@@ -244,6 +244,20 @@ b, strong { font-weight: 600; }
 .panel-head > a { font-size: 14px; }
 .recent tr.now td { color: var(--ink); }
 .recent td .small { margin-left: 4px; }
+
+/* ---------- failover: on the backup link */
+.backup-note { display: flex; gap: 10px; align-items: flex-start; margin-top: 16px; color: var(--ink); font-size: 15px; max-width: 80ch; }
+.backup-note .ico { color: var(--ink-2); margin-top: 2px; }
+.backup-note a { margin-left: 6px; font-size: 14px; }
+.here.alt { background: color-mix(in srgb, var(--other) 22%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--other) 60%, transparent); }
+.tl.fo { grid-template-rows: 18px 30px 92px 92px 22px; }
+.tl.fo .r0 { grid-row: 1; } .tl.fo .r1 { grid-row: 2; } .tl.fo .r2 { grid-row: 3; } .tl.fo .r3 { grid-row: 4; } .tl.fo .r4 { grid-row: 5; }
+.tl.fo .hv.rows-3 { grid-row: 1 / 5; }
+.strip .backup { fill: var(--other); }
+table.kv { width: auto; margin: 8px 0 4px; }
+table.kv th { width: 150px; color: var(--ink-2); font-weight: 500; padding-left: 0; }
+table.kv td, table.kv th { border-bottom: 0; padding-top: 6px; padding-bottom: 6px; }
+table.kv .badge { margin-left: 8px; }
 
 /* ---------- link meters */
 .meters { display: grid; gap: 14px; }

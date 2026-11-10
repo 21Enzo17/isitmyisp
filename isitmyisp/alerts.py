@@ -38,11 +38,11 @@ TIMEOUT = 15
 T = {
     "en": {"opened": "🔴 {what}", "closed": "✅ Resolved: {what}", "test": "isitmyisp test alert",
            "test_body": "If you can read this, alerts work.", "scope_tunnel": "Tunnel {name}",
-           "scope_service": "Service {name}", "scope_internet": "Internet", "since": "Since", "lasted": "Lasted",
+           "scope_service": "Service {name}", "scope_internet": "Internet", "scope_failover": "Internet link", "since": "Since", "lasted": "Lasted",
            "evidence": "Evidence", "todo": "What to do", "open_dash": "Dashboard"},
     "es": {"opened": "🔴 {what}", "closed": "✅ Resuelto: {what}", "test": "isitmyisp: alerta de prueba",
            "test_body": "Si leés esto, las alertas funcionan.", "scope_tunnel": "Túnel {name}",
-           "scope_service": "Servicio {name}", "scope_internet": "Internet", "since": "Desde", "lasted": "Duró",
+           "scope_service": "Servicio {name}", "scope_internet": "Internet", "scope_failover": "Enlace a internet", "since": "Desde", "lasted": "Duró",
            "evidence": "Evidencia", "todo": "Qué hacer", "open_dash": "Panel"},
 }
 
@@ -152,6 +152,8 @@ def describe(inc: Incident, kind: str, lang: str, public_url: str = "", now: flo
         where = t["scope_tunnel"].format(name=inc.scope.split(":", 1)[1])
     elif inc.scope.startswith("service:"):
         where = t["scope_service"].format(name=inc.scope.split(":", 1)[1])
+    elif inc.scope == "failover":
+        where = t["scope_failover"]
     else:
         where = t["scope_internet"]
     what = f"{where} · {verdict.get(inc.code, inc.code)}"

@@ -20,7 +20,8 @@ BUCKETS = 96  # 24 h -> 15 min per column
 GROUP = {"ok": "good", "local": "you", "saturation": "you", "access": "isp", "isp": "isp",
          "remote": "other", "dns": "other", "no_data": "none", "stale": "none",
          # tunnels and your own services
-         "config": "you", "path_local": "you", "path_remote": "other", "unknown": "none", "service_down": "other"}
+         "config": "you", "path_local": "you", "path_remote": "other", "unknown": "none", "service_down": "other",
+         "failover": "other"}
 SEVERITY = {"isp": 4, "you": 3, "other": 2, "good": 1, "none": 0}
 
 
@@ -33,6 +34,7 @@ class Bucket:
     loss: float | None   # mean loss in the bucket (%): what the verdict saw, not one unlucky window
     lat: float | None    # median latency (ms)
     flip: bool = False   # tooltip opens to the left (right third of the chart)
+    backup: bool = False  # traffic was going out through the backup link
 
 
 @dataclass
@@ -61,6 +63,7 @@ class Timeline:
     xticks: list[str]                            # labels at 1/6 .. 5/6
     groups: list[str]                            # responsibility groups present (legend)
     hourly: list[Bucket]                         # table view
+    backup_runs: list[tuple[float, float]] = field(default_factory=list)  # (x, width): on the backup link
 
 
 def _nice_max(v: float, floor: float) -> float:
@@ -167,7 +170,7 @@ def _merge(buckets: list[Bucket], k: int) -> list[Bucket]:
         lats = [b.lat for b in chunk if b.lat is not None]
         out.append(Bucket(chunk[0].start, chunk[-1].end, worst.code, worst.group,
                           statistics.fmean(losses) if losses else None,
-                          statistics.median(lats) if lats else None))
+                          statistics.median(lats) if lats else None, backup=any(b.backup for b in chunk)))
     return out
 
 
@@ -177,9 +180,19 @@ def xticks(start: float, end: float) -> list[str]:
 
 
 def timeline(windows: list[tuple[float, float, str]], series: list[tuple[float, float, float | None]],
-             start: float, end: float, n: int = BUCKETS) -> Timeline:
-    """windows: [(ts, seconds, code)]; series: [(ts, loss %, median latency ms)] per window."""
+             start: float, end: float, n: int = BUCKETS, backup: list[tuple[float, float]] = ()) -> Timeline:
+    """windows: [(ts, seconds, code)]; series: [(ts, loss %, median latency ms)] per window;
+    backup: [(start, end)] spans on the backup link (failover)."""
     buckets = _buckets(windows, series, start, end, n)
+    span = max(1.0, end - start)
+    backup_runs = []
+    for b0, b1 in backup:
+        b0, b1 = max(b0, start), min(b1, end)
+        if b1 > b0:
+            backup_runs.append((round(1000 * (b0 - start) / span, 2), round(max(0.8, 1000 * (b1 - b0) / span), 2)))
+            for b in buckets:
+                if b.start < b1 and b.end > b0:
+                    b.backup = True
     runs = strip_runs(windows, start, end)
     present = {g for _, _, g, _ in runs}
     groups = [g for g in ("good", "you", "isp", "other") if g in present]
@@ -188,4 +201,4 @@ def timeline(windows: list[tuple[float, float, str]], series: list[tuple[float, 
     return Timeline(start, end, buckets, runs,
                     plot([(ts, loss) for ts, loss, _ in series], start, end, unit="%", floor=2),
                     plot([(ts, lat) for ts, _, lat in series], start, end, unit=" ms", floor=10),
-                    xticks(start, end), groups, _merge(buckets, max(1, n // 24)))
+                    xticks(start, end), groups, _merge(buckets, max(1, n // 24)), backup_runs)

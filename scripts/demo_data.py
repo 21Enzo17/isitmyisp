@@ -1,7 +1,7 @@
 """Generate a SYNTHETIC database for screenshots and report development.
 
-A day of 30-second windows: one Wi-Fi problem, two ISP backbone incidents and an
-IPsec/L2TP tunnel that drops every 2 hours with a clean path (a rekey/lifetime mismatch).
+A day of 30-second windows: one Wi-Fi problem, two ISP backbone incidents, two hours on a
+backup link (failover) and an IPsec/L2TP tunnel that drops every 2 hours with a clean path (a rekey/lifetime mismatch).
 Nothing here is a real measurement: never publish a report built from it as real evidence.
 
     python3 scripts/demo_data.py /tmp/demo.db
@@ -68,6 +68,14 @@ def main(path: str, hours: float = 24.0, seed: int = 7) -> None:
             ts=clock["now"])
 
     mon = Monitor(store, WIN, capture=capture, recapture_every=600)
+
+    def net_snapshot(hop: str, asn: str, name: str) -> dict:
+        return {"isp_hop": hop, "isp_asn": asn, "isp_name": name, "path": [
+            {"index": 1, "host": "192.168.1.1", "segment": "home", "asn": None, "as_name": None},
+            {"index": 2, "host": hop, "segment": "isp", "asn": asn, "as_name": name}]}
+    main_net = net_snapshot("203.0.113.1", "AS64500", "Example ISP S.A.")
+    backup_net = net_snapshot("198.51.100.1", "AS64501", "Backup Wireless S.R.L.")
+    mon.observe_network(main_net, now=t0)
     n_windows = int(hours * 3600 / WIN)
     for i in range(n_windows):
         now = t0 + (i + 1) * WIN
@@ -100,6 +108,10 @@ def main(path: str, hours: float = 24.0, seed: int = 7) -> None:
         path_drop = 0.40 * n_windows <= i < 0.42 * n_windows    # far site's link losing packets
         under = w(tunnel.underlay, n, n - (round(n * .5) if path_drop else 0), 41.0)
         over = w(tunnel.overlay, n, 0 if rekey_drop else (n - round(n * .5) if path_drop else n), 43.0)
+        if i == int(0.47 * n_windows):          # the main ISP drops: the router fails over for ~2 h
+            mon.observe_network(backup_net, now=now)
+        if i == int(0.55 * n_windows):
+            mon.observe_network(main_net, now=now)
         mon.step(m, rows, now=now, tunnels=[(tunnel, under, over)],
                  services=[(s, list(checks[s.name])) for s in services])
     store.close()

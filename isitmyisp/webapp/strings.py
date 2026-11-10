@@ -6,6 +6,23 @@ from ..texts import ADVICE, NOT_RULED, RULED, VERDICT
 
 S = {
     "en": {
+        "headline_backup": "Internet works, on the backup link",
+        "sub_backup": "Your main ISP isn't carrying the traffic: your router moved it to the backup link.",
+        "backup_note": "Going out through {backup} since {since} ({dur}). Your main ISP, {primary}, is not in use.",
+        "backup_change": "Changed providers?", "row_backup": "Backup", "tip_backup": "On the backup link",
+
+        "isp_title": "Main ISP and backup link",
+        "isp_sub": "If your router has two internet links, isitmyisp notices when traffic moves to the backup and when it comes back.",
+        "isp_primary": "Main ISP", "isp_current": "In use now", "isp_not_yet": "learned on the first discovery",
+        "isp_backup_badge": "Backup link", "isp_unknown": "There is no discovered ISP yet: wait for the first measurement.",
+        "isp_backup_hint": "If this is your new main ISP (you changed providers), mark it as the main one.",
+        "isp_make_primary": "Use the current ISP as the main one",
+        "asn_title": "ISP names (ASN dataset)",
+        "asn_installed": "Installed, updated {date}. ISPs are told apart by their network number (ASN).",
+        "asn_missing": "Not installed: ISPs are shown by IP and told apart by their /16 network. Download it to see names and compare ISPs reliably (about 7 MB from iptoasn.com, public data, no per-IP lookups).",
+        "asn_download": "Download the ASN dataset", "asn_update": "Update the ASN dataset", "asn_running": "Downloading…",
+        "asn_started": "Downloading the ASN dataset. Names show up after the next discovery (about a minute).",
+
         "headline": {"ok": "Internet is working", "local": "The problem is on your side",
                      "saturation": "Your link is full", "access": "Your ISP's access is failing",
                      "isp": "Your ISP's network is failing", "remote": "Only some sites are failing",
@@ -119,6 +136,23 @@ S = {
         "alerts_last_errors": "Last delivery errors",
     },
     "es": {
+        "headline_backup": "Internet anda, por el respaldo",
+        "sub_backup": "Tu ISP principal no está llevando el tráfico: tu router lo pasó al enlace de respaldo.",
+        "backup_note": "Salís por {backup} desde las {since} ({dur}). Tu ISP principal, {primary}, no se está usando.",
+        "backup_change": "¿Cambiaste de proveedor?", "row_backup": "Respaldo", "tip_backup": "Por el enlace de respaldo",
+
+        "isp_title": "ISP principal y enlace de respaldo",
+        "isp_sub": "Si tu router tiene dos enlaces a internet, isitmyisp detecta cuándo el tráfico pasa al respaldo y cuándo vuelve.",
+        "isp_primary": "ISP principal", "isp_current": "En uso ahora", "isp_not_yet": "se aprende en el primer descubrimiento",
+        "isp_backup_badge": "Enlace de respaldo", "isp_unknown": "Todavía no hay un ISP descubierto: esperá la primera medición.",
+        "isp_backup_hint": "Si este es tu nuevo ISP principal (cambiaste de proveedor), marcalo como principal.",
+        "isp_make_primary": "Usar el ISP actual como principal",
+        "asn_title": "Nombres de los ISP (base de ASN)",
+        "asn_installed": "Instalada, actualizada el {date}. Los ISP se distinguen por su número de red (ASN).",
+        "asn_missing": "Sin instalar: los ISP se muestran por IP y se distinguen por su red /16. Descargala para ver los nombres y comparar ISP con certeza (unos 7 MB de iptoasn.com, datos públicos, sin consultas por IP).",
+        "asn_download": "Descargar la base de ASN", "asn_update": "Actualizar la base de ASN", "asn_running": "Descargando…",
+        "asn_started": "Descargando la base de ASN. Los nombres aparecen tras el próximo descubrimiento (alrededor de un minuto).",
+
         "headline": {"ok": "Internet anda bien", "local": "El problema está de tu lado",
                      "saturation": "Tu enlace está lleno", "access": "Falla el acceso de tu ISP",
                      "isp": "Falla la red de tu ISP", "remote": "Solo fallan algunos sitios",

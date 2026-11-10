@@ -35,6 +35,9 @@ PUBLIC_ENDPOINTS = {"static", "healthz"}
 AUTH_ENDPOINTS = {"login", "setup"}
 
 
+ASN_JOB: dict = {"running": False, "error": None, "lock": threading.Lock()}
+
+
 def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | None = None,
                bind: str = "127.0.0.1:8080", secure_cookies: bool = False, default_lang: str = "en") -> Flask:
     app = Flask(__name__)
@@ -224,7 +227,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                                metrics_token=token, bind=app.config["BIND"],
                                alerts=alerts_mod.masked(alerts_mod.load(store)),
                                alerts_last=store.get_setting("_alerts_last"), test_results=results,
-                               ifaces=ifaces), status
+                               ifaces=ifaces, isp=views.isp_status(store, data_dir, ASN_JOB)), status
 
     @app.get("/settings")
     def settings_page():
@@ -304,6 +307,45 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
             return _settings_page(f"{g.t['link_err']}: {exc}", 400)
         g.settings.link = {**g.settings.link, **{k: v for k, v in values.items() if k != "community"}}
         return _settings_page(ifaces=found)
+
+    @app.post("/settings/isp/primary")
+    def isp_primary():
+        """'This is my main ISP': the provider in use now becomes the main one (closes a failover)."""
+        _guard_write()
+        from ..failover import provider_of
+        current = provider_of(store.network_at(time.time()) or {})
+        if current is None:
+            return _settings_page(g.t["isp_unknown"], 400)
+        store.set_settings({"primary_isp": current.to_dict()}, bump=False)
+        for inc in store.active_incidents():
+            if inc.scope == "failover":
+                store.close_incident(inc.id)
+        flash(g.t["saved"])
+        return redirect(url_for("settings_page") + "#isp")
+
+    @app.post("/settings/isp/asn")
+    def isp_asn_download():
+        """Download the public IP-to-ASN dataset in the background (no per-IP lookups to anyone)."""
+        _guard_write()
+        if data_dir is None:
+            abort(404)
+        with ASN_JOB["lock"]:
+            if not ASN_JOB["running"]:
+                ASN_JOB.update(running=True, error=None)
+                threading.Thread(target=_download_asn, daemon=True).start()
+        flash(g.t["asn_started"])
+        return redirect(url_for("settings_page") + "#isp")
+
+    def _download_asn():
+        from .. import asn
+        try:
+            path = asn.download(data_dir)
+            asn._offline_cache.pop(path, None)
+            store.set_settings({"_asn_updated": time.time()})  # bump: the monitor re-discovers with names now
+        except Exception as exc:  # noqa: BLE001 - shown to the admin as is
+            ASN_JOB["error"] = str(exc)
+        finally:
+            ASN_JOB["running"] = False
 
     @app.post("/settings/access")
     def settings_access():

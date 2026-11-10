@@ -5,10 +5,16 @@
 {% block content %}
 {% macro num(v, fmt='%.1f') %}{{ fmt|format(v) if v is not none else '—' }}{% endmacro %}
 
-<section class="hero g-{{ d.group }}" aria-labelledby="headline">
+<section class="hero g-{{ 'other' if d.failover and d.code == 'ok' else d.group }}" aria-labelledby="headline">
   <p class="stamp">{% if d.has_data %}<span class="live{{ ' stale' if d.code == 'stale' }}" aria-hidden="true"></span>{{ t.min_ago.format(ago=d.updated_ago) }}{% endif %}</p>
-  <h1 id="headline" class="headline">{{ t.headline.get(d.code, t.verdict.get(d.code, d.code)) }}</h1>
-  <p class="sub">{{ t.verdict_sub.get(d.code, '') }}</p>
+  {% set fo = d.failover %}
+  <h1 id="headline" class="headline">{% if fo and d.code == 'ok' %}{{ t.headline_backup }}{% else %}{{ t.headline.get(d.code, t.verdict.get(d.code, d.code)) }}{% endif %}</h1>
+  <p class="sub">{% if fo and d.code == 'ok' %}{{ t.sub_backup }}{% else %}{{ t.verdict_sub.get(d.code, '') }}{% endif %}</p>
+  {% if fo %}
+  <div class="backup-note"><svg class="ico" aria-hidden="true"><use href="#i-tunnels"/></svg>
+    <p>{{ t.backup_note.format(backup=fo.backup, since=fo.since|tm, dur=fo['for'], primary=fo.primary or t.isp_primary.lower()) }}
+      <a href="{{ url_for('settings_page') }}#isp">{{ t.backup_change }}</a></p></div>
+  {% endif %}
 
   {% if d.has_data %}
   <ol class="path" aria-label="{{ t.hop.home }}, {{ t.hop.isp }}, {{ t.hop.internet }}">
@@ -19,13 +25,17 @@
       <span class="hop-id">{% if h.key == 'internet' %}{{ t.hop_dest.format(n=h.name) }}{% else %}{{ h.name }}{% endif %}</span>
       {% if h.detail %}<span class="hop-id ip">{{ h.detail }}</span>{% endif %}
       <span class="hop-val"><b>{{ num(h.median) }}</b> ms <span class="sep" aria-hidden="true">/</span> <b>{{ num(h.loss) }}</b>%</span>
+      {% if h.key == 'isp' and fo %}<span class="here alt">{{ t.isp_backup_badge }}</span>{% endif %}
       {% if h.blamed %}<span class="here">{{ t.hop_here }}</span>{% endif %}
     </li>
     {% endfor %}
   </ol>
   {% endif %}
 
-  {% if d.code in t.advice and d.code != 'ok' %}
+  {% if fo and d.code == 'ok' %}
+  <div class="advice"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>
+    <p><b>{{ t.what_to_do }}.</b> {{ t.advice.failover }}</p></div>
+  {% elif d.code in t.advice and d.code != 'ok' %}
   <div class="advice"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>
     <p><b>{{ t.what_to_do }}.</b> {{ t.advice[d.code] }}</p></div>
   {% endif %}
@@ -60,7 +70,16 @@
       {% for g in tl.groups %}<li><i class="sw g-{{ g }}" aria-hidden="true"></i>{{ t.group[g] }}</li>{% endfor %}
     </ul>
   </div>
-  <figure class="tl">
+  <figure class="tl{{ ' fo' if tl.backup_runs }}">
+    {% if tl.backup_runs %}
+    <span class="tl-name r0">{{ t.row_backup }}</span>
+    <div class="tl-plot strip r0">
+      <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
+        <rect class="track" x="0" y="0" width="1000" height="100"/>
+        {% for x, w in tl.backup_runs %}<rect class="backup" x="{{ x }}" y="0" width="{{ w }}" height="100"/>{% endfor %}
+      </svg>
+    </div>
+    {% endif %}
     <span class="tl-name r1">{{ t.row_status }}</span>
     <div class="tl-plot strip r1">
       <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
@@ -77,7 +96,8 @@
         <b>{{ b.start|tm }}–{{ b.end|tm }}</b>
         <span><i class="sw g-{{ b.group }}"></i>{{ t.verdict.get(b.code, b.code) if b.group != 'none' else t.group.none }}</span>
         <span>{{ t.row_loss }} {{ num(b.loss) }}%</span>
-        <span>{{ t.row_latency }} {{ num(b.lat) }} ms</span></div></div>{% endfor %}
+        <span>{{ t.row_latency }} {{ num(b.lat) }} ms</span>{% if b.backup %}
+        <span>{{ t.tip_backup }}</span>{% endif %}</div></div>{% endfor %}
     </div>
     {{ xaxis(tl.xticks, 'r4') }}
   </figure>

@@ -44,6 +44,25 @@
     </form>{% endif %}
   </div>
 
+  <div class="card" id="isp"><h3>{{ t.isp_title }}</h3><p class="muted">{{ t.isp_sub }}</p>
+    <table class="kv">
+      <tr><th>{{ t.isp_primary }}</th><td>{% if isp.primary %}{{ isp.primary.name }} <span class="muted ip">{{ isp.primary.asn or isp.primary.net16 }}</span>{% else %}<span class="muted">{{ t.isp_not_yet }}</span>{% endif %}</td></tr>
+      <tr><th>{{ t.isp_current }}</th><td>{% if isp.current %}{{ isp.current.name }} <span class="muted ip">{{ isp.current.asn or isp.current.net16 }}</span>
+        {% if isp.on_backup %}<span class="badge warn">{{ t.isp_backup_badge }}</span>{% endif %}{% else %}<span class="muted">—</span>{% endif %}</td></tr>
+    </table>
+    {% if isp.on_backup %}<p class="muted small">{{ t.isp_backup_hint }}</p>{% endif %}
+    <form method="post" action="{{ url_for('isp_primary') }}" class="actions">{{ csrf() }}
+      <button class="btn" type="submit" {{ 'disabled' if readonly or not isp.current }}>{{ t.isp_make_primary }}</button></form>
+    {% if isp.asn_available %}
+    <h4>{{ t.asn_title }}</h4>
+    <p class="muted">{% if isp.asn_installed %}{{ t.asn_installed.format(date=isp.asn_date|dt) }}{% else %}{{ t.asn_missing }}{% endif %}</p>
+    {% if isp.asn_error %}<div class="flash err">{{ isp.asn_error }}</div>{% endif %}
+    <form method="post" action="{{ url_for('isp_asn_download') }}" class="actions">{{ csrf() }}
+      <button class="btn{{ ' primary' if not isp.asn_installed }}" type="submit" {{ 'disabled' if readonly or isp.asn_running }}>
+        <svg class="ico" aria-hidden="true"><use href="#i-download"/></svg>{{ t.asn_running if isp.asn_running else (t.asn_update if isp.asn_installed else t.asn_download) }}</button></form>
+    {% endif %}
+  </div>
+
   <div class="card" id="link"><h3>{{ t.snmp_title }}</h3><p class="muted">{{ t.link_sub }}</p>
     {% if ifaces %}<div class="flash ok"><b>{{ t.snmp_ifaces }}:</b> {{ ifaces|join(' · ') }}</div>{% endif %}
     <form method="post" action="{{ url_for('settings_link') }}">{{ csrf() }}
