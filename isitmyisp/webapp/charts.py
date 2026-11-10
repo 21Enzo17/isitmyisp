@@ -35,6 +35,7 @@ class Bucket:
     lat: float | None    # median latency (ms)
     flip: bool = False   # tooltip opens to the left (right third of the chart)
     backup: bool = False  # traffic was going out through the backup link
+    mos: float | None = None  # estimated call quality (1..5), mean of the bucket
 
 
 @dataclass
@@ -64,6 +65,7 @@ class Timeline:
     groups: list[str]                            # responsibility groups present (legend)
     hourly: list[Bucket]                         # table view
     backup_runs: list[tuple[float, float]] = field(default_factory=list)  # (x, width): on the backup link
+    calls: Plot | None = None                    # estimated MOS over time (None: not computed)
 
 
 def _nice_max(v: float, floor: float) -> float:
@@ -80,7 +82,8 @@ def _fmt(v: float) -> str:
 
 
 def plot(points: list[tuple[float, float]], start: float, end: float, *, unit: str = "",
-         floor: float = 1.0, ymax: float | None = None, threshold: float | None = None) -> Plot:
+         floor: float = 1.0, ymax: float | None = None, threshold: float | None = None,
+         ymin: float = 0.0) -> Plot:
     """points: [(ts, value)] -> polyline/area strings. Gaps longer than 3 samples break the line."""
     pts = [(ts, v) for ts, v in points if v is not None and start <= ts <= end]
     if len(pts) < 2:
@@ -89,7 +92,7 @@ def plot(points: list[tuple[float, float]], start: float, end: float, *, unit: s
     span = max(1.0, end - start)
 
     def xy(ts: float, v: float) -> tuple[float, float]:
-        return 1000 * (ts - start) / span, 100 - 100 * min(v, top) / top
+        return 1000 * (ts - start) / span, 100 - 100 * (min(max(v, ymin), top) - ymin) / (top - ymin)
 
     step = statistics.median(b[0] - a[0] for a, b in zip(pts, pts[1:])) or 1
     segments, cur = [], [pts[0]]
@@ -108,8 +111,8 @@ def plot(points: list[tuple[float, float]], start: float, end: float, *, unit: s
         areas.append(f"M{coords[0][0]:.1f},100 L" + " L".join(f"{x:.1f},{y:.1f}" for x, y in coords)
                      + f" L{coords[-1][0]:.1f},100 Z")
     return Plot(" ".join(lines), " ".join(areas), top, unit,
-                None if threshold is None else 100 - 100 * threshold / top,
-                [f"{_fmt(top)}{unit}", f"{_fmt(top / 2)}{unit}", f"0{unit}"])
+                None if threshold is None else 100 - 100 * (threshold - ymin) / (top - ymin),
+                [f"{_fmt(top)}{unit}", f"{_fmt((top + ymin) / 2)}{unit}", f"{_fmt(ymin)}{unit}"])
 
 
 def strip_runs(windows: list[tuple[float, float, str]], start: float, end: float) -> list[tuple[float, float, str, str]]:
@@ -170,7 +173,8 @@ def _merge(buckets: list[Bucket], k: int) -> list[Bucket]:
         lats = [b.lat for b in chunk if b.lat is not None]
         out.append(Bucket(chunk[0].start, chunk[-1].end, worst.code, worst.group,
                           statistics.fmean(losses) if losses else None,
-                          statistics.median(lats) if lats else None, backup=any(b.backup for b in chunk)))
+                          statistics.median(lats) if lats else None, backup=any(b.backup for b in chunk),
+                          mos=min((b.mos for b in chunk if b.mos is not None), default=None)))
     return out
 
 
@@ -180,7 +184,8 @@ def xticks(start: float, end: float) -> list[str]:
 
 
 def timeline(windows: list[tuple[float, float, str]], series: list[tuple[float, float, float | None]],
-             start: float, end: float, n: int = BUCKETS, backup: list[tuple[float, float]] = ()) -> Timeline:
+             start: float, end: float, n: int = BUCKETS, backup: list[tuple[float, float]] = (),
+             calls: list[tuple[float, float]] | None = None) -> Timeline:
     """windows: [(ts, seconds, code)]; series: [(ts, loss %, median latency ms)] per window;
     backup: [(start, end)] spans on the backup link (failover)."""
     buckets = _buckets(windows, series, start, end, n)
@@ -193,6 +198,15 @@ def timeline(windows: list[tuple[float, float, str]], series: list[tuple[float, 
             for b in buckets:
                 if b.start < b1 and b.end > b0:
                     b.backup = True
+    if calls:
+        size = (end - start) / n
+        acc: list[list[float]] = [[] for _ in range(n)]
+        for ts, mos in calls:
+            i = int((ts - 1e-6 - start) / size)
+            if 0 <= i < n:
+                acc[i].append(mos)
+        for b, ms in zip(buckets, acc):
+            b.mos = round(statistics.fmean(ms), 2) if ms else None
     runs = strip_runs(windows, start, end)
     present = {g for _, _, g, _ in runs}
     groups = [g for g in ("good", "you", "isp", "other") if g in present]
@@ -201,4 +215,5 @@ def timeline(windows: list[tuple[float, float, str]], series: list[tuple[float, 
     return Timeline(start, end, buckets, runs,
                     plot([(ts, loss) for ts, loss, _ in series], start, end, unit="%", floor=2),
                     plot([(ts, lat) for ts, _, lat in series], start, end, unit=" ms", floor=10),
-                    xticks(start, end), groups, _merge(buckets, max(1, n // 24)), backup_runs)
+                    xticks(start, end), groups, _merge(buckets, max(1, n // 24)), backup_runs,
+                    plot(calls, start, end, ymin=1, ymax=5, threshold=3.6) if calls else None)

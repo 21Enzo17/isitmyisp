@@ -28,6 +28,7 @@ DEFAULTS: dict = {
     "auth_mode": "local",
     "proxy_header": "Remote-User",
     "trusted_proxies": ["127.0.0.1/32", "::1/128"],
+    "voip_target": "",         # optional: your SIP provider / cloud PBX, to judge call quality against it
     "tunnels": [],             # list of {name, underlay, overlay, type}
     "services": [],            # list of {name, kind: http|tcp, target}
     "link": {"enabled": False, "host": "", "community": "", "port": 161, "interface": "",
@@ -54,6 +55,7 @@ class Settings:
     tunnels_from_file: Path | None = None  # set when a TOML file provides the tunnels
     services: list = field(default_factory=list)  # list[services.Service]
     link: dict = field(default_factory=lambda: dict(DEFAULTS["link"]))
+    voip_target: str = ""
     version: int = 0
 
 
@@ -114,6 +116,16 @@ def validate(values: dict) -> dict:
             except ValueError as exc:
                 raise SettingsError(f"trusted proxy {n!r} is not an IP or CIDR") from exc
         out["trusted_proxies"] = nets
+    if "voip_target" in values:
+        target = str(values["voip_target"] or "").strip()
+        if target:
+            try:
+                ip = ipaddress.ip_address(target)
+            except ValueError as exc:
+                raise SettingsError(f"calls destination {target!r} must be an IP address") from exc
+            if not ip.is_global:
+                raise SettingsError(f"calls destination {target} must be a public address")
+        out["voip_target"] = target
     if "tunnels" in values:
         try:
             parsed = parse_tunnels({"tunnel": values["tunnels"]}).tunnels
@@ -171,6 +183,7 @@ def load(store: Store, toml_path: str | None = None, data_dir: Path | None = Non
         tunnels=[Tunnel(**t) for t in raw["tunnels"]], version=store.settings_version(),
         services=[Service(**sv) for sv in raw["services"]],
         link={**DEFAULTS["link"], **(raw.get("link") or {})},
+        voip_target=str(raw.get("voip_target") or ""),
     )
     if data_dir is not None or toml_path:
         cfg: Config = load_toml(toml_path, data_dir or Path("."))

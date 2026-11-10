@@ -84,6 +84,11 @@ R = {
         "tun_cause": {"path_local": "Loss on your connection", "path_remote": "Far site or path to it",
                       "config": "Tunnel configuration (path was clean)", "unknown": "Undetermined (far end filters ICMP)"},
         "tun_none": "No tunnel drops in this period.",
+        "calls": "Call quality",
+        "calls_fit": "Fit for calls {pct} of the time measured. Periods when it wasn't:",
+        "calls_all_fit": "Calls would have sounded acceptable or better the whole time.",
+        "calls_worst_col": "Worst MOS",
+        "calls_method": "Estimated with the ITU-T G.107 E-model (G.711 with loss concealment) from latency, jitter and loss; fit for calls means R >= 70 (MOS 3.6). It is an estimate from ping, not a measured call.",
         "failover": "Backup link in use",
         "fo_intro": "During these periods your router sent the traffic through the backup link because the main ISP was down or failing ({dur} in total). Measurements in those periods describe the backup link.",
         "fo_col": "Went out through",
@@ -155,6 +160,11 @@ R = {
         "tun_cause": {"path_local": "Pérdida en tu conexión", "path_remote": "Sitio remoto o camino hacia él",
                       "config": "Configuración del túnel (camino limpio)", "unknown": "Indeterminado (el otro extremo filtra ICMP)"},
         "tun_none": "Sin caídas de túneles en este período.",
+        "calls": "Calidad para llamadas",
+        "calls_fit": "Apta para llamadas el {pct} del tiempo medido. Períodos en que no lo fue:",
+        "calls_all_fit": "Las llamadas se habrían escuchado aceptable o mejor todo el tiempo.",
+        "calls_worst_col": "Peor MOS",
+        "calls_method": "Estimado con el modelo E de la UIT (G.107, G.711 con ocultamiento de pérdidas) a partir de latencia, jitter y pérdida; apta para llamadas significa R >= 70 (MOS 3,6). Es una estimación a partir de ping, no una llamada medida.",
         "failover": "Enlace de respaldo en uso",
         "fo_intro": "En estos períodos tu router mandó el tráfico por el enlace de respaldo porque el ISP principal estaba caído o fallando ({dur} en total). Las mediciones de esos períodos describen al respaldo.",
         "fo_col": "Salió por",
@@ -499,6 +509,30 @@ footer { margin-top:36px; color:var(--muted); font-size:12px; border-top:1px sol
 """
 
 
+def call_periods(store: Store, start: float, end: float, min_seconds: float = 120,
+                 limit: int = 12) -> tuple[float, list[tuple[float, float, float]]] | None:
+    """(% of windows fit for calls, [(start, end, worst MOS)] stretches that weren't, longest first).
+    Judged against the calls provider when one was measured, otherwise against the anchors."""
+    from .mos import quality_series
+    rows = store.samples_between(start, end, role="voip")
+    if not any(r["received"] for r in rows):
+        rows = store.samples_between(start, end, role="anchor")
+    marks = quality_series(rows)
+    if not marks:
+        return None
+    step = statistics.median(b[0] - a[0] for a, b in zip(marks, marks[1:])) if len(marks) > 1 else 30.0
+    bad: list[list[float]] = []
+    for ts, q in marks:
+        if q.fit:
+            continue
+        if bad and ts - bad[-1][1] <= 1.5 * step:
+            bad[-1][1], bad[-1][2] = ts, min(bad[-1][2], q.mos)
+        else:
+            bad.append([ts - step, ts, q.mos])
+    stretches = sorted((tuple(b) for b in bad if b[1] - b[0] >= min_seconds), key=lambda b: b[0] - b[1])[:limit]
+    return 100.0 * sum(q.fit for _, q in marks) / len(marks), sorted(stretches)
+
+
 def build_report(store: Store, start: float, end: float, lang: str = "en", now: float | None = None) -> str:
     t = R.get(lang, R["en"])
     now = now or time.time()
@@ -577,6 +611,18 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
                    + svg_line([(ts, l) for ts, l, _ in series], start, end, COLORS["access"], unit="%"))
         lat = [(ts, v) for ts, _, v in series if v is not None]
         out.append(f'<div class="label">{_e(t["lat_chart"])}</div>' + svg_line(lat, start, end, COLORS["dns"]))
+
+    # ---- call quality (E-model estimate)
+    calls = call_periods(store, start, end)
+    if calls:
+        fit_pct, bad = calls
+        rows = "".join(f'<tr><td class="dt">{_dt_html(a)}</td><td class="dt">{_dt_html(b)}</td>'
+                       f'<td class="num">{fmt_duration(b - a)}</td><td class="num">{m:.1f}</td></tr>' for a, b, m in bad)
+        table = (f'<table><thead><tr><th class="num">{t["start"]}</th><th class="num">{t["end"]}</th>'
+                 f'<th class="num">{t["duration"]}</th><th class="num">{t["calls_worst_col"]}</th></tr></thead>'
+                 f'<tbody>{rows}</tbody></table>') if bad else f'<p>{_e(t["calls_all_fit"])}</p>'
+        out.append(f'<h2>{_e(t["calls"])}</h2><p>{_e(t["calls_fit"].format(pct=f"{fit_pct:.1f}%"))}</p>{table}'
+                   f'<p class="muted">{_e(t["calls_method"])}</p>')
 
     # ---- incidents
     if incidents:

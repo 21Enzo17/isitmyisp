@@ -11,8 +11,9 @@ from ..settings import Settings
 from ..store import Store
 from ..api import is_stale
 from . import charts
+from .. import mos as mos_mod
 
-ROLE_ORDER = {"home": 0, "isp": 1, "anchor": 2, "tcp": 3, "dns": 4}
+ROLE_ORDER = {"home": 0, "isp": 1, "anchor": 2, "voip": 3, "tcp": 4, "dns": 5}
 CAUSE_CLASS = {"ok": "ok", "local": "warn", "access": "bad", "isp": "bad", "remote": "info", "dns": "info",
                "no_data": "muted", "stale": "muted", "config": "warn", "path_local": "bad",
                "path_remote": "info", "unknown": "muted", "saturation": "warn"}
@@ -70,6 +71,7 @@ class Dashboard:
     link_enabled: bool = False
     recent: list = field(default_factory=list)
     failover: dict | None = None   # on the backup link right now
+    calls: dict | None = None      # estimated call quality (E-model)
 
 
 def _sample_loss(s: dict) -> float:
@@ -111,7 +113,9 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
         end = last[0]  # draw up to the last finished window: the one in progress isn't "missing data"
         series = _anchor_series(store.samples_between(start, end, role="anchor"))
         backup = [(i.opened, i.closed or now) for i in store.incidents_between(start, now, scope="failover")]
-        d.timeline = charts.timeline(windows, series, start, end, backup=backup)
+        d.calls = call_summary(store, settings, start, end)
+        d.timeline = charts.timeline(windows, series, start, end, backup=backup,
+                                     calls=d.calls["series"] if d.calls else None)
         d.brief = list(reversed(store.brief_events(start, end)))[:12]
 
     # the latest measurement of every target (they make up the path in the hero), with 6 h of history
@@ -326,3 +330,24 @@ def isp_status(store: Store, data_dir, job: dict | None = None, now: float | Non
             "asn_installed": have, "asn_date": path.stat().st_mtime if have else None,
             "asn_running": bool(job and job.get("running")), "asn_error": (job or {}).get("error"),
             "asn_available": data_dir is not None}
+
+
+def call_summary(store: Store, settings: Settings, start: float, end: float) -> dict | None:
+    """Estimated call quality per window over [start, end]: against your calls destination when
+    one is set (and answering), otherwise against the internet destinations."""
+    rows = store.samples_between(start, end, role="voip") if settings.voip_target else []
+    source = "voip" if any(r["received"] for r in rows) else "anchors"
+    if source == "anchors":
+        rows = store.samples_between(start, end, role="anchor")
+    series, fit, worst = [], 0, None
+    marks = mos_mod.quality_series(rows)
+    for ts, q in marks:
+        series.append((ts, q.mos))
+        fit += q.fit
+        if worst is None or q.mos < worst[1]:
+            worst = (ts, q.mos)
+    if not series:
+        return None
+    last = marks[-1][1]
+    return {"now": last, "series": series, "fit_pct": round(100 * fit / len(series), 1),
+            "worst": worst, "source": source, "target": settings.voip_target}

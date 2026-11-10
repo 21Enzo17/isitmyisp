@@ -183,7 +183,6 @@ b, strong { font-weight: 600; }
 .x1 { left: 16.667%; } .x2 { left: 33.333%; } .x3 { left: 50%; } .x4 { left: 66.667%; } .x5 { left: 83.333%; }
 
 .hv { grid-column: 2; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); position: relative; z-index: 2; }
-.hv.rows-3 { grid-row: 1 / 4; }
 .hv.rows-1 { grid-row: 1; }
 .hv .c { position: relative; }
 .hv .c:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
@@ -251,13 +250,26 @@ b, strong { font-weight: 600; }
 .backup-note a { margin-left: 6px; font-size: 14px; }
 .here.alt { background: color-mix(in srgb, var(--other) 22%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--other) 60%, transparent); }
 .tl.fo { grid-template-rows: 18px 30px 92px 92px 22px; }
-.tl.fo .r0 { grid-row: 1; } .tl.fo .r1 { grid-row: 2; } .tl.fo .r2 { grid-row: 3; } .tl.fo .r3 { grid-row: 4; } .tl.fo .r4 { grid-row: 5; }
-.tl.fo .hv.rows-3 { grid-row: 1 / 5; }
+.tl.calls { grid-template-rows: 30px 92px 92px 72px 22px; }
+.tl.fo.calls { grid-template-rows: 18px 30px 92px 92px 72px 22px; }
+.row-1 { grid-row: 1; } .row-2 { grid-row: 2; } .row-3 { grid-row: 3; } .row-4 { grid-row: 4; } .row-5 { grid-row: 5; } .row-6 { grid-row: 6; }
+.hv.upto-4 { grid-row: 1 / 4; } .hv.upto-5 { grid-row: 1 / 5; } .hv.upto-6 { grid-row: 1 / 6; }
 .strip .backup { fill: var(--other); }
 table.kv { width: auto; margin: 8px 0 4px; }
 table.kv th { width: 150px; color: var(--ink-2); font-weight: 500; padding-left: 0; }
 table.kv td, table.kv th { border-bottom: 0; padding-top: 6px; padding-bottom: 6px; }
 table.kv .badge { margin-left: 8px; }
+
+/* ---------- call quality (E-model estimate) */
+.calls { --band: var(--good); }
+.calls.b-fair { --band: var(--you); } .calls.b-poor, .calls.b-bad { --band: var(--isp); }
+.calls .panel-head { margin-bottom: 10px; }
+.calls-body { display: grid; gap: 6px; }
+.calls-now { font-size: 22px; font-weight: 500; letter-spacing: -.01em; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.mos-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--band); flex: none; }
+.mos { font-size: 15px; font-weight: 400; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.mos b { color: var(--ink); font-weight: 600; }
+.calls-day { color: var(--ink-2); max-width: 75ch; }
 
 /* ---------- link meters */
 .meters { display: grid; gap: 14px; }

@@ -70,44 +70,52 @@
       {% for g in tl.groups %}<li><i class="sw g-{{ g }}" aria-hidden="true"></i>{{ t.group[g] }}</li>{% endfor %}
     </ul>
   </div>
-  <figure class="tl{{ ' fo' if tl.backup_runs }}">
+  {% set o = 1 if tl.backup_runs else 0 %}
+  {% set last = (4 if tl.calls else 3) + o %}
+  <figure class="tl{{ ' fo' if tl.backup_runs }}{{ ' calls' if tl.calls }}">
     {% if tl.backup_runs %}
-    <span class="tl-name r0">{{ t.row_backup }}</span>
-    <div class="tl-plot strip r0">
+    <span class="tl-name row-1">{{ t.row_backup }}</span>
+    <div class="tl-plot strip row-1">
       <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
         <rect class="track" x="0" y="0" width="1000" height="100"/>
         {% for x, w in tl.backup_runs %}<rect class="backup" x="{{ x }}" y="0" width="{{ w }}" height="100"/>{% endfor %}
       </svg>
     </div>
     {% endif %}
-    <span class="tl-name r1">{{ t.row_status }}</span>
-    <div class="tl-plot strip r1">
+    <span class="tl-name row-{{ 1 + o }}">{{ t.row_status }}</span>
+    <div class="tl-plot strip row-{{ 1 + o }}">
       <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
         <rect class="track" x="0" y="0" width="1000" height="100"/>
         {% for x, w, g, code in tl.strip %}<rect class="g-{{ g }}" x="{{ x }}" y="{{ 72 if g == 'good' else 0 }}" width="{{ w }}" height="{{ 28 if g == 'good' else 100 }}"/>{% endfor %}
       </svg>
     </div>
-    <span class="tl-name r2">{{ t.row_loss }}</span>
-    {{ line_plot(tl.loss, 'r2') }}
-    <span class="tl-name r3">{{ t.row_latency }}</span>
-    {{ line_plot(tl.latency, 'r3') }}
-    <div class="hv rows-3" aria-hidden="true">
+    <span class="tl-name row-{{ 2 + o }}">{{ t.row_loss }}</span>
+    {{ line_plot(tl.loss, 'row-%d' % (2 + o)) }}
+    <span class="tl-name row-{{ 3 + o }}">{{ t.row_latency }}</span>
+    {{ line_plot(tl.latency, 'row-%d' % (3 + o)) }}
+    {% if tl.calls %}
+    <span class="tl-name row-{{ 4 + o }}">{{ t.row_calls }}</span>
+    {{ line_plot(tl.calls, 'row-%d' % (4 + o)) }}
+    {% endif %}
+    <div class="hv upto-{{ last + 1 }}" aria-hidden="true">
       {% for b in tl.buckets %}<div class="c{{ ' flip' if b.flip }}"><div class="tip">
         <b>{{ b.start|tm }}–{{ b.end|tm }}</b>
         <span><i class="sw g-{{ b.group }}"></i>{{ t.verdict.get(b.code, b.code) if b.group != 'none' else t.group.none }}</span>
         <span>{{ t.row_loss }} {{ num(b.loss) }}%</span>
-        <span>{{ t.row_latency }} {{ num(b.lat) }} ms</span>{% if b.backup %}
+        <span>{{ t.row_latency }} {{ num(b.lat) }} ms</span>{% if b.mos is not none %}
+        <span>{{ t.row_calls }} {{ '%.1f'|format(b.mos) }} ({{ t.band[band_of(b.mos)] }})</span>{% endif %}{% if b.backup %}
         <span>{{ t.tip_backup }}</span>{% endif %}</div></div>{% endfor %}
     </div>
-    {{ xaxis(tl.xticks, 'r4') }}
+    {{ xaxis(tl.xticks, 'row-%d' % (last + 1)) }}
   </figure>
   <details class="table-view">
     <summary>{{ t.table_view }}</summary>
     <table>
-      <thead><tr><th>{{ t.col_time }}</th><th>{{ t.row_status }}</th><th class="num">{{ t.col_worst_loss }}</th><th class="num">{{ t.col_latency }}</th></tr></thead>
+      <thead><tr><th>{{ t.col_time }}</th><th>{{ t.row_status }}</th><th class="num">{{ t.col_worst_loss }}</th><th class="num">{{ t.col_latency }}</th>{% if tl.calls %}<th class="num">{{ t.col_calls }}</th>{% endif %}</tr></thead>
       <tbody>{% for b in tl.hourly %}<tr><td class="num-l">{{ b.start|tm }}–{{ b.end|tm }}</td>
         <td><i class="sw g-{{ b.group }}" aria-hidden="true"></i>{{ t.verdict.get(b.code, b.code) if b.group != 'none' else t.group.none }}</td>
-        <td class="num">{{ num(b.loss) }}%</td><td class="num">{{ num(b.lat) }} ms</td></tr>{% endfor %}</tbody>
+        <td class="num">{{ num(b.loss) }}%</td><td class="num">{{ num(b.lat) }} ms</td>{% if tl.calls %}
+        <td class="num">{% if b.mos is not none %}{{ '%.1f'|format(b.mos) }} <span class="muted">{{ t.band[band_of(b.mos)] }}</span>{% else %}—{% endif %}</td>{% endif %}</tr>{% endfor %}</tbody>
     </table>
   </details>
   <div class="brief">
@@ -121,6 +129,22 @@
           <td class="ip">{% for x in e.evidence[:2] %}{{ x|ev }}<br>{% endfor %}</td></tr>
       {% endfor %}
     </tbody></table>{% endif %}
+  </div>
+</section>
+{% endif %}
+
+{% if d.calls and d.calls.now %}
+{% set c = d.calls %}
+<section class="panel calls b-{{ c.now.band }}" aria-labelledby="calls-h">
+  <div class="panel-head"><h2 id="calls-h">{{ t.calls_title }}</h2>
+    <a class="icon-link" href="{{ url_for('settings_page') }}" aria-label="{{ t.nav.settings }}"><svg class="ico" aria-hidden="true"><use href="#i-settings"/></svg></a></div>
+  <div class="calls-body">
+    <p class="calls-now"><span class="mos-dot" aria-hidden="true"></span>{{ t.calls_now[c.now.band] }}
+      <span class="mos">MOS <b>{{ '%.1f'|format(c.now.mos) }}</b> / 5</span></p>
+    <p class="calls-day">{{ t.calls_fit.format(pct=c.fit_pct) }}{% if c.worst and c.worst[1] < 3.6 %}
+      {{ t.calls_worst.format(mos='%.1f'|format(c.worst[1]), at=c.worst[0]|tm) }}{% endif %}</p>
+    <p class="muted small">{% if c.source == 'voip' %}{{ t.calls_how_voip.format(target=c.target) }}{% else %}{{ t.calls_how }}
+      <a href="{{ url_for('settings_page') }}">{{ t.calls_set_target }}</a>{% endif %}</p>
   </div>
 </section>
 {% endif %}

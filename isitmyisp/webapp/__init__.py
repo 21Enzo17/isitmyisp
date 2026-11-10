@@ -152,6 +152,9 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         from ..report import describe_link
         return describe_link(link)
 
+    from ..mos import band_of
+    app.jinja_env.globals["band_of"] = band_of
+
     @app.template_filter("group")
     def _group(code: str) -> str:
         return charts.GROUP.get(code, "none")
@@ -251,7 +254,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         _guard_write()
         f = request.form
         return _save({"anchors": f.get("anchors", "").split(), "interval": f.get("interval"),
-                      "window": f.get("window"), "lang": f.get("lang")})
+                      "window": f.get("window"), "lang": f.get("lang"), "voip_target": f.get("voip_target", "")})
 
     @app.post("/settings/tunnels/add")
     def tunnel_add():

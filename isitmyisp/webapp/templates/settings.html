@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block head %}{% if isp and isp.asn_running %}<meta http-equiv="refresh" content="4;url={{ url_for('settings_page') }}#isp">{% endif %}{% endblock %}
 {% block title %}{{ t.settings_title }}{% endblock %}
 {% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
 {% block content %}
@@ -16,6 +17,9 @@
         <div><label for="lang">{{ t.language }}</label><select id="lang" name="lang" {{ 'disabled' if readonly }}>
           <option value="en" {{ 'selected' if s.lang == 'en' }}>English</option><option value="es" {{ 'selected' if s.lang == 'es' }}>Español</option></select></div>
       </div>
+      <label for="voip">{{ t.voip_label }}</label>
+      <input type="text" id="voip" name="voip_target" value="{{ s.voip_target }}" placeholder="{{ t.voip_placeholder }}" {{ 'disabled' if readonly }}>
+      <p class="muted small">{{ t.voip_hint }}</p>
       {% if not readonly %}<div class="actions"><button class="btn primary" type="submit">{{ t.save }}</button></div>{% endif %}
     </form>
   </div>

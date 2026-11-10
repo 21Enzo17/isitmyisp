@@ -98,7 +98,7 @@ class Session:
 
     def __init__(self, net: Network, interval: float, socket_interval: float, engine: str | None = None,
                  anchors: list[str] | None = None, tunnels: list | None = None, services: list | None = None,
-                 link: dict | None = None):
+                 link: dict | None = None, voip: str = ""):
         from .services import ServiceProber
         self.net = net
         self.link = None
@@ -114,6 +114,8 @@ class Session:
         if net.isp_hop:
             self.roles.append(("isp", net.isp_hop))
         self.roles += [("anchor", a) for a in self.anchors]
+        if voip and voip not in [ip for _, ip in self.roles]:  # your SIP provider / cloud PBX: calls are judged against it
+            self.roles.append(("voip", voip))
         tunnel_targets = [ip for t in self.tunnels for ip in (t.underlay, t.overlay)]
         self.last_tunnels: list = []
         self.icmp = IcmpProber([ip for _, ip in self.roles] + tunnel_targets, interval=interval, engine=engine)
@@ -292,7 +294,8 @@ def cmd_monitor(args, t) -> int:
                 watch = PathWatch(net.isp_hop, ttl, cfg.anchors, known=seen)
             route = default_route()
             with Session(net, interval, socket_interval=3.0, engine=args.engine,
-                         anchors=cfg.anchors, tunnels=cfg.tunnels, services=cfg.services, link=cfg.link) as s:
+                         anchors=cfg.anchors, tunnels=cfg.tunnels, services=cfg.services, link=cfg.link,
+                         voip=cfg.voip_target) as s:
                 print_network(net, t, engine=s.icmp.name)
                 started = time.time()
                 time.sleep(window + 1.5)

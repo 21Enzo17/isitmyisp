@@ -166,6 +166,15 @@ class CsrfAndSettings(WebAppBase):
         self.assertEqual((s.anchors, s.interval, s.window, s.lang), (["1.1.1.1", "9.9.9.9"], 1.5, 20, "es"))
         self.assertGreater(self.store.settings_version(), before)
 
+    def test_settings_page_refreshes_itself_while_downloading(self):
+        from isitmyisp.webapp import ASN_JOB
+        self.assertNotIn('http-equiv="refresh"', self.client.get("/settings").get_data(as_text=True))
+        ASN_JOB["running"] = True
+        try:
+            self.assertIn('http-equiv="refresh"', self.client.get("/settings").get_data(as_text=True))
+        finally:
+            ASN_JOB["running"] = False
+
     def test_invalid_anchor_rejected(self):
         r = self.client.post("/settings/general", data={"csrf_token": csrf(self.page()), "anchors": "192.168.1.1",
                                                         "interval": "2", "window": "30", "lang": "en"})
@@ -362,3 +371,19 @@ class FailoverOnDashboard(WebAppBase):
                     break
                 __import__("time").sleep(0.05)
         self.assertGreater(self.store.settings_version(), before)
+
+
+@unittest.skipUnless(HAVE_WEB, "web extra not installed")
+class CallQualityOnDashboard(WebAppBase):
+    def test_panel_timeline_row_and_settings(self):
+        self.create_admin()
+        html = self.client.get("/?lang=en").get_data(as_text=True)
+        self.assertIn("Call quality", html)
+        self.assertIn("Calls would sound excellent right now", html)
+        self.assertIn("towards the internet", html)                      # no calls provider set
+        page = self.client.get("/settings").get_data(as_text=True)
+        r = self.client.post("/settings/general", data={"csrf_token": csrf(page), "anchors": "1.1.1.1\n8.8.8.8",
+                                                        "interval": "2", "window": "30", "lang": "en",
+                                                        "voip_target": "200.45.1.2"})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(settings_mod.load(self.store).voip_target, "200.45.1.2")
