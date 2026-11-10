@@ -387,3 +387,36 @@ class CallQualityOnDashboard(WebAppBase):
                                                         "voip_target": "200.45.1.2"})
         self.assertEqual(r.status_code, 302)
         self.assertEqual(settings_mod.load(self.store).voip_target, "200.45.1.2")
+
+
+@unittest.skipUnless(HAVE_WEB, "web extra not installed")
+class SpeedTestControls(WebAppBase):
+    def form(self, **kw):
+        page = self.client.get("/settings").get_data(as_text=True)
+        return {"csrf_token": csrf(page), "schedule": "weekly", "weekday": "6", "hour": "3",
+                "budget_gb": "5", "max_busy_pct": "30", **kw}
+
+    def test_off_by_default_and_says_why(self):
+        self.create_admin()
+        self.assertFalse(settings_mod.load(self.store).speedtest["enabled"])
+        html = self.client.get("/?lang=en").get_data(as_text=True)
+        self.assertIn("The speed test is off: it fills your link", html)
+        page = self.client.get("/settings?lang=en").get_data(as_text=True)
+        self.assertIn("Why it can be a problem", page)
+        self.assertIn("speed.cloudflare.com", page)
+        self.assertNotIn("Test the speed now", page)            # no button while it's off
+
+    def test_turning_it_on_needs_the_risks_accepted(self):
+        self.create_admin()
+        r = self.client.post("/settings/speedtest", data=self.form(enabled="1"))
+        self.assertEqual(r.status_code, 400)
+        self.assertFalse(settings_mod.load(self.store).speedtest["enabled"])
+        self.assertEqual(self.client.post("/speedtest/run", data=self.form(confirm="1")).status_code, 403)
+        r = self.client.post("/settings/speedtest", data=self.form(enabled="1", accepted="1"))
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(self.client.post("/speedtest/run", data=self.form()).status_code, 400)  # unconfirmed
+        r = self.client.post("/speedtest/run", data=self.form(confirm="1", back="dashboard"))
+        self.assertEqual(r.status_code, 302)
+        self.assertIsNotNone(self.store.get_setting("_speed_request"))
+        html = self.client.get("/?lang=en").get_data(as_text=True)
+        self.assertIn("Test requested", html)

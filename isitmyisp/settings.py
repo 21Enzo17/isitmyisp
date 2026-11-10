@@ -18,6 +18,8 @@ from .config import Config, ConfigError, Tunnel, load as load_toml, parse as par
 from .services import Service
 from .store import Store
 
+from .speedtest import DEFAULTS as SPEED_DEFAULTS
+
 AUTH_MODES = ("local", "proxy", "none")
 
 DEFAULTS: dict = {
@@ -29,6 +31,7 @@ DEFAULTS: dict = {
     "proxy_header": "Remote-User",
     "trusted_proxies": ["127.0.0.1/32", "::1/128"],
     "voip_target": "",         # optional: your SIP provider / cloud PBX, to judge call quality against it
+    "speedtest": {},           # see speedtest.DEFAULTS: OFF until you turn it on and accept the risks
     "tunnels": [],             # list of {name, underlay, overlay, type}
     "services": [],            # list of {name, kind: http|tcp, target}
     "link": {"enabled": False, "host": "", "community": "", "port": 161, "interface": "",
@@ -56,6 +59,7 @@ class Settings:
     services: list = field(default_factory=list)  # list[services.Service]
     link: dict = field(default_factory=lambda: dict(DEFAULTS["link"]))
     voip_target: str = ""
+    speedtest: dict = field(default_factory=dict)
     version: int = 0
 
 
@@ -126,6 +130,12 @@ def validate(values: dict) -> dict:
             if not ip.is_global:
                 raise SettingsError(f"calls destination {target} must be a public address")
         out["voip_target"] = target
+    if "speedtest" in values:
+        from .speedtest import validate as validate_speed
+        try:
+            out["speedtest"] = validate_speed(values["speedtest"], values.get("_speed_current") or {})
+        except ValueError as exc:
+            raise SettingsError(str(exc)) from exc
     if "tunnels" in values:
         try:
             parsed = parse_tunnels({"tunnel": values["tunnels"]}).tunnels
@@ -184,6 +194,7 @@ def load(store: Store, toml_path: str | None = None, data_dir: Path | None = Non
         services=[Service(**sv) for sv in raw["services"]],
         link={**DEFAULTS["link"], **(raw.get("link") or {})},
         voip_target=str(raw.get("voip_target") or ""),
+        speedtest={**SPEED_DEFAULTS, **(raw.get("speedtest") or {})},
     )
     if data_dir is not None or toml_path:
         cfg: Config = load_toml(toml_path, data_dir or Path("."))

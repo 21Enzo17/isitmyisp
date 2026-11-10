@@ -251,6 +251,16 @@ class LinkMonitor:
                          round(100 * down / self.down_c, 1) if self.down_c else None,
                          round(100 * up / self.up_c, 1) if self.up_c else None, cpu)
 
+    def counters(self) -> tuple[int, int] | None:
+        """Raw WAN octet counters (in, out), for an average over an arbitrary span (the speed test)."""
+        try:
+            idx = self._resolve()
+            vals = self.client.get([f"{OID_IF_HC_IN}.{idx}", f"{OID_IF_HC_OUT}.{idx}"])
+            rx, tx = vals.get(f"{OID_IF_HC_IN}.{idx}"), vals.get(f"{OID_IF_HC_OUT}.{idx}")
+        except SnmpError:
+            return None
+        return (rx, tx) if isinstance(rx, int) and isinstance(tx, int) else None
+
     def _cpu(self) -> float | None:
         try:
             loads = [v for _, v in self.client.walk(OID_HR_PROCESSOR_LOAD, limit=64) if isinstance(v, int)]

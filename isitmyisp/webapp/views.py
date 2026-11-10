@@ -16,7 +16,7 @@ from .. import mos as mos_mod
 ROLE_ORDER = {"home": 0, "isp": 1, "anchor": 2, "voip": 3, "tcp": 4, "dns": 5}
 CAUSE_CLASS = {"ok": "ok", "local": "warn", "access": "bad", "isp": "bad", "remote": "info", "dns": "info",
                "no_data": "muted", "stale": "muted", "config": "warn", "path_local": "bad",
-               "path_remote": "info", "unknown": "muted", "saturation": "warn"}
+               "path_remote": "info", "unknown": "muted", "saturation": "warn", "speedtest": "muted"}
 
 
 @dataclass
@@ -72,6 +72,7 @@ class Dashboard:
     recent: list = field(default_factory=list)
     failover: dict | None = None   # on the backup link right now
     calls: dict | None = None      # estimated call quality (E-model)
+    speed: dict | None = None      # speed test state and last results
 
 
 def _sample_loss(s: dict) -> float:
@@ -99,7 +100,7 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
     windows = store.windows_between(start, now)
     if windows:
         start = max(start, windows[0][0] - windows[0][1])
-        measured = sum(w[1] for w in windows)
+        measured = sum(w[1] for w in windows if w[2] != "speedtest")
         healthy = sum(w[1] for w in windows if w[2] == "ok")
         d.healthy_pct = f"{100 * healthy / measured:.1f}%" if measured else "—"
         incs = store.incidents_between(start, now)
@@ -138,6 +139,7 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
     d.isp_name = net.get("isp_name") or ""
     d.path = _path(d, net)
     d.recent = recent_incidents(store, now)
+    d.speed = speed_status(store, settings, now)
     fo = next((i for i in store.incidents_between(now - 400 * 86400, now, scope="failover") if i.closed is None), None)
     if fo:
         det = fo.details or {}
@@ -351,3 +353,34 @@ def call_summary(store: Store, settings: Settings, start: float, end: float) -> 
     last = marks[-1][1]
     return {"now": last, "series": series, "fit_pct": round(100 * fit / len(series), 1),
             "worst": worst, "source": source, "target": settings.voip_target}
+
+
+def speed_status(store: Store, settings: Settings, now: float | None = None) -> dict:
+    """Everything the speed test card shows: state, budget, last results, next run."""
+    from .. import speedtest as sp
+    now = now or time.time()
+    cfg = {**sp.DEFAULTS, **(settings.speedtest or {})}
+    on = bool(cfg["enabled"] and cfg["accepted"])
+    month = store.speedtests_between(sp.month_start(now), now)
+    history = list(reversed(store.speedtests_between(now - 90 * 86400, now)))[:6]
+    slot = sp.last_slot(cfg, now)
+    nxt = None
+    if on and slot is not None:
+        nxt = slot + (86400 if cfg["schedule"] == "daily" else 7 * 86400)
+    used = sum(int(r.get("bytes_used") or 0) for r in month)
+    contract_down = float(settings.link.get("down_mbps") or 0)
+    contract_up = float(settings.link.get("up_mbps") or 0)
+    per_test = sp.per_test_bytes(cfg)
+    # what one test really uses: the cap, or less if the plan can't move that much in the test time
+    expected = per_test
+    if contract_down:
+        expected = min(per_test, int((contract_down * sp.DOWN_SECONDS + (contract_up or contract_down) * sp.UP_SECONDS) * 1e6 / 8))
+    blocked = store.get_setting("_speed_blocked")
+    if blocked and now - blocked.get("ts", 0) > 3600:
+        blocked = None
+    requested = store.get_setting("_speed_request") or 0
+    pending = bool(requested and now - requested < 120 and not any(r["ts"] >= requested for r in month))
+    return {"cfg": cfg, "on": on, "last": history[0] if history else None, "history": history,
+            "used": used, "budget": cfg["budget_gb"] * 1e9, "per_test": per_test, "expected": expected,
+            "next": nxt, "contract_down": contract_down, "contract_up": contract_up,
+            "blocked": blocked, "pending": pending, "weekdays": sp.WEEKDAYS}

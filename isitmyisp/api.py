@@ -7,7 +7,7 @@ import time
 from . import __version__
 from .store import Store
 
-VERDICT_CODES = ("ok", "local", "access", "isp", "remote", "dns", "no_data")
+VERDICT_CODES = ("ok", "local", "access", "isp", "remote", "dns", "no_data", "speedtest")
 
 
 def is_stale(last: tuple | None, now: float) -> bool:

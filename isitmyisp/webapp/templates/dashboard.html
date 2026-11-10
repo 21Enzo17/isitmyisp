@@ -210,6 +210,57 @@
       {{ xaxis(d.link.xticks, 'r2') }}
     </figure>
     {% endif %}
+
+    {% set sp = d.speed %}
+    <div class="speed">
+      <h3>{{ t.speed_dash_title }}</h3>
+      {% if not sp.on %}
+      <p class="muted">{{ t.speed_dash_off }} <a href="{{ url_for('settings_page') }}#speed">{{ t.speed_dash_more }}</a></p>
+      {% elif not sp.last %}
+      <p class="muted">{{ t.speed_dash_none }}</p>
+      {% else %}
+      {% set r = sp.last %}
+      {% if r.error %}<p class="muted">{{ t.speed_dash_error.format(when=r.ts|dt, err=r.error) }}</p>{% else %}
+      <div class="meters">
+        {% for label, mbps, contract in [(t.link_down, r.down_mbps, sp.contract_down), (t.link_up, r.up_mbps, sp.contract_up)] %}
+        {% set pct = (100 * mbps / contract) if (mbps and contract) else none %}
+        <div class="meter{{ ' low' if pct is not none and pct < 80 }}">
+          <span class="m-label">{{ label }}</span>
+          <span class="m-val"><b>{{ '%.0f'|format(mbps or 0) }}</b> Mbps</span>
+          {% if pct is not none %}
+          <svg class="bar" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true">
+            <rect class="bar-track" x="0" y="2" width="100" height="6"/>
+            <rect class="bar-fill" x="0" y="2" width="{{ [pct, 100]|min }}" height="6"/>
+          </svg>
+          <span class="m-pct">{{ t.speed_of_plan.format(pct='%.0f'|format(pct), plan='%.0f'|format(contract)) }}</span>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <p class="speed-meta">
+        {% if r.loaded_ms is not none and r.idle_ms is not none %}{% set bloat = r.loaded_ms - r.idle_ms %}
+        {{ t.speed_loaded.format(loaded='%.0f'|format(r.loaded_ms), idle='%.0f'|format(r.idle_ms), extra='%.0f'|format(bloat)) }}
+        {{ t.bloat_ok if bloat < 30 else (t.bloat_fair if bloat < 100 else t.bloat_bad) }}<br>{% endif %}
+        {{ t.speed_when.format(when=r.ts|dt, trigger=t.speed_trigger[r.trigger], size=r.bytes_used|size) }}
+        {% if r.wan_down_mbps %}{{ t.speed_wan.format(wan='%.0f'|format(r.wan_down_mbps)) }}{% endif %}
+      </p>
+      {% if r.wireless %}<p class="speed-warn">{{ t.speed_wifi_result }}</p>{% endif %}
+      {% endif %}
+      {% endif %}
+      {% if sp.on %}
+      <p class="muted small">{{ t.speed_dash_budget.format(used=sp.used|size, budget=sp.budget|size) }}
+        {% if sp.next %}{{ t.speed_dash_next.format(when=sp.next|dt) }}{% endif %}</p>
+      {% if sp.pending %}<p class="muted small">{{ t.speed_pending }}</p>
+      {% elif sp.blocked %}<p class="muted small">{{ t.speed_block[sp.blocked.reason] }}</p>{% endif %}
+      {% if not readonly %}
+      <form method="post" action="{{ url_for('speedtest_run') }}" class="run-now">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="back" value="dashboard">
+        <label class="check"><input type="checkbox" name="confirm" value="1" required> {{ t.speed_confirm.format(size=sp.expected|size) }}</label>
+        <button class="btn" type="submit">{{ t.speed_run }}</button>
+      </form>
+      {% endif %}
+      {% endif %}
+    </div>
   </section>
 
   <section class="panel" aria-labelledby="svc-h">

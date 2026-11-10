@@ -155,6 +155,11 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     from ..mos import band_of
     app.jinja_env.globals["band_of"] = band_of
 
+    @app.template_filter("size")
+    def _size(n) -> str:
+        n = float(n or 0)
+        return f"{n / 1e9:.1f} GB" if n >= 1e9 else f"{n / 1e6:.0f} MB"
+
     @app.template_filter("group")
     def _group(code: str) -> str:
         return charts.GROUP.get(code, "none")
@@ -230,7 +235,8 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                                metrics_token=token, bind=app.config["BIND"],
                                alerts=alerts_mod.masked(alerts_mod.load(store)),
                                alerts_last=store.get_setting("_alerts_last"), test_results=results,
-                               ifaces=ifaces, isp=views.isp_status(store, data_dir, ASN_JOB)), status
+                               ifaces=ifaces, isp=views.isp_status(store, data_dir, ASN_JOB),
+                               speed=views.speed_status(store, g.settings)), status
 
     @app.get("/settings")
     def settings_page():
@@ -310,6 +316,29 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
             return _settings_page(f"{g.t['link_err']}: {exc}", 400)
         g.settings.link = {**g.settings.link, **{k: v for k, v in values.items() if k != "community"}}
         return _settings_page(ifaces=found)
+
+    @app.post("/settings/speedtest")
+    def settings_speedtest():
+        """The speed test fills the link and uses data: it can only be turned on with the risks accepted."""
+        _guard_write()
+        f = request.form
+        raw = {"enabled": bool(f.get("enabled")), "accepted": bool(f.get("accepted")),
+               "schedule": f.get("schedule", "weekly"), "weekday": f.get("weekday", 6), "hour": f.get("hour", 3),
+               "budget_gb": f.get("budget_gb", 5), "max_busy_pct": f.get("max_busy_pct", 30),
+               "run_on_backup": bool(f.get("run_on_backup"))}
+        return _save({"speedtest": raw, "_speed_current": g.settings.speedtest})
+
+    @app.post("/speedtest/run")
+    def speedtest_run():
+        """'Test now': the monitor picks it up within one window (the web UI may be another process)."""
+        _guard_write()
+        if not request.form.get("confirm"):
+            return _settings_page(g.t["speed_confirm_needed"], 400)
+        if not (g.settings.speedtest.get("enabled") and g.settings.speedtest.get("accepted")):
+            abort(403)
+        store.set_settings({"_speed_request": time.time()}, bump=False)
+        flash(g.t["speed_requested"])
+        return redirect(request.form.get("back") == "dashboard" and url_for("dashboard") or url_for("settings_page") + "#speed")
 
     @app.post("/settings/isp/primary")
     def isp_primary():

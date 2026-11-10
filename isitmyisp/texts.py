@@ -9,14 +9,16 @@ VERDICT = {
            "config": "Tunnel down: configuration (path was clean)", "path_local": "Tunnel down: your connection",
            "path_remote": "Tunnel down: far site or the path to it", "unknown": "Tunnel down: undetermined",
            "service_down": "Service unreachable (your internet is fine)",
-           "saturation": "Link full: your own traffic", "failover": "Running on the backup link"},
+           "saturation": "Link full: your own traffic", "failover": "Running on the backup link",
+           "speedtest": "Speed test running"},
     "es": {"ok": "Sana", "local": "Problema de tu lado", "access": "Problema en el acceso del ISP",
            "isp": "Problema en la red del ISP", "remote": "Solo algunos destinos fallan",
            "dns": "Problema de DNS", "no_data": "Sin datos", "stale": "El monitor no reporta",
            "config": "Túnel caído: configuración (camino limpio)", "path_local": "Túnel caído: tu conexión",
            "path_remote": "Túnel caído: el sitio remoto o el camino", "unknown": "Túnel caído: indeterminado",
            "service_down": "Servicio inaccesible (tu internet anda bien)",
-           "saturation": "Enlace lleno: tu propio tráfico", "failover": "Funcionando por el enlace de respaldo"},
+           "saturation": "Enlace lleno: tu propio tráfico", "failover": "Funcionando por el enlace de respaldo",
+           "speedtest": "Midiendo la velocidad"},
 }
 
 # What an ISP-side verdict rules out / can't rule out (stored per incident by classifier.assess)

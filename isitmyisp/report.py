@@ -84,6 +84,11 @@ R = {
         "tun_cause": {"path_local": "Loss on your connection", "path_remote": "Far site or path to it",
                       "config": "Tunnel configuration (path was clean)", "unknown": "Undetermined (far end filters ICMP)"},
         "tun_none": "No tunnel drops in this period.",
+        "speed": "Measured speed",
+        "speed_plan": "Contracted: {down} Mbps down / {up} Mbps up. ",
+        "speed_intro": "Tests against speed.cloudflare.com with several parallel streams. A test over Wi-Fi measures the Wi-Fi as well.",
+        "speed_down": "Download", "speed_up": "Upload", "speed_loaded": "Latency under load", "speed_via": "Measured over",
+        "speed_wifi": "Wi-Fi", "speed_cable": "cable",
         "calls": "Call quality",
         "calls_fit": "Fit for calls {pct} of the time measured. Periods when it wasn't:",
         "calls_all_fit": "Calls would have sounded acceptable or better the whole time.",
@@ -160,6 +165,11 @@ R = {
         "tun_cause": {"path_local": "Pérdida en tu conexión", "path_remote": "Sitio remoto o camino hacia él",
                       "config": "Configuración del túnel (camino limpio)", "unknown": "Indeterminado (el otro extremo filtra ICMP)"},
         "tun_none": "Sin caídas de túneles en este período.",
+        "speed": "Velocidad medida",
+        "speed_plan": "Contratado: {down} Mbps de bajada / {up} Mbps de subida. ",
+        "speed_intro": "Pruebas contra speed.cloudflare.com con varias conexiones en paralelo. Una prueba por Wi-Fi mide también el Wi-Fi.",
+        "speed_down": "Bajada", "speed_up": "Subida", "speed_loaded": "Latencia con carga", "speed_via": "Medido por",
+        "speed_wifi": "Wi-Fi", "speed_cable": "cable",
         "calls": "Calidad para llamadas",
         "calls_fit": "Apta para llamadas el {pct} del tiempo medido. Períodos en que no lo fue:",
         "calls_all_fit": "Las llamadas se habrían escuchado aceptable o mejor todo el tiempo.",
@@ -545,7 +555,7 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
     if windows:
         start = max(start, windows[0][0] - windows[0][1])
         end = min(end, windows[-1][0])
-    measured = sum(w[1] for w in windows)
+    measured = sum(w[1] for w in windows if w[2] != "speedtest")  # a speed test is neither healthy nor a problem
     healthy = sum(w[1] for w in windows if w[2] == "ok")
     pct = f"{100 * healthy / measured:.1f}%" if measured else "—"
     total_bad = sum(i.duration(now) for i in incidents)
@@ -662,6 +672,25 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
         out.append(f'<h2>{_e(t["services"])}</h2><p class="muted">{_e(t["svc_intro"])}</p>'
                    f'<table class="incidents"><thead><tr><th>{t["svc_col"]}</th><th class="num">{t["start"]}</th>'
                    f'<th class="num">{t["end"]}</th><th class="num">{t["duration"]}</th><th>{t["evidence"]}</th></tr>'
+                   f'</thead><tbody>{rows}</tbody></table>')
+
+    # ---- measured speed (only if the user turned the speed test on)
+    tests = [r for r in store.speedtests_between(start, end) if not r.get("error")]
+    if tests:
+        link = store.get_setting("link") or {}
+        cd, cu = float(link.get("down_mbps") or 0), float(link.get("up_mbps") or 0)
+
+        def pct(v, c):
+            return f" ({100 * v / c:.0f}%)" if v and c else ""
+        rows = "".join(
+            f'<tr><td class="dt">{_dt_html(r["ts"])}</td><td class="num">{(r.get("down_mbps") or 0):.0f} Mbps{pct(r.get("down_mbps"), cd)}</td>'
+            f'<td class="num">{(r.get("up_mbps") or 0):.0f} Mbps{pct(r.get("up_mbps"), cu)}</td>'
+            f'<td class="num">{_e(str(round(r["loaded_ms"])) + " ms" if r.get("loaded_ms") is not None else "—")}</td>'
+            f'<td>{_e(t["speed_wifi"] if r.get("wireless") else t["speed_cable"])}</td></tr>' for r in tests)
+        plan = t["speed_plan"].format(down=f"{cd:.0f}", up=f"{cu:.0f}") if cd else ""
+        out.append(f'<h2>{_e(t["speed"])}</h2><p class="muted">{_e(plan + t["speed_intro"])}</p>'
+                   f'<table><thead><tr><th class="num">{t["start"]}</th><th class="num">{t["speed_down"]}</th>'
+                   f'<th class="num">{t["speed_up"]}</th><th class="num">{t["speed_loaded"]}</th><th>{t["speed_via"]}</th></tr>'
                    f'</thead><tbody>{rows}</tbody></table>')
 
     # ---- backup link (failover): the main ISP was not carrying the traffic

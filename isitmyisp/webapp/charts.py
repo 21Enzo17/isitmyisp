@@ -21,7 +21,7 @@ GROUP = {"ok": "good", "local": "you", "saturation": "you", "access": "isp", "is
          "remote": "other", "dns": "other", "no_data": "none", "stale": "none",
          # tunnels and your own services
          "config": "you", "path_local": "you", "path_remote": "other", "unknown": "none", "service_down": "other",
-         "failover": "other"}
+         "failover": "other", "speedtest": "none"}
 SEVERITY = {"isp": 4, "you": 3, "other": 2, "good": 1, "none": 0}
 
 

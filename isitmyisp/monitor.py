@@ -117,8 +117,20 @@ class Monitor:
         return max((s.loss for s in pool), default=0.0)
 
     def step(self, m: Measurements, rows: list[tuple[str, WindowStats]], now: float | None = None,
-             tunnels: list[TunnelSample] = (), services: list[tuple[Service, list[Check]]] = ()) -> StepResult:
+             tunnels: list[TunnelSample] = (), services: list[tuple[Service, list[Check]]] = (),
+             suppress: bool = False) -> StepResult:
+        """`suppress`: a speed test filled the link during this window. Its samples are kept (they show
+        the latency under load) but it gets no verdict of its own: no incident opens or closes, no
+        baseline learns from it, and it counts neither as healthy nor as a problem."""
         now = now or time.time()
+        if suppress:
+            for role, st in rows:
+                self.store.add_window(role, st, ts=now)
+            self.store.add_window_verdict("speedtest", self.window, ts=now)
+            if m.link is not None:
+                self.store.add_link_usage(now, m.link)
+            self.store.commit()
+            return StepResult(Verdict("speedtest"), Transition(), self.incident_id)
         v = classify(m, self.baselines)
         for role, st in rows:
             self.store.add_window(role, st, ts=now)

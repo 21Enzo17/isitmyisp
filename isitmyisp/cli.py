@@ -254,6 +254,7 @@ def _start_web(store: Store, args, t):
 def cmd_monitor(args, t) -> int:
     from .discovery import network_to_dict
     from .failover import PathWatch, isp_ttl, provider_of
+    from .speedtest import Runner as SpeedRunner
     from .monitor import Monitor, mtr_capturer
 
     store = Store(args.db)
@@ -268,6 +269,8 @@ def cmd_monitor(args, t) -> int:
         print(f"⚙️  {cfg.tunnels_from_file}: {len(cfg.tunnels)} tunnel(s)")
     print(f"💾 {store.path}  {t['stop_hint']}")
     hops_by_provider: dict[str, set[str]] = {}  # ISP routers already seen per provider (ECMP is not a failover)
+    speed = SpeedRunner(store)                  # off unless enabled in Settings (it fills the link)
+    speed_seen = max((r["ts"] for r in store.speedtests_between(time.time() - 86400, 2e10)), default=0.0)
     try:
         while True:  # one session per (network, settings); rebuilt on route change, timer or new settings
             cfg = _settings(args, store)
@@ -301,7 +304,19 @@ def cmd_monitor(args, t) -> int:
                 time.sleep(window + 1.5)
                 while True:
                     m, rows = s.measure(window)
-                    res = mon.step(m, rows, tunnels=s.last_tunnels, services=s.last_services)
+                    res = mon.step(m, rows, tunnels=s.last_tunnels, services=s.last_services,
+                                   suppress=speed.suppress(time.time(), window))
+                    cfg_now = _settings(args, store)
+                    what = speed.tick(cfg_now.speedtest, time.time(), wireless=net.wireless,
+                                      on_backup=any(i.scope == "failover" for i in store.active_incidents()),
+                                      incident=mon.incident_id is not None,
+                                      link_busy_pct=m.link.peak_pct if m.link else None,
+                                      counters=s.link.counters if s.link else None)
+                    if what == "started":
+                        print(f"\n{t['speed_started']}")
+                    for r in store.speedtests_between(speed_seen + 0.001, 2e10):
+                        speed_seen = r["ts"]
+                        print(f"\n{t['speed_done'].format(down=r.get('down_mbps') or 0, up=r.get('up_mbps') or 0, err=r.get('error') or '')}")
                     alerter.tick()
                     stamp = time.strftime("%Y-%m-%d %H:%M:%S")
                     if res.transition.closed:

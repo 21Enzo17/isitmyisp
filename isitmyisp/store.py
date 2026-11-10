@@ -74,6 +74,12 @@ CREATE TABLE IF NOT EXISTS link_usage (
 CREATE INDEX IF NOT EXISTS link_usage_ts ON link_usage(ts);
 
 -- settings edited from the web UI (JSON values); 'version' changes on every write
+CREATE TABLE IF NOT EXISTS speedtests (
+    ts REAL NOT NULL,
+    data TEXT NOT NULL           -- JSON (speedtest.Result)
+);
+CREATE INDEX IF NOT EXISTS speedtests_ts ON speedtests (ts);
+
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -216,7 +222,7 @@ class Store:
         with self._lock:
             n = self.db.execute("DELETE FROM samples WHERE ts < ?", (now - samples_days * 86400,)).rowcount
             n += self.db.execute("DELETE FROM link_usage WHERE ts < ?", (now - samples_days * 86400,)).rowcount
-            for table in ("windows", "networks"):
+            for table in ("windows", "networks", "speedtests"):
                 n += self.db.execute(f"DELETE FROM {table} WHERE ts < ?", (now - windows_days * 86400,)).rowcount
             self.db.commit()
         return n
@@ -238,7 +244,7 @@ class Store:
         Consecutive windows with the same verdict are merged."""
         with self._lock:
             rows = self.db.execute("SELECT ts, seconds, code, evidence FROM windows WHERE ts BETWEEN ? AND ?"
-                                   " AND code NOT IN ('ok', 'no_data') ORDER BY ts", (start, end)).fetchall()
+                                   " AND code NOT IN ('ok', 'no_data', 'speedtest') ORDER BY ts", (start, end)).fetchall()
         incidents = self.incidents_between(start, end)
         def in_incident(ts: float, secs: float) -> bool:
             return any(i.opened - 1 <= ts - secs and ts <= (i.closed or end) + 1 for i in incidents)
@@ -283,6 +289,20 @@ class Store:
         with self._lock:
             self.db.execute("INSERT INTO link_usage VALUES (?,?,?,?,?,?)",
                             (ts, u.down_mbps, u.up_mbps, u.down_pct, u.up_pct, u.cpu_pct))
+
+    def add_speedtest(self, result) -> None:
+        with self._lock:
+            self.db.execute("INSERT INTO speedtests (ts, data) VALUES (?, ?)", (result.ts, json.dumps(result.__dict__)))
+            self.db.commit()
+
+    def speedtests_between(self, start: float, end: float) -> list[dict]:
+        with self._lock:
+            rows = self.db.execute("SELECT data FROM speedtests WHERE ts BETWEEN ? AND ? ORDER BY ts",
+                                   (start, end)).fetchall()
+        return [json.loads(r[0]) for r in rows]
+
+    def speed_bytes_since(self, start: float) -> int:
+        return sum(int(r.get("bytes_used") or 0) for r in self.speedtests_between(start, 2e10))
 
     def link_usage_between(self, start: float, end: float) -> list[tuple]:
         with self._lock:

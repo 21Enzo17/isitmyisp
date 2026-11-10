@@ -67,6 +67,52 @@
     {% endif %}
   </div>
 
+  {% set sc = speed.cfg %}
+  <div class="card" id="speed"><h3>{{ t.speed_title }}</h3>
+    <p class="speed-state"><span class="badge {{ '' if speed.on else 'muted' }}">{{ t.speed_on if speed.on else t.speed_off }}</span>
+      {% if speed.on %}{{ t.speed_sched[sc.schedule].format(day=speed.weekdays[lang][sc.weekday], hour='%02d:00'|format(sc.hour)) }}{% else %}{{ t.speed_off_why }}{% endif %}</p>
+    <div class="risk">
+      <svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>
+      <div>
+        <p><b>{{ t.speed_what_h }}</b> {{ t.speed_what }}</p>
+        <p><b>{{ t.speed_risk_h }}</b></p>
+        <ul>
+          <li>{{ t.speed_risk_fill }}</li>
+          <li>{{ t.speed_risk_data.format(size=speed.expected|size, down=('%.0f'|format(speed.contract_down)) if speed.contract_down else '?') }}</li>
+          <li>{{ t.speed_risk_backup }}</li>
+          <li>{{ t.speed_risk_privacy }}</li>
+          <li>{{ t.speed_risk_wifi }}</li>
+        </ul>
+        <p class="muted small">{{ t.speed_guards }}</p>
+      </div>
+    </div>
+    {% if not speed.contract_down %}<p class="muted small">{{ t.speed_no_contract }} <a href="#link">{{ t.snmp_title }}</a></p>{% endif %}
+    <form method="post" action="{{ url_for('settings_speedtest') }}">{{ csrf() }}
+      <label class="check"><input type="checkbox" name="enabled" value="1" {{ 'checked' if sc.enabled }} {{ 'disabled' if readonly }}> {{ t.speed_enable }}</label>
+      <label class="check"><input type="checkbox" name="accepted" value="1" {{ 'checked' if sc.accepted }} {{ 'disabled' if readonly }}> {{ t.speed_accept }}</label>
+      <div class="form-row">
+        <div><label for="ss">{{ t.speed_schedule }}</label><select id="ss" name="schedule" {{ 'disabled' if readonly }}>
+          {% for k in ('weekly', 'daily', 'manual') %}<option value="{{ k }}" {{ 'selected' if sc.schedule == k }}>{{ t.speed_sched_opt[k] }}</option>{% endfor %}</select></div>
+        <div><label for="sw">{{ t.speed_weekday }}</label><select id="sw" name="weekday" {{ 'disabled' if readonly }}>
+          {% for d in speed.weekdays[lang] %}<option value="{{ loop.index0 }}" {{ 'selected' if sc.weekday == loop.index0 }}>{{ d }}</option>{% endfor %}</select></div>
+        <div><label for="sh">{{ t.speed_hour }}</label><input type="number" min="0" max="23" id="sh" name="hour" value="{{ sc.hour }}" {{ 'disabled' if readonly }}></div>
+      </div>
+      <div class="form-row">
+        <div><label for="sb">{{ t.speed_budget }}</label><input type="number" step="0.5" min="0.5" max="500" id="sb" name="budget_gb" value="{{ sc.budget_gb }}" {{ 'disabled' if readonly }}></div>
+        <div><label for="sm">{{ t.speed_busy }}</label><input type="number" min="5" max="100" id="sm" name="max_busy_pct" value="{{ sc.max_busy_pct }}" {{ 'disabled' if readonly }}></div>
+      </div>
+      <p class="muted small">{{ t.speed_budget_hint.format(per=speed.per_test|size, exp=speed.expected|size, used=speed.used|size, budget=speed.budget|size) }}</p>
+      <label class="check"><input type="checkbox" name="run_on_backup" value="1" {{ 'checked' if sc.run_on_backup }} {{ 'disabled' if readonly }}> {{ t.speed_on_backup }}</label>
+      {% if not readonly %}<div class="actions"><button class="btn primary" type="submit">{{ t.save }}</button></div>{% endif %}
+    </form>
+    {% if speed.on and not readonly %}
+    <form method="post" action="{{ url_for('speedtest_run') }}" class="run-now">{{ csrf() }}
+      <label class="check"><input type="checkbox" name="confirm" value="1" required> {{ t.speed_confirm.format(size=speed.expected|size) }}</label>
+      <button class="btn" type="submit">{{ t.speed_run }}</button>
+    </form>
+    {% endif %}
+  </div>
+
   <div class="card" id="link"><h3>{{ t.snmp_title }}</h3><p class="muted">{{ t.link_sub }}</p>
     {% if ifaces %}<div class="flash ok"><b>{{ t.snmp_ifaces }}:</b> {{ ifaces|join(' · ') }}</div>{% endif %}
     <form method="post" action="{{ url_for('settings_link') }}">{{ csrf() }}

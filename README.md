@@ -15,6 +15,7 @@ Most tools either run speedtests, which measure the thing that rarely breaks and
 - **It doesn't over-claim.** A verdict places the problem in a segment of the path; every ISP-side incident lists **what the evidence rules out** (your LAN, ICMP noise, a single website, a full link) and **what it can't**. Connect it to your router (SNMP, read-only) and it rules out the ISP's favourite objection, "you saturated your own link", or tells you that you did.
 - **It detects CGNAT, double NAT and IPv6** and explains what that means for you.
 - **Call quality:** would a call sound good right now? An estimated MOS (ITU-T G.107 E-model) from the latency, jitter and loss it already measures, against your SIP provider if you set one; the report lists the periods that weren't fit for calls. It says plainly that it's an estimate, not a measured call.
+- **Speed against your plan, off by default:** it fills your link for a few seconds and uses data, so it ships disabled, says so, and asks you to accept the risks before it runs. Weekly at an hour you choose (or by hand), with a monthly data budget, never on the backup link, never during an incident or when the router shows the link busy; it also measures the latency with the link full (bufferbloat) and warns when the result is your Wi-Fi rather than your ISP.
 - **Failover detection:** with a dual-WAN router, it notices within about a minute when the traffic moves to the backup link and when it comes back (one TTL-limited ping per window asks who your ISP's first router is). The dashboard, the alerts and the evidence report say from when to when your main ISP wasn't carrying the traffic.
 - **Your services:** "is it my internet, or is my bank / my ERP / the tax agency down?" Add any HTTP(S) or TCP service; when it's unreachable while your connection is healthy, the verdict says so.
 - **Alerts** by Telegram, email or webhook (Discord, Slack, Home Assistant…), only for problems that last, each one saying whose fault it is and what to do.
@@ -80,6 +81,7 @@ isitmyisp is meant to run on your network for months. By default it **never send
 | Team Cymru whois | only with `--asn-online` | the public IPs of your path | **off** |
 | api.ipify.org | only with `--public-ip` | an HTTPS request (reveals your public IP to them) | **off** |
 | Your services | only the ones you add | an HTTP GET (or TCP connect) every 30 s | **off** |
+| speed.cloudflare.com (speed test) | only if you turn it on and accept the risks: weekly by default, or when you press "test now" | downloads and uploads for ~15 s (up to its share of a monthly data budget); Cloudflare sees your public IP | **off** |
 | Your router (SNMP v2c, read-only) | only if you connect it | GET of the WAN interface counters and CPU, once per window | **off** |
 | api.telegram.org / your SMTP server / your webhook | only if you enable alerts | the alert text | **off** |
 
@@ -171,7 +173,8 @@ ICMP and TCP must agree before blaming anyone, and nothing is blamed on a handfu
 - [x] "What the evidence rules out / can't rule out" per incident; WAN usage and router CPU via SNMP; "link full: your own traffic" verdict
 - [x] Failover detection (backup link in use), main ISP learned automatically, ASN dataset from the UI
 - [x] Call quality: estimated MOS (E-model) on the dashboard, timeline and report, optional SIP provider target
-- [ ] bandwidth vs contract with a data budget, multi-site hub, read-only users, monthly SLA report
+- [x] Speed test against the contracted plan (off by default, data budget, bufferbloat, Wi-Fi warning)
+- [ ] multi-site hub, read-only users, monthly SLA report
 
 ## License
 MIT
