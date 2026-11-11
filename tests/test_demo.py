@@ -87,3 +87,41 @@ class DemoWeb(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(HAVE_WEB, "web extra not installed")
+class StaticSite(unittest.TestCase):
+    def test_links_are_rewritten_to_the_static_layout(self):
+        from isitmyisp.demo_static import rewrite
+        html = ('<a href="/">x</a><a href="/incidents">x</a><a href="/report?since=7d">x</a>'
+                '<a href="/report.pdf?since=7d">x</a><a href="/settings#link">x</a><a href="?lang=en">x</a>'
+                '<a href="/static/style.css">x</a><a href="#main">x</a><form action="/logout"></form>'
+                '<a href="/es/failover/">x</a>')
+        out = rewrite(html, "es", "isp", "settings/")
+        for expected in ('href="/es/isp/"', 'href="/es/isp/incidents/"', 'href="/es/isp/report/"',
+                         'href="/es/isp/settings/#link"', 'href="/en/isp/settings/"', 'href="/static/style.css"',
+                         'href="#main"', 'action="/es/isp/"', 'href="/es/failover/"'):
+            self.assertIn(expected, out)
+
+    def test_every_link_resolves_and_every_page_has_one_csp(self):
+        import re
+        from isitmyisp.demo_static import export
+        with tempfile.TemporaryDirectory() as d:
+            site = Path(d) / "site"
+            pages = export(site, langs=("es",), scenarios=("isp", "healthy"), hours=1)
+            self.assertEqual(len(pages), 12)
+            for f in site.rglob("*.html"):
+                for url in re.findall(r'(?:href|src|action)="(/[^"#?]*)', f.read_text()):
+                    target = site / url.lstrip("/")
+                    self.assertTrue((target / "index.html" if url.endswith("/") else target).exists(), (f, url))
+            headers = (site / "_headers").read_text()
+            for p in pages:
+                self.assertEqual(headers.count(f"\n{p}\n") + headers.startswith(f"{p}\n"), 1, p)
+            report = headers.split("/es/isp/report/\n", 1)[1].split("\n\n", 1)[0]
+            self.assertIn("style-src 'unsafe-inline'", report)          # the report keeps its inline styles
+            dash = headers.split("/es/isp/\n", 1)[1].split("\n\n", 1)[0]
+            self.assertIn("style-src 'self';", dash)
+            page = (site / "es" / "isp" / "index.html").read_text()
+            self.assertIn("Probá otra situación", page)
+            self.assertNotIn('http-equiv="refresh"', page)
+            self.assertNotIn("report.pdf", page)

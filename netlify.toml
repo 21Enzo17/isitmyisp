@@ -1,0 +1,14 @@
+# Public demo (isitmyisp.enzo-meneghini.com): the web UI rendered to static files from SYNTHETIC data.
+# Every deploy regenerates it, so the dates are always recent. Nothing here measures any network.
+[build]
+  command = "pip install --no-cache-dir '.[web]' && python -m isitmyisp.cli demo --static site"
+  publish = "site"
+
+[build.environment]
+  PYTHON_VERSION = "3.12"
+  TZ = "America/Argentina/Jujuy"
+
+[[redirects]]
+  from = "/"
+  to = "/es/isp/"
+  status = 302

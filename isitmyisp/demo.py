@@ -72,6 +72,8 @@ class Simulator:
         self.clock = 0.0
         self.on_backup = False
         self.mon = Monitor(store, WIN, capture=self._capture, recapture_every=600)
+        # synthetic data in a throwaway file: no need to wait for the disk on each of ~3,000 commits per day
+        store.db.execute("PRAGMA synchronous = OFF")
         store.set_settings({"_demo": True}, bump=False)   # reports built from this database say so on every page
         settings_mod.save(store, {
             "lang": lang if lang in ("en", "es") else "en",

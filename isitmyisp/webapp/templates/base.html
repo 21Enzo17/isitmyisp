@@ -57,7 +57,9 @@
     </div>
   </aside>
   <main class="main" id="main">
-    {% if demo %}<p class="demo-banner" role="note"><b>{{ t.demo_title }}</b> {{ t.demo_text }}</p>{% endif %}
+    {% if demo %}<div class="demo-banner" role="note"><p><b>{{ t.demo_title }}</b> {{ t.demo_text }}</p>
+      {% if demo_static %}<nav class="demo-switch" aria-label="{{ t.demo_scenarios }}"><span>{{ t.demo_scenarios }}:</span>
+        {% for key in demo_static.scenarios %}<a href="/{{ lang }}/{{ key }}/"{% if key == demo_static.scenario %} aria-current="page"{% endif %}>{{ t.demo_sc[key] }}</a>{% endfor %}</nav>{% endif %}</div>{% endif %}
     {% with messages = get_flashed_messages() %}{% for m in messages %}<div class="flash ok" role="status">{{ m }}</div>{% endfor %}{% endwith %}
     {% block content %}{% endblock %}
   </main>
