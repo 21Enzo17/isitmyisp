@@ -44,7 +44,7 @@ def rewrite(html: str, lang: str, scenario: str, page: str, langs=LANGS) -> str:
 
     def fix(m: re.Match) -> str:
         attr, url = m.group(1), m.group(2)
-        if url.startswith(("http://", "https://", "mailto:", "#", "/static/", "data:")):
+        if url.startswith(("http://", "https://", "mailto:", "#", "/static/", "/docs/", "data:")):
             return m.group(0)
         if url.startswith("?lang="):                         # language switch: same page, other language
             other = url.split("=", 1)[1].split("&")[0]

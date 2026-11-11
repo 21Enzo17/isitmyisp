@@ -1,6 +1,11 @@
+---
+title: isitmyisp on a Raspberry Pi
+nav: Raspberry Pi
+description: From a new Raspberry Pi to the setup page in about 15 minutes.
+---
 # isitmyisp on a Raspberry Pi
 
-From a new Pi to the setup page in about 15 minutes. [Español](raspberry-pi.es.md)
+From a new Raspberry Pi to the setup page in about 15 minutes.
 
 ## What you need
 
@@ -54,7 +59,7 @@ When it's done, the installer prints a link like this one:
 http://192.168.1.50:8080/setup?token=…
 ```
 
-Open it from any computer on the network. There you create the admin account, and the wizard asks for:
+Open it from any computer on the network. There you create the admin account, and the [wizard](first-steps.md) asks for:
 
 - the speeds you pay for;
 - the services you use;

@@ -1,6 +1,11 @@
+---
+title: isitmyisp en una Raspberry Pi
+nav: Raspberry Pi
+description: De una Raspberry Pi nueva a la página de configuración en unos 15 minutos.
+---
 # isitmyisp en una Raspberry Pi
 
-De una Raspberry nueva a la página de configuración en unos 15 minutos. [English](raspberry-pi.md)
+De una Raspberry Pi nueva a la página de configuración en unos 15 minutos.
 
 ## Qué hace falta
 
@@ -54,7 +59,7 @@ Al terminar, el instalador muestra un link como este:
 http://192.168.1.50:8080/setup?token=…
 ```
 
-Abrilo desde cualquier PC de la red. Ahí creás la cuenta de administrador y el asistente te pide:
+Abrilo desde cualquier PC de la red. Ahí creás la cuenta de administrador y el [asistente](first-steps.md) te pide:
 
 - las velocidades que contrataste;
 - los servicios que usás (ARCA, bancos, pagos…);

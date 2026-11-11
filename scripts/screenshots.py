@@ -1,6 +1,7 @@
 """Regenerate the README screenshots from SYNTHETIC data (never from a real network).
 
     python3 scripts/screenshots.py            # writes docs/screenshots/*.png
+    python3 scripts/screenshots.py --lang es  # writes docs/screenshots/es/*.png (for the Spanish docs)
 
 Needs the web extra (pip install -e '.[web]') and Docker (headless Chrome runs in the
 zenika/alpine-chrome image). Each state is the demo database cut at a moment and shifted to
@@ -70,6 +71,7 @@ def render(db: Path, work: Path, path: str, lang: str = "en", css: str = "") -> 
     store = Store(db)
     if not store.user_count():
         store.add_user("admin", auth.hash_password(PASSWORD))
+    store.set_settings({"wizard_done": True}, bump=False)   # a finished setup, without the reminder
     app = create_app(store, data_dir=db.parent, bind="127.0.0.1:8080", default_lang=lang)
     app.config["WTF_CSRF_ENABLED"] = False
     client = app.test_client()
@@ -93,15 +95,16 @@ def shoot(page: Path, out: Path, size: str, dark: bool) -> None:
     print(out.relative_to(ROOT))
 
 
-def main() -> None:
-    OUT.mkdir(parents=True, exist_ok=True)
+def main(lang: str = "en") -> None:
+    out = OUT if lang == "en" else OUT / lang
+    out.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         (work / "fonts").mkdir()
         for f in (ROOT / "isitmyisp" / "webapp" / "static" / "fonts").glob("*.woff2"):
             shutil.copy(f, work / "fonts")
         base = work / "demo.db"
-        demo_data.main(str(base))
+        demo_data.main(str(base), lang=lang)
         states = {}
         for name, fraction in (("healthy", None), ("isp", 0.62), ("failover", 0.52)):
             d = work / name
@@ -119,15 +122,15 @@ def main() -> None:
             (states["isp"], "/", "", "mobile.png", "390,1500", True),
         ]
         for db, path, css, name, size, dark in shots:
-            shoot(render(db, work, path, css=css), OUT / name, size, dark)
+            shoot(render(db, work, path, lang=lang, css=css), out / name, size, dark)
 
         store = Store(states["isp"])
         a, b = store.first_and_last_window()
         report = work / "report.html"
-        report.write_text(build_report(store, a - 60, b + 60, lang="en"))
+        report.write_text(build_report(store, a - 60, b + 60, lang=lang))
         store.close()
-        shoot(report, OUT / "report.png", "1100,1500", False)
+        shoot(report, out / "report.png", "1100,1500", False)
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[2] if len(sys.argv) > 2 and sys.argv[1] == "--lang" else "en")

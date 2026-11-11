@@ -16,8 +16,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from isitmyisp.demo import build  # noqa: E402
 
 
-def main(path: str, hours: float = 24.0, seed: int = 7) -> None:
-    build(path, hours=hours, seed=seed).store.close()
+def main(path: str, hours: float = 24.0, seed: int = 7, lang: str = "en") -> None:
+    build(path, hours=hours, seed=seed, lang=lang).store.close()
     print(f"synthetic demo data written to {path}")
 
 

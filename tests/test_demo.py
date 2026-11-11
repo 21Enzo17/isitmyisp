@@ -113,6 +113,8 @@ class StaticSite(unittest.TestCase):
             self.assertEqual(len(pages), 12)
             for f in site.rglob("*.html"):
                 for url in re.findall(r'(?:href|src|action)="(/[^"#?]*)', f.read_text()):
+                    if url.startswith("/docs/"):          # the docs are built by scripts/build_docs.py (tests/test_docs.py)
+                        continue
                     target = site / url.lstrip("/")
                     self.assertTrue((target / "index.html" if url.endswith("/") else target).exists(), (f, url))
             headers = (site / "_headers").read_text()
@@ -124,5 +126,6 @@ class StaticSite(unittest.TestCase):
             self.assertIn("style-src 'self';", dash)
             page = (site / "es" / "isp" / "index.html").read_text()
             self.assertIn("Probá otra situación", page)
+            self.assertIn('href="/docs/es/"', page)                    # the demo leads to the docs
             self.assertNotIn('http-equiv="refresh"', page)
             self.assertNotIn("report.pdf", page)
