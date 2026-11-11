@@ -1,9 +1,10 @@
 {% extends "base.html" %}
+{% from "_presets.html" import preset_groups with context %}
 {% block head %}{% if isp and isp.asn_running %}<meta http-equiv="refresh" content="4;url={{ url_for('settings_page') }}#isp">{% endif %}{% endblock %}
 {% block title %}{{ t.settings_title }}{% endblock %}
 {% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
 {% block content %}
-<div class="topbar"><h1>{{ t.settings_title }}</h1></div>
+<div class="topbar"><h1>{{ t.settings_title }}</h1>{% if not readonly %}<a class="btn" href="{{ url_for('welcome', step='plan') }}">{{ t.wiz_open }}</a>{% endif %}</div>
 {% if error %}<div class="flash err">{{ error }}</div>{% endif %}
 {% if readonly %}<div class="flash err">{{ t.readonly }}</div>{% endif %}
 <div class="stack">
@@ -157,18 +158,7 @@
       <summary>{{ t.presets_title }}</summary>
       <p class="muted small">{{ t.presets_sub }}</p>
       <form method="post" action="{{ url_for('service_presets') }}">{{ csrf() }}
-        <div class="preset-groups">
-        {% for group, items in presets %}
-          <fieldset><legend>{{ group }}</legend>
-            {% for p, added in items %}
-            <label class="check preset"><input type="checkbox" name="preset" value="{{ p.id }}" {{ 'checked disabled' if added }}>
-              <span><b>{{ p.name }}</b>{% if added %} <span class="badge">{{ t.presets_added }}</span>{% endif %}
-                <span class="muted small">{{ p.what.get(lang, p.what.get('en', '')) }}</span>
-                <span class="mono small">{{ p.kind|upper }} {{ p.target }}</span></span></label>
-            {% endfor %}
-          </fieldset>
-        {% endfor %}
-        </div>
+        {{ preset_groups(presets) }}
         <div class="actions"><button class="btn primary" type="submit">{{ t.presets_add }}</button></div>
       </form>
     </details>

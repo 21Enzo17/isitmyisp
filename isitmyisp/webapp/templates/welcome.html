@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% from "_presets.html" import preset_groups with context %}
+{% block title %}{{ t.wiz_title }}{% endblock %}
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
+{% macro buttons(test=False) %}
+<div class="actions wiz-actions">
+  <button class="btn primary" type="submit" name="action" value="save">{{ t.wiz_next }}</button>
+  {% if test %}<button class="btn" type="submit" name="action" value="test">{{ t.send_test }}</button>{% endif %}
+  <button class="btn ghost" type="submit" name="action" value="skip" formnovalidate>{{ t.wiz_skip }}</button>
+</div>
+{% endmacro %}
+{% block content %}
+<div class="topbar"><h1>{{ t.wiz_title }}</h1><a class="muted" href="{{ url_for('dashboard') }}">{{ t.wiz_later }}</a></div>
+<ol class="wiz-steps" aria-label="{{ t.wiz_title }}">
+  {% for k in steps %}
+  <li class="{{ 'now' if k == step }}{{ ' past' if loop.index0 < steps.index(step) }}"{% if k == step %} aria-current="step"{% endif %}>
+    <a href="{{ url_for('welcome', step=k) }}"><span class="wiz-n">{{ loop.index }}</span>{{ t.wiz_step[k] }}</a></li>
+  {% endfor %}
+</ol>
+{% if error %}<div class="flash err">{{ error }}</div>{% endif %}
+{% if test_results %}<div class="flash {{ 'ok' if test_results.values()|select('equalto','ok')|list|length == test_results|length else 'err' }}">
+  <b>{{ t.test_results }}:</b> {% for ch, r in test_results.items() %}{{ ch }}: {{ r }}{{ ' · ' if not loop.last }}{% endfor %}</div>{% endif %}
+
+<div class="card wiz">
+{% if step == 'plan' %}
+  <h3>{{ t.wiz_plan_title }}</h3>
+  <p class="muted">{{ t.wiz_plan_sub }}</p>
+  <h4>{{ t.wiz_found }}</h4>
+  {% if net %}
+  <dl class="wiz-found">
+    <div><dt>{{ t.hop.home }}</dt><dd><span class="mono">{{ (net.home_routers or ['—'])|join(', ') }}</span>{% if net.wireless %} <span class="muted">· {{ t.wiz_wifi }}</span>{% endif %}</dd></div>
+    <div><dt>{{ t.hop.isp }}</dt><dd>{{ net.isp_name or '—' }} {% if net.isp_asn %}<span class="mono muted">{{ net.isp_asn }}</span>{% endif %}{% if net.cgnat %} <span class="badge">CGNAT</span>{% endif %}</dd></div>
+  </dl>
+  {% else %}<p class="muted">{{ t.wiz_found_none }}</p>{% endif %}
+  <form method="post" action="{{ url_for('welcome', step='plan') }}">{{ csrf() }}
+    <div class="form-row">
+      <div><label for="wd">{{ t.down_c }}</label><input type="number" step="1" min="0" id="wd" name="down_mbps" value="{{ s.link.down_mbps|int or '' }}" placeholder="300" inputmode="numeric"></div>
+      <div><label for="wu">{{ t.up_c }}</label><input type="number" step="1" min="0" id="wu" name="up_mbps" value="{{ s.link.up_mbps|int or '' }}" placeholder="100" inputmode="numeric"></div>
+    </div>
+    <p class="muted small">{{ t.wiz_plan_help }}</p>
+    {{ buttons() }}
+  </form>
+
+{% elif step == 'services' %}
+  <h3>{{ t.wiz_svc_title }}</h3>
+  <p class="muted">{{ t.wiz_svc_sub }}</p>
+  {% if s.services %}<p class="small">{{ t.wiz_svc_have.format(n=s.services|length) }} <span class="muted">{{ s.services|map(attribute='name')|join(', ') }}</span></p>{% endif %}
+  <form method="post" action="{{ url_for('welcome', step='services') }}">{{ csrf() }}
+    {{ preset_groups(presets) }}
+    <p class="muted small">{{ t.wiz_svc_more }}</p>
+    {{ buttons() }}
+  </form>
+
+{% elif step == 'alerts' %}
+  <h3>{{ t.wiz_alerts_title }}</h3>
+  <p class="muted">{{ t.wiz_alerts_sub }}</p>
+  <form method="post" action="{{ url_for('welcome', step='alerts') }}">{{ csrf() }}
+    <h4>Telegram</h4>
+    <label class="check"><input type="checkbox" name="telegram_enabled" value="1" {{ 'checked' if alerts.telegram.enabled }}> {{ t.enabled }}</label>
+    <div class="form-row">
+      <div><label for="tgt">{{ t.tg_token }}</label><input type="password" id="tgt" name="telegram_bot_token" autocomplete="off" placeholder="{{ t.secret_set if alerts.telegram.bot_token_set else '123456789:AA…' }}"></div>
+      <div><label for="tgc">{{ t.tg_chat }}</label><input type="text" id="tgc" name="telegram_chat_id" value="{{ alerts.telegram.chat_id }}"></div>
+    </div>
+    <p class="muted small">{{ t.tg_help }}</p>
+    <h4>Webhook <span class="muted small">(Discord, Slack…)</span></h4>
+    <label class="check"><input type="checkbox" name="webhook_enabled" value="1" {{ 'checked' if alerts.webhook.enabled }}> {{ t.enabled }}</label>
+    <label for="whu">{{ t.wh_url }}</label><input type="text" id="whu" name="webhook_url" value="{{ alerts.webhook.url }}" placeholder="https://discord.com/api/webhooks/…">
+    <label for="aurl">{{ t.alerts_url }}</label><input type="text" id="aurl" name="public_url" value="{{ alerts.public_url }}">
+    <p class="muted small">{{ t.wiz_alerts_url_help }} {{ t.wiz_alerts_email }}</p>
+    {{ buttons(test=True) }}
+  </form>
+
+{% else %}
+  {% set channels = [] %}{% for ch in ('telegram', 'email', 'webhook') if alerts[ch].enabled %}{% set _ = channels.append(ch|capitalize) %}{% endfor %}
+  <h3>{{ t.wiz_done_title }}</h3>
+  <ul class="wiz-summary">
+    <li class="{{ 'ok' if s.link.down_mbps else 'todo' }}"><b>{{ t.wiz_step.plan }}:</b> {% if s.link.down_mbps %}{{ '%.0f'|format(s.link.down_mbps) }} / {{ '%.0f'|format(s.link.up_mbps) }} Mbps{% else %}{{ t.wiz_not_set }}{% endif %}</li>
+    <li class="{{ 'ok' if s.services else 'todo' }}"><b>{{ t.wiz_step.services }}:</b> {{ s.services|length }}</li>
+    <li class="{{ 'ok' if channels else 'todo' }}"><b>{{ t.wiz_step.alerts }}:</b> {{ channels|join(', ') if channels else t.wiz_not_set }}</li>
+  </ul>
+  <p class="muted">{{ t.wiz_done_sub }}</p>
+  <h4>{{ t.wiz_next_title }}</h4>
+  <ul class="wiz-more">
+    <li><a href="{{ url_for('settings_page') }}#tunnels">{{ t.tunnels_title }}</a> <span class="muted">{{ t.wiz_more_tunnels }}</span></li>
+    <li><a href="{{ url_for('settings_page') }}#link">{{ t.snmp_title }}</a> <span class="muted">{{ t.wiz_more_link }}</span></li>
+    <li><a href="{{ url_for('settings_page') }}#speed">{{ t.speed_title }}</a> <span class="muted">{{ t.wiz_more_speed }}</span></li>
+    <li><a href="{{ url_for('settings_page') }}#tv">{{ t.tv_title }}</a> <span class="muted">{{ t.wiz_more_tv }}</span></li>
+    <li><a href="{{ url_for('settings_page') }}#users">{{ t.users_title }}</a> <span class="muted">{{ t.wiz_more_users }}</span></li>
+  </ul>
+  <form method="post" action="{{ url_for('welcome', step='done') }}">{{ csrf() }}
+    <div class="actions"><button class="btn primary" type="submit">{{ t.wiz_finish }}</button></div>
+  </form>
+{% endif %}
+</div>
+{% endblock %}

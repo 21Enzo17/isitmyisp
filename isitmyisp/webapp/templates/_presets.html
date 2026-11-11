@@ -1,0 +1,15 @@
+{# The ready-made service checks, grouped; used by Settings and the first-run wizard. #}
+{% macro preset_groups(presets) %}
+<div class="preset-groups">
+{% for group, items in presets %}
+  <fieldset><legend>{{ group }}</legend>
+    {% for p, added in items %}
+    <label class="check preset"><input type="checkbox" name="preset" value="{{ p.id }}" {{ 'checked disabled' if added }}>
+      <span><b>{{ p.name }}</b>{% if added %} <span class="badge">{{ t.presets_added }}</span>{% endif %}
+        <span class="muted small">{{ p.what.get(lang, p.what.get('en', '')) }}</span>
+        <span class="mono small">{{ p.kind|upper }} {{ p.target }}</span></span></label>
+    {% endfor %}
+  </fieldset>
+{% endfor %}
+</div>
+{% endmacro %}
