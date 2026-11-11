@@ -246,6 +246,8 @@ b, strong { font-weight: 600; }
 .spark .ln { fill: none; stroke: var(--series); stroke-width: 1.75; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .spark .area { fill: var(--series); opacity: .1; }
 .spark .yt { left: 0; padding-left: 0; }
+.t-tcp { font-size: 12.5px; color: var(--ink-3); margin-left: 4px; }
+.tcard .ip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .t-foot { font-size: 12.5px; color: var(--ink-2); margin-top: 6px; font-variant-numeric: tabular-nums; }
 
 /* ---------- latest incidents */
@@ -339,65 +341,103 @@ html.tv { --bg: #0f121a; --side: #12161f; --surface: #161b26; --raised: #1e2432;
 .tv-facts .mos-dot.b-fair { background: var(--you); } .tv-facts .mos-dot.b-poor, .tv-facts .mos-dot.b-bad { background: var(--isp); }
 .tv-alert { color: var(--ink); font-weight: 500; }
 
-/* ---------- TV board: one 16:9 screen, no scrolling. Laid out for 1440x810 and zoomed for bigger screens */
-.noc { --blame: var(--other); width: 1440px; margin: 0 auto; padding: 18px 22px 14px; display: grid; gap: 12px; }
+/* ---------- TV board: fills the browser window exactly, no scrolling, no JavaScript.
+   Every size is in rem and the root size follows the tighter of width and height: 16px at 1440x810,
+   larger on a big TV, smaller in a small window. The 24 h timeline takes whatever height is left. */
+html.tv-board { font-size: min(1.111vw, 1.975vh); overflow: hidden; height: 100%; }
+html.tv-board body { overflow: hidden; height: 100%; font-size: 1rem; }
+/* Fixed space per area: the bottom row is a fixed 14rem (6 lines; views.board() trims to fit) and the
+   timeline gets the rest, never less than 12rem. The whole board is 50.6rem tall when height-bound. */
+.noc { --blame: var(--other); box-sizing: border-box; height: 100vh; width: 100%; padding: 1.1rem 1.4rem .9rem;
+       display: grid; grid-template-rows: auto auto minmax(12rem, 1fr) 14rem; gap: .75rem; overflow: hidden; }
+.noc-timeline, .noc-row.bottom > .panel { overflow: hidden; }
+.noc-row.bottom > .panel { height: 100%; box-sizing: border-box; }
 .noc.g-you { --blame: var(--you); } .noc.g-isp { --blame: var(--isp); } .noc.g-good { --blame: var(--good); }
-@media (min-width: 1700px) { .noc { zoom: 1.333; } }
-@media (min-width: 2400px) { .noc { zoom: 1.777; } }
-@media (min-width: 3400px) { .noc { zoom: 2.666; } }
-@media (max-width: 1439px) { .noc { width: auto; } .noc-row.top, .noc-row.bottom { grid-template-columns: 1fr; } }
-.noc .panel { margin: 0; padding: 14px 16px; }
-.noc h2 { margin: 0 0 8px; font-size: 14px; color: var(--ink-2); font-weight: 500; }
-.noc-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; }
-.noc-verdict h1 { margin: 0; font-size: 34px; line-height: 1.1; letter-spacing: -.02em; }
-.noc-verdict p { margin-top: 4px; color: var(--ink-2); font-size: 15px; max-width: 95ch; }
-.noc-kpis { display: flex; gap: 26px; margin: 0; }
+.noc .panel { margin: 0; padding: .875rem 1rem; border-radius: .875rem; min-height: 0; }
+.noc h2 { margin: 0 0 .5rem; font-size: .875rem; color: var(--ink-2); font-weight: 500; }
+.noc .muted, .noc p { font-size: .875rem; }
+.noc .small { font-size: .78rem; }
+.noc-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 1.5rem; }
+.noc-verdict h1 { margin: 0; font-size: 2.125rem; line-height: 1.1; letter-spacing: -.02em; }
+.noc-verdict p { margin-top: .25rem; color: var(--ink-2); font-size: .94rem; max-width: 95ch; }
+.noc-kpis { display: flex; gap: 1.6rem; margin: 0; flex: none; }
 .noc-kpis div { text-align: right; }
-.noc-kpis dt { font-size: 12.5px; color: var(--ink-3); }
-.noc-kpis dd { margin: 2px 0 0; font-size: 24px; font-weight: 500; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
-.noc-kpis dd small { font-size: 13px; color: var(--ink-2); font-weight: 400; }
-.noc-row { display: grid; gap: 12px; }
-.noc-row.top { grid-template-columns: 1.7fr 0.8fr 1fr; }
-.noc-row.bottom { grid-template-columns: 1.55fr 1fr 1.05fr; align-items: start; }
-.noc-path .path { margin: 4px 0 0; }
-.noc-path .hop { padding-top: 28px; }
-.noc-path .hop-val b { font-size: 18px; }
+.noc-kpis dt { font-size: .78rem; color: var(--ink-3); }
+.noc-kpis dd { margin: .125rem 0 0; font-size: 1.5rem; font-weight: 500; font-variant-numeric: tabular-nums;
+               display: flex; align-items: center; gap: .5rem; justify-content: flex-end; }
+.noc-kpis dd small { font-size: .81rem; color: var(--ink-2); font-weight: 400; }
+.noc .live { width: .5rem; height: .5rem; }
+.noc-row { display: grid; gap: .75rem; min-height: 0; }
+.noc-row.top { grid-template-columns: 1.7fr .8fr 1fr; }
+.noc-row.bottom { grid-template-columns: 1.55fr 1fr 1.05fr; align-items: stretch; height: 14rem; }
+/* the path, at board scale */
+.noc .path { margin: .25rem 0 0; }
+.noc .hop { padding-top: 1.625rem; gap: .06rem; }
+.noc .hop::before, .noc .hop::after { top: .56rem; height: 2px; }
+.noc .hop:first-child::after { left: 1.375rem; }
+.noc .hop:nth-child(2)::before { right: calc(50% + .75rem); } .noc .hop:nth-child(2)::after { left: calc(50% + .75rem); }
+.noc .hop:last-child::before { right: 1.375rem; }
+.noc .node { width: 1.25rem; height: 1.25rem; }
+.noc .blamed .node { box-shadow: 0 0 0 .3rem color-mix(in srgb, var(--blame) 26%, transparent); }
+.noc .hop-name { font-size: 1.06rem; }
+.noc .hop-id { font-size: .875rem; }
+.noc .hop-val { font-size: .875rem; margin-top: .3rem; }
+.noc .hop-val b { font-size: 1.125rem; }
+.noc .here { font-size: .81rem; margin-top: .375rem; padding: .19rem .625rem; }
+/* call quality and link */
 .noc-calls { --band: var(--ink-3); }
 .noc-calls.b-excellent, .noc-calls.b-good { --band: var(--good); } .noc-calls.b-fair { --band: var(--you); }
 .noc-calls.b-poor, .noc-calls.b-bad { --band: var(--isp); }
-.noc-big { display: flex; align-items: center; gap: 10px; font-size: 18px; }
-.noc-big b { font-size: 30px; font-weight: 500; }
-.noc-calls .muted { font-size: 13.5px; margin-top: 4px; }
-.noc-link .meter { grid-template-columns: 70px 6.5rem minmax(40px, 1fr) 3rem; gap: 2px 10px; margin-top: 4px; }
-.noc-link .m-val b { font-size: 19px; }
-.noc-link .small { margin-top: 8px; }
-.noc-timeline .panel-head { margin-bottom: 6px; }
-.noc-timeline .key { font-size: 12.5px; }
-.noc .tl { grid-template-rows: 18px 44px 44px 16px; row-gap: 5px; }
-.noc .tl.calls { grid-template-rows: 18px 44px 44px 34px 16px; }
-.noc .tl.fo { grid-template-rows: 10px 18px 44px 44px 16px; }
-.noc .tl.fo.calls { grid-template-rows: 10px 18px 44px 44px 34px 16px; }
-.noc .yt { font-size: 11px; }
-.noc .xaxis { font-size: 11.5px; }
-.noc .tl-name { font-size: 12.5px; }
-.noc-points td { padding: 4px 10px 4px 0; font-size: 13px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.noc-big { display: flex; align-items: center; gap: .625rem; font-size: 1.125rem; }
+.noc-big b { font-size: 1.875rem; font-weight: 500; }
+.noc .mos-dot { width: .75rem; height: .75rem; }
+.noc-calls .muted { margin-top: .25rem; }
+.noc .meter { grid-template-columns: 4.4rem 6.5rem minmax(2.5rem, 1fr) 3rem; gap: .125rem .625rem; margin-top: .25rem; }
+.noc .m-label, .noc .m-val { font-size: .875rem; }
+.noc .m-val b { font-size: 1.19rem; }
+.noc .m-pct { font-size: .84rem; }
+.noc .bar { height: .75rem; }
+.noc-link .small { margin-top: .5rem; }
+/* the 24 h timeline grows into the space that's left */
+.noc-timeline { display: flex; flex-direction: column; }
+.noc-timeline .panel-head { margin-bottom: .375rem; }
+.noc .key { font-size: .78rem; gap: .25rem 1.1rem; }
+.noc .sw { width: .625rem; height: .625rem; margin-right: .44rem; }
+.noc .tl { flex: 1; min-height: 0; column-gap: .875rem; row-gap: .3rem; grid-template-columns: 4.75rem minmax(0, 1fr);
+           grid-template-rows: 1.1rem minmax(1.5rem, 1fr) minmax(1.5rem, 1fr) 1rem; }
+.noc .tl.calls { grid-template-rows: 1.1rem minmax(1.5rem, 1fr) minmax(1.5rem, 1fr) minmax(1.2rem, .8fr) 1rem; }
+.noc .tl.fo { grid-template-rows: .65rem 1.1rem minmax(1.5rem, 1fr) minmax(1.5rem, 1fr) 1rem; }
+.noc .tl.fo.calls { grid-template-rows: .65rem 1.1rem minmax(1.5rem, 1fr) minmax(1.5rem, 1fr) minmax(1.2rem, .8fr) 1rem; }
+.noc .tl-name { font-size: .78rem; }
+.noc .yt { font-size: .69rem; }
+.noc .xaxis { font-size: .72rem; }
+/* bottom row */
+.noc-points td { padding: .2rem .625rem .2rem 0; font-size: .81rem; line-height: 1.3; border-bottom: 1px solid var(--line); vertical-align: middle; }
 .noc-points tr:last-child td { border-bottom: 0; }
-.noc-points .ip { color: var(--ink-3); font-size: 11.5px; }
-.noc-points .num b { font-size: 15px; font-weight: 500; }
+.noc-points .ip { color: var(--ink-3); font-size: .72rem; }
+.noc-points .num b { font-size: .94rem; font-weight: 500; }
 .noc-points .pt-loss { color: var(--ink-2); width: 3.2em; }
 .noc-points tr.s-bad .pt-loss, .noc-points tr.s-warn .pt-loss { color: var(--ink); font-weight: 600; }
-.noc-points .pt { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; background: var(--good); vertical-align: 1px; }
+.noc-points .pt { display: inline-block; width: .5rem; height: .5rem; border-radius: 50%; margin-right: .5rem; background: var(--good); vertical-align: .06rem; }
 .noc-points tr.s-warn .pt { background: var(--you); } .noc-points tr.s-bad .pt { background: var(--isp); }
-.noc-points .pt-spark { width: 34%; }
-.noc-points .spark { height: 20px; margin: 0; }
-.noc .rows .row { padding: 7px 0; gap: 2px 10px; }
-.noc .r-name { font-size: 14px; }
-.noc .r-sub, .noc .r-state, .noc .r-val { font-size: 12.5px; }
-.noc .recent td { padding: 5px 8px 5px 0; font-size: 13px; white-space: nowrap; }
+.noc-points { table-layout: fixed; width: 100%; }
+.noc-points .pt-name { width: 9.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.noc-points td.ip { width: 8.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.noc-points td.num { width: 7.5rem; white-space: nowrap; }
+.noc-points .pt-tcp { margin-left: .45rem; font-size: .72rem; color: var(--ink-3); }
+.noc-points .pt-spark { width: auto; }
+.noc-points tr.more td, .noc .rows .row.more { color: var(--ink-2); font-size: .78rem; border-bottom: 0; }
+.noc .rows .row.more { display: block; padding-top: .35rem; }
+.noc-points .spark { height: 1.1rem; margin: 0; }
+.noc .rows .row { padding: .34rem 0; line-height: 1.3; gap: .125rem .625rem; grid-template-columns: 1.4rem minmax(0, 1fr) auto auto; }
+.noc .r-main { flex-direction: row; align-items: baseline; gap: .5rem; min-width: 0; }
+.noc .r-name, .noc .r-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.noc .r-name { flex: 0 1 auto; } .noc .r-sub { flex: 1 1 auto; min-width: 0; }
+.noc .rows .ico { width: 1.125rem; height: 1.125rem; }
+.noc .r-name { font-size: .875rem; }
+.noc .r-sub, .noc .r-state, .noc .r-val { font-size: .78rem; }
+.noc .recent td { padding: .3rem .5rem .3rem 0; font-size: .81rem; line-height: 1.3; white-space: nowrap; }
 .noc .recent td:nth-child(2) { overflow: hidden; text-overflow: ellipsis; max-width: 0; width: 100%; }
-.noc .recent { table-layout: auto; }
-.noc-path .here { margin-top: 6px; }
-.noc-path .hop { padding-top: 26px; gap: 1px; }
 
 /* ---------- service presets */
 .presets { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
@@ -576,3 +616,13 @@ label.check input { width: 17px; height: 17px; accent-color: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* TV board: something down must be visible from across the room (text + icon, not colour alone) */
+.noc-alarm { display: flex; align-items: center; gap: .5rem; margin: .4rem 0 .1rem; padding: .35rem .7rem; width: fit-content; max-width: 100%;
+  border-radius: 6px; background: color-mix(in srgb, var(--isp) 22%, transparent); border: 1px solid var(--isp);
+  color: var(--ink); font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.noc-alarm .ico { width: 1.2rem; height: 1.2rem; flex: none; color: var(--isp); stroke: currentColor; stroke-width: 3; fill: none; }
+.noc .panel.alarm { border-color: var(--isp); box-shadow: inset 0 0 0 1px var(--isp); background: color-mix(in srgb, var(--isp) 7%, var(--surface)); }
+.noc .panel.alarm > h2 { color: var(--ink); }
+.noc .rows .row.s-bad, .noc-points tr.s-bad td { background: color-mix(in srgb, var(--isp) 16%, transparent); }
+.noc .rows .row.s-bad .r-name { font-weight: 600; }

@@ -31,6 +31,77 @@ class TargetCard:
 
 
 @dataclass
+class Point:
+    """One row of "your network, point by point", grouped the way a technician reads it:
+    each internet destination with its ping AND its TCP handshake, all DNS servers in one row."""
+    kind: str                    # home | isp | internet | voip | dns
+    target: str                  # address, or the list of DNS servers
+    median: float | None         # ms (DNS: the slowest server)
+    loss: float                  # % (DNS: the worst server)
+    status: str                  # ok | warn | bad
+    history: object = None       # charts.Plot, 6 h of latency
+    worst: float | None = None   # worst loss in those 6 h
+    tcp_ms: float | None = None  # internet destinations: TCP handshake to port 443
+    tcp_loss: float | None = None
+    count: int = 1               # DNS: how many servers
+
+
+def _worse(a: str, b: str) -> str:
+    order = {"ok": 0, "warn": 1, "bad": 2}
+    return a if order.get(a, 0) >= order.get(b, 0) else b
+
+
+def build_points(targets: list) -> list[Point]:
+    tcp = {c.target[len("tcp://"):].rsplit(":", 1)[0]: c for c in targets if c.role == "tcp"}
+    out: list[Point] = []
+    for c in targets:
+        if c.role in ("home", "isp", "voip"):
+            out.append(Point(c.role, c.target, c.median, c.loss, c.status, c.history, c.worst))
+        elif c.role == "anchor":
+            t = tcp.get(c.target)
+            status = _worse(c.status, t.status) if t else c.status
+            out.append(Point("internet", c.target, c.median, c.loss, status, c.history, c.worst,
+                             t.median if t else None, t.loss if t else None))
+    dns = [c for c in targets if c.role == "dns"]
+    if dns:
+        slowest = max(dns, key=lambda c: (c.median is None, c.median or 0))
+        status = "ok"
+        for c in dns:
+            status = _worse(status, c.status)
+        out.append(Point("dns", ", ".join(c.target[len("dns://"):] for c in dns), slowest.median,
+                         max(c.loss for c in dns), status, slowest.history,
+                         max((c.worst or 0) for c in dns), count=len(dns)))
+    return out
+
+
+def fit(items: list, cap: int, state=lambda x: "good", tick: int = 0) -> tuple[list, dict, dict | None]:
+    """At most `cap` lines for a fixed-size panel. Items with problems are pinned (they never rotate
+    away); the rest rotate one page per `tick` (the board refreshes every 30 s, so no JavaScript).
+    Returns (shown in their original order, {"bad", "none", "good"} counts of what's hidden right now,
+    rotation {"page", "pages", "shown", "total"} or None when everything fits)."""
+    hidden = {"bad": 0, "none": 0, "good": 0}
+    if len(items) <= cap:
+        return items, hidden, None
+    room = cap - 1                     # one line says what's going on
+    pinned = [i for i in items if state(i) == "bad"][:room]
+    pinned_ids = set(map(id, pinned))
+    rest = [i for i in items if id(i) not in pinned_ids]
+    slots = room - len(pinned)
+    page, pages, window = 0, 1, []
+    if slots > 0 and rest:
+        pages = -(-len(rest) // slots)
+        page = tick % pages
+        # the last page wraps to the first items, so the panel keeps the same number of rows
+        window = [rest[(page * slots + k) % len(rest)] for k in range(min(slots, len(rest)))]
+    keep = pinned_ids | set(map(id, window))
+    for i in items:
+        if id(i) not in keep:
+            hidden[state(i) if state(i) in hidden else "good"] += 1
+    shown = [i for i in items if id(i) in keep]
+    return shown, hidden, {"page": page + 1, "pages": pages, "shown": len(shown), "total": len(items)}
+
+
+@dataclass
 class Hop:
     """One node of the path shown in the hero: your network -> your ISP -> the internet."""
     key: str             # home | isp | internet
@@ -64,6 +135,7 @@ class Dashboard:
     isp_name: str = ""
     day: dict = field(default_factory=dict)   # {"n", "dur", "by": {group: count}}
     targets: list[TargetCard] = field(default_factory=list)
+    points: list = field(default_factory=list)   # build_points(targets)
     tunnels: list = field(default_factory=list)
     brief: list = field(default_factory=list)
     services: list = field(default_factory=list)
@@ -135,6 +207,7 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
                                                 unit=" ms", floor=5),
                                     max((_sample_loss(r) for r in rows), default=None)))
     d.anchors = [c for c in d.targets if c.role == "anchor"]
+    d.points = build_points(d.targets)
     net = store.network_at(now) or {}
     d.isp_name = net.get("isp_name") or ""
     d.path = _path(d, net)
@@ -384,3 +457,35 @@ def speed_status(store: Store, settings: Settings, now: float | None = None) -> 
             "used": used, "budget": cfg["budget_gb"] * 1e9, "per_test": per_test, "expected": expected,
             "next": nxt, "contract_down": contract_down, "contract_up": contract_up,
             "blocked": blocked, "pending": pending, "weekdays": sp.WEEKDAYS}
+
+
+@dataclass
+class Conn:
+    """A service or a tunnel, as one row of a fixed-size panel."""
+    kind: str          # service | tunnel
+    name: str
+    sub: str           # tunnel type, or ""
+    ms: float | None
+    state: str         # services: up | down | no_data; tunnels: up | down | no_data
+    since: str
+    st: str            # good | bad | none
+
+
+BOARD_POINTS, BOARD_CONNS, BOARD_RECENT = 6, 5, 5
+
+
+def board(d: Dashboard, now: float | None = None) -> dict:
+    """What each fixed-size panel of the TV board shows; nothing can push the 24 h timeline out.
+    Long lists rotate on every refresh; whatever is failing is pinned and also named in the header."""
+    tick = int((now or time.time()) // 30)
+    conns = [Conn("service", c.name, "", c.ms, c.state, c.since,
+                  "good" if c.state == "up" else "bad" if c.state == "down" else "none") for c in d.services]
+    conns += [Conn("tunnel", c.name, c.type, None, c.state, c.since,
+                   "good" if c.state == "up" else "bad" if c.state == "down" else "none") for c in d.tunnels]
+    points, p_hidden, p_rot = fit(d.points, BOARD_POINTS, state=lambda p: "good" if p.status == "ok" else "bad", tick=tick)
+    shown, c_hidden, c_rot = fit(conns, BOARD_CONNS, state=lambda c: c.st, tick=tick)
+    return {"points": points, "points_hidden": p_hidden, "points_rot": p_rot,
+            "conns": shown, "conns_hidden": c_hidden, "conns_rot": c_rot,
+            "alarms": [c for c in conns if c.st == "bad"],
+            "points_alarm": any(p.status == "bad" for p in d.points),
+            "recent": d.recent[:BOARD_RECENT]}

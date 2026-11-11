@@ -521,6 +521,9 @@ class RolesAndTV(WebAppBase):
             self.assertIn(part, html)                                           # the board, for a technician
         simple = anon.get(f"/tv/{token}?lang=en&layout=simple").get_data(as_text=True)
         self.assertIn('class="tv-headline"', simple)                           # the minimal view, for a counter
+        self.assertIn('class="tv tv-board"', html)                             # the board sizes itself to the window
+        self.assertNotIn("tv-board", simple)
+        self.assertNotIn("noc-alarm", html)                                    # nothing down, no alarm
         self.assertNotIn('class="noc ', simple)
         self.assertEqual(anon.get(f"/tv/{token}x").status_code, 404)
         self.client.post("/settings/tv", data={"csrf_token": csrf(page), "action": "revoke"})
@@ -543,3 +546,71 @@ class ServicePresets(WebAppBase):
         self.assertEqual(sorted(names), ["ARCA: factura electrónica (WSFEv1)", "Banco Macro"])
         kinds = {s.name: s.kind for s in settings_mod.load(self.store).services}
         self.assertEqual(kinds["ARCA: factura electrónica (WSFEv1)"], "tcp")
+
+
+@unittest.skipUnless(HAVE_WEB, "web extra not installed")
+class PointsAndBoardFit(unittest.TestCase):
+    """The TV board has fixed space per panel: grouping and trimming must keep any instance inside it."""
+
+    def card(self, role, target, loss=0.0, ms=20.0):
+        from isitmyisp.webapp.views import TargetCard
+        return TargetCard(role, target, loss, ms, "bad" if loss >= 5 else "warn" if loss else "ok")
+
+    def test_ping_and_tcp_per_destination_and_one_dns_row(self):
+        from isitmyisp.webapp.views import build_points
+        targets = [self.card("home", "192.168.1.1", ms=1.5), self.card("isp", "181.89.4.100", ms=3)]
+        targets += [self.card("anchor", a) for a in ("1.1.1.1", "8.8.8.8", "9.9.9.9")]
+        targets += [self.card("tcp", f"tcp://{a}:443", ms=31) for a in ("1.1.1.1", "8.8.8.8", "9.9.9.9")]
+        targets += [self.card("dns", "dns://1.1.1.1", ms=31), self.card("dns", "dns://192.168.1.1", loss=20, ms=4)]
+        points = build_points(targets)                     # 10 measurements -> 6 rows, like a real instance
+        self.assertEqual([p.kind for p in points], ["home", "isp", "internet", "internet", "internet", "dns"])
+        self.assertEqual(points[2].tcp_ms, 31)
+        dns = points[-1]
+        self.assertEqual((dns.count, dns.status, dns.loss, dns.median), (2, "bad", 20, 31))
+
+    def test_fit_pins_problems_and_rotates_the_rest_through_every_item(self):
+        from isitmyisp.webapp.views import fit
+        items = [("a", "good"), ("b", "none"), ("c", "good"), ("d", "bad"), ("e", "good"), ("f", "good")]
+        seen = set()
+        for tick in range(5):
+            shown, hidden, rot = fit(items, 4, state=lambda i: i[1], tick=tick)
+            names = [i[0] for i in shown]
+            self.assertIn("d", names)                                    # the problem never rotates away
+            self.assertEqual(len(names), 3)                              # 3 rows + the footer line
+            self.assertEqual(names, sorted(names))                       # original order kept
+            self.assertEqual(rot["pages"], 3)                            # 5 others, 2 slots per page
+            self.assertEqual(rot["page"], tick % 3 + 1)
+            seen.update(names)
+        self.assertEqual(seen, {i[0] for i in items})                    # everything gets its turn on screen
+        shown, hidden, rot = fit(items, 4, state=lambda i: i[1], tick=0)
+        self.assertEqual([i[0] for i in shown], ["a", "b", "d"])
+        self.assertEqual(hidden, {"bad": 0, "none": 0, "good": 3})
+        self.assertEqual(fit(items, 10), (items, {"bad": 0, "none": 0, "good": 0}, None))   # fits: no rotation
+
+    def test_fit_with_more_problems_than_rows_says_so(self):
+        from isitmyisp.webapp.views import fit
+        items = [(str(i), "bad") for i in range(6)]
+        shown, hidden, rot = fit(items, 4, state=lambda i: i[1], tick=7)
+        self.assertEqual([i[0] for i in shown], ["0", "1", "2"])
+        self.assertEqual(hidden["bad"], 3)                               # the footer warns, never "all fine"
+        self.assertEqual(rot["pages"], 1)
+
+    def test_board_names_what_is_down(self):
+        from isitmyisp.webapp.views import Dashboard, ServiceCard, board
+        d = Dashboard(services=[ServiceCard("Bank", "http", "https://b.example", "down", "bad", None, "12 min"),
+                                ServiceCard("ERP", "tcp", "erp.example:443", "up", "ok", 40.0)])
+        b = board(d, now=0)
+        self.assertEqual([c.name for c in b["alarms"]], ["Bank"])
+        self.assertIsNone(b["conns_rot"])
+
+    def test_the_board_never_gets_more_rows_than_its_panels_hold(self):
+        from isitmyisp.webapp.views import BOARD_CONNS, BOARD_POINTS, Dashboard, ServiceCard, board
+        d = Dashboard(points=[__import__("isitmyisp.webapp.views", fromlist=["Point"]).Point("internet", str(i), 1, 0, "ok")
+                              for i in range(30)],
+                      services=[ServiceCard(f"s{i}", "http", "https://x.example", "no_data", "muted", None) for i in range(20)])
+        b = board(d, now=0)
+        self.assertLessEqual(len(b["points"]) + 1, BOARD_POINTS)       # +1: the "+N more" line
+        self.assertLessEqual(len(b["conns"]) + 1, BOARD_CONNS)
+        self.assertEqual(b["conns_hidden"]["none"], 20 - len(b["conns"]))
+        self.assertEqual(b["conns_rot"]["pages"], 5)                     # 20 / 4 per page
+        self.assertEqual(board(d, now=30)["conns"][0].name, "s4")        # next refresh, next page

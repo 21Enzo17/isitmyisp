@@ -123,14 +123,18 @@ class Simulator:
         link = LinkUsage(round(down, 1), round(down * .18, 1), round(100 * down / 300, 1), round(18 * down / 100, 1),
                          round(rng.uniform(8, 22), 1))
         hop = BACKUP["isp_hop"] if st.backup else MAIN["isp_hop"]
-        m = Measurements(home, w(hop, n, n, 4.4), anchors, tcp, wireless=True, link=link)
+        dns_ok = not st.wifi_bad
+        dns = [w("dns://192.168.1.1", 6, 6 if dns_ok else 3, 3.5 + rng.gauss(0, .4)),
+               w("dns://1.1.1.1", 6, 6 if dns_ok else 3, lat + 1.5)]
+        m = Measurements(home, w(hop, n, n, 4.4), anchors, tcp, dns=dns, wireless=True, link=link)
         erp = self.services[-1].name
         for s in self.services:
             ok = not (s.name == erp and st.erp_down)
             self.checks[s.name].append(Check(now, ok, (180 if s.kind == "http" else 45) + rng.gauss(0, 8) if ok else None,
                                              "HTTP 200" if ok else "timeout"))
             self.checks[s.name] = self.checks[s.name][-10:]
-        rows = [("home", home[0]), ("isp", m.isp_hop)] + [("anchor", a) for a in anchors]
+        rows = ([("home", home[0]), ("isp", m.isp_hop)] + [("anchor", a) for a in anchors]
+                + [("tcp", t) for t in tcp.values()] + [("dns", d) for d in dns])   # like a real monitor
         under = w(self.tunnel.underlay, n, n - (round(n * .5) if st.path_drop else 0), 41.0)
         over = w(self.tunnel.overlay, n, 0 if st.rekey_drop else (n - round(n * .5) if st.path_drop else n), 43.0)
         self.mon.step(m, rows, now=now, tunnels=[(self.tunnel, under, over)],
