@@ -545,3 +545,44 @@ class ServicePresets(WebAppBase):
         self.assertEqual(sorted(names), ["ARCA: factura electrónica (WSFEv1)", "Banco Macro"])
         kinds = {s.name: s.kind for s in settings_mod.load(self.store).services}
         self.assertEqual(kinds["ARCA: factura electrónica (WSFEv1)"], "tcp")
+
+
+@unittest.skipUnless(HAVE_WEB, "web extra not installed")
+class PointsAndBoardFit(unittest.TestCase):
+    """The TV board has fixed space per panel: grouping and trimming must keep any instance inside it."""
+
+    def card(self, role, target, loss=0.0, ms=20.0):
+        from isitmyisp.webapp.views import TargetCard
+        return TargetCard(role, target, loss, ms, "bad" if loss >= 5 else "warn" if loss else "ok")
+
+    def test_ping_and_tcp_per_destination_and_one_dns_row(self):
+        from isitmyisp.webapp.views import build_points
+        targets = [self.card("home", "192.168.1.1", ms=1.5), self.card("isp", "181.89.4.100", ms=3)]
+        targets += [self.card("anchor", a) for a in ("1.1.1.1", "8.8.8.8", "9.9.9.9")]
+        targets += [self.card("tcp", f"tcp://{a}:443", ms=31) for a in ("1.1.1.1", "8.8.8.8", "9.9.9.9")]
+        targets += [self.card("dns", "dns://1.1.1.1", ms=31), self.card("dns", "dns://192.168.1.1", loss=20, ms=4)]
+        points = build_points(targets)                     # 10 measurements -> 6 rows, like a real instance
+        self.assertEqual([p.kind for p in points], ["home", "isp", "internet", "internet", "internet", "dns"])
+        self.assertEqual(points[2].tcp_ms, 31)
+        dns = points[-1]
+        self.assertEqual((dns.count, dns.status, dns.loss, dns.median), (2, "bad", 20, 31))
+
+    def test_fit_shows_problems_first_and_never_claims_all_fine_wrongly(self):
+        from isitmyisp.webapp.views import fit
+        items = [("a", "good"), ("b", "none"), ("c", "good"), ("d", "bad"), ("e", "good"), ("f", "good")]
+        shown, hidden = fit(items, 4, state=lambda i: i[1])
+        self.assertEqual([i[0] for i in shown], ["a", "b", "d"])     # the problem, the unknown, then the first fine one
+        self.assertEqual(hidden, {"bad": 0, "none": 0, "good": 3})
+        shown, hidden = fit(items, 3, state=lambda i: i[1])
+        self.assertEqual(hidden["good"], 4)
+        self.assertEqual(fit(items, 10)[1], {"bad": 0, "none": 0, "good": 0})
+
+    def test_the_board_never_gets_more_rows_than_its_panels_hold(self):
+        from isitmyisp.webapp.views import BOARD_CONNS, BOARD_POINTS, Dashboard, ServiceCard, board
+        d = Dashboard(points=[__import__("isitmyisp.webapp.views", fromlist=["Point"]).Point("internet", str(i), 1, 0, "ok")
+                              for i in range(30)],
+                      services=[ServiceCard(f"s{i}", "http", "https://x.example", "no_data", "muted", None) for i in range(20)])
+        b = board(d)
+        self.assertLessEqual(len(b["points"]) + 1, BOARD_POINTS)       # +1: the "+N more" line
+        self.assertLessEqual(len(b["conns"]) + 1, BOARD_CONNS)
+        self.assertEqual(b["conns_hidden"]["none"], 20 - len(b["conns"]))

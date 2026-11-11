@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body class="tv-page">
+{% macro more(h) %}{{ t.board_more.format(n=h.bad + h.none + h.good) }} {% if h.bad %}{{ t.board_more_bad.format(n=h.bad) }}{% elif h.none %}{{ t.board_more_none.format(n=h.none) }}{% else %}{{ t.board_more_ok }}{% endif %}{% endmacro %}
 {% macro num(v, fmt='%.1f') %}{{ fmt|format(v) if v is not none else '—' }}{% endmacro %}
 {% set fo = d.failover %}
 {% set group = 'other' if fo and d.code == 'ok' else d.group %}
@@ -124,41 +125,40 @@
     <div class="panel noc-targets">
       <h2>{{ t.net_state }}</h2>
       <table class="noc-points"><tbody>
-        {% for c in d.targets %}
-        {% set st = 'good' if c.status == 'ok' else ('warn' if c.status == 'warn' else 'bad') %}
+        {% for p in b.points %}
+        {% set st = 'good' if p.status == 'ok' else ('warn' if p.status == 'warn' else 'bad') %}
         <tr class="s-{{ st }}">
-          <td><i class="pt" aria-hidden="true"></i>{{ t.role.get(c.role, c.role) }}</td>
-          <td class="ip">{{ c.target }}</td>
-          <td class="pt-spark">{% if not c.history.empty %}<div class="spark" aria-hidden="true"><svg viewBox="0 0 1000 100" preserveAspectRatio="none">
-            <path class="area" d="{{ c.history.area }}"/><path class="ln" d="{{ c.history.line }}"/></svg></div>{% endif %}</td>
-          <td class="num"><b>{{ num(c.median) }}</b> ms</td>
-          <td class="num pt-loss">{{ '%.0f'|format(c.loss) }}%</td>
+          <td class="pt-name"><i class="pt" aria-hidden="true"></i>{{ t.point_label[p.kind] }}{% if p.kind == 'dns' and p.count > 1 %} <span class="muted">({{ p.count }})</span>{% endif %}</td>
+          <td class="ip">{{ p.target }}</td>
+          <td class="pt-spark">{% if p.history and not p.history.empty %}<div class="spark" aria-hidden="true"><svg viewBox="0 0 1000 100" preserveAspectRatio="none">
+            <path class="area" d="{{ p.history.area }}"/><path class="ln" d="{{ p.history.line }}"/></svg></div>{% endif %}</td>
+          <td class="num"><b>{{ num(p.median) }}</b> ms{% if p.tcp_ms is not none %}<span class="pt-tcp">TCP {{ num(p.tcp_ms) }}</span>{% endif %}</td>
+          <td class="num pt-loss">{{ '%.0f'|format(p.loss) }}%</td>
         </tr>
         {% endfor %}
+        {% set h = b.points_hidden %}
+        {% if h.bad or h.none or h.good %}<tr class="more"><td colspan="5">{{ more(h) }}</td></tr>{% endif %}
       </tbody></table>
     </div>
     <div class="panel noc-services">
       <h2>{{ t.conn_title }}</h2>
-      {% if not d.services and not d.tunnels %}<p class="muted">{{ t.no_services }}</p>{% else %}
+      {% if not b.conns %}<p class="muted">{{ t.no_services }}</p>{% else %}
       <ul class="rows">
-        {% for c in d.services %}{% set st = 'good' if c.state == 'up' else ('bad' if c.state == 'down' else 'none') %}
-        <li class="row s-{{ st }}"><svg class="ico st" aria-hidden="true"><use href="#i-{{ 'check' if st == 'good' else ('cross' if st == 'bad' else 'wait') }}"/></svg>
-          <span class="r-main"><span class="r-name">{{ c.name }}</span></span>
+        {% for c in b.conns %}
+        <li class="row s-{{ c.st }}"><svg class="ico st" aria-hidden="true"><use href="#i-{{ 'check' if c.st == 'good' else ('cross' if c.st == 'bad' else 'wait') }}"/></svg>
+          <span class="r-main"><span class="r-name">{{ c.name }}</span>{% if c.sub %}<span class="r-sub">{{ t.tunnel_word }} {{ c.sub }}</span>{% endif %}</span>
           <span class="r-val">{% if c.ms is not none %}{{ '%.0f'|format(c.ms) }} ms{% endif %}</span>
-          <span class="r-state">{{ t.svc[c.state] }}{% if c.since %}, {{ c.since }}{% endif %}</span></li>
+          <span class="r-state">{{ (t.svc if c.kind == 'service' else t.tun)[c.state] }}{% if c.since %}, {{ c.since }}{% endif %}</span></li>
         {% endfor %}
-        {% for c in d.tunnels %}{% set st = 'good' if c.state == 'up' else ('bad' if c.state == 'down' else 'none') %}
-        <li class="row s-{{ st }}"><svg class="ico st" aria-hidden="true"><use href="#i-{{ 'check' if st == 'good' else ('cross' if st == 'bad' else 'wait') }}"/></svg>
-          <span class="r-main"><span class="r-name">{{ c.name }}</span><span class="r-sub">{{ t.tunnel_word }} {{ c.type }}</span></span>
-          <span class="r-val"></span><span class="r-state">{{ t.tun[c.state] }}{% if c.since %}, {{ c.since }}{% endif %}</span></li>
-        {% endfor %}
+        {% set h = b.conns_hidden %}
+        {% if h.bad or h.none or h.good %}<li class="row more">{{ more(h) }}</li>{% endif %}
       </ul>{% endif %}
     </div>
     <div class="panel noc-recent">
       <h2>{{ t.recent_title }}</h2>
-      {% if not d.recent %}<p class="muted">{{ t.recent_none }}</p>{% else %}
+      {% if not b.recent %}<p class="muted">{{ t.recent_none }}</p>{% else %}
       <table class="recent"><tbody>
-        {% for r in d.recent[:5] %}
+        {% for r in b.recent %}
         <tr{% if r.ongoing %} class="now"{% endif %}>
           <td class="num-l">{{ r.opened|tm }}</td>
           <td><i class="sw g-{{ r.group }}" aria-hidden="true"></i>{{ t.verdict.get(r.code, r.code) }}{% if r.name %} <span class="muted">{{ r.name }}</span>{% endif %}{% if r.count > 1 %} <span class="muted">×{{ r.count }}</span>{% endif %}</td>

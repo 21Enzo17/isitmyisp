@@ -477,8 +477,8 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         expected = store.get_setting("tv_token")
         if not expected or not hmac.compare_digest(token.encode(), str(expected).encode()):
             abort(404)
-        return render_template("tv.html", d=views.dashboard_data(store, g.settings),
-                               simple=request.args.get("layout") == "simple")
+        d = views.dashboard_data(store, g.settings)
+        return render_template("tv.html", d=d, b=views.board(d), simple=request.args.get("layout") == "simple")
 
     @app.post("/settings/tv")
     def settings_tv():

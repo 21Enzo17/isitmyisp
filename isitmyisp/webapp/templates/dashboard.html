@@ -153,14 +153,15 @@
 <section class="net-state" aria-labelledby="net-h">
   <div class="panel-head bare"><h2 id="net-h">{{ t.net_state }}</h2><span class="muted small">{{ t.net_state_sub }}</span></div>
   <div class="cards">
-    {% for c in d.targets %}
+    {% for c in d.points %}
     {% set st = 'good' if c.status == 'ok' else ('warn' if c.status == 'warn' else 'bad') %}
     <article class="tcard s-{{ st }}">
-      <header><span class="t-role">{{ t.role.get(c.role, c.role) }}</span>
+      <header><span class="t-role">{{ t.point_label[c.kind] }}{% if c.kind == 'dns' and c.count > 1 %} ({{ c.count }}){% endif %}</span>
         <span class="t-state"><svg class="ico" aria-hidden="true"><use href="#i-{{ 'check' if st == 'good' else 'alert' }}"/></svg>{{ t.no_loss if c.loss == 0 else t.loss_now.format(x='%.0f'|format(c.loss)) }}</span></header>
       <p class="ip">{{ c.target }}</p>
-      <p class="t-val"><b>{{ num(c.median) }}</b> ms</p>
-      {% if not c.history.empty %}
+      <p class="t-val"><b>{{ num(c.median) }}</b> ms{% if c.tcp_ms is not none %} <span class="t-tcp">TCP {{ num(c.tcp_ms) }} ms</span>{% endif %}</p>
+      {% if c.kind == 'dns' and c.count > 1 %}<p class="t-foot">{{ t.dns_slowest }}</p>{% endif %}
+      {% if c.history and not c.history.empty %}
       <div class="spark" aria-hidden="true">
         <svg viewBox="0 0 1000 100" preserveAspectRatio="none">
           <line class="base" x1="0" x2="1000" y1="99.5" y2="99.5"/>

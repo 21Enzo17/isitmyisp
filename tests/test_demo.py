@@ -36,7 +36,8 @@ class Scenarios(unittest.TestCase):
             targets = {s["target"] for s in sim.store.latest_samples()}
             for t in targets:   # documentation ranges, the public anchors, or .example services
                 self.assertTrue(t.startswith(("192.168.", "203.0.113.", "198.51.100.", "10.10.", "1.1.1.1",
-                                              "8.8.8.8", "9.9.9.9", "tcp://", "https://")) or ".example" in t, t)
+                                              "8.8.8.8", "9.9.9.9", "tcp://", "https://", "dns://192.168.",
+                                              "dns://1.1.1.1")) or ".example" in t, t)
             for s in sim.services:
                 self.assertIn(".example", s.target)
             sim.store.close()

@@ -27,6 +27,8 @@ S = {
         "tv_create": "Create the TV link", "tv_rotate": "New link (the old one stops working)", "tv_revoke": "Turn off TV mode",
         "tv_hint": "Open it on the TV's browser and put it in full screen. If the link leaks, create a new one.",
         "tv_services_down": "Not answering: {names}",
+        "point_label": {"home": "Your router", "isp": "ISP first hop", "internet": "Internet", "voip": "Your calls", "dns": "DNS"},
+        "dns_slowest": "the slowest server", "board_more": "+{n} more:", "board_more_ok": "all fine.", "board_more_bad": "{n} with problems, see the dashboard.", "board_more_none": "{n} without data yet.",
         "tv_healthy": "Healthy, 24 h", "tv_incidents": "Incidents, 24 h", "tv_updated": "Updated",
         "tv_speed": "Last speed test: {down} / {up} Mbps ({when})",
 
@@ -244,6 +246,8 @@ S = {
         "tv_create": "Crear el link para la TV", "tv_rotate": "Link nuevo (el anterior deja de andar)", "tv_revoke": "Apagar el modo TV",
         "tv_hint": "Abrilo en el navegador de la TV y ponelo en pantalla completa. Si el link se filtra, creá uno nuevo.",
         "tv_services_down": "No responden: {names}",
+        "point_label": {"home": "Tu router", "isp": "Primer salto ISP", "internet": "Internet", "voip": "Tus llamadas", "dns": "DNS"},
+        "dns_slowest": "el servidor más lento", "board_more": "+{n} más:", "board_more_ok": "todos bien.", "board_more_bad": "{n} con problemas, mirá el panel.", "board_more_none": "{n} todavía sin datos.",
         "tv_healthy": "Sana, 24 h", "tv_incidents": "Incidentes, 24 h", "tv_updated": "Actualizado",
         "tv_speed": "Última prueba de velocidad: {down} / {up} Mbps ({when})",
 
