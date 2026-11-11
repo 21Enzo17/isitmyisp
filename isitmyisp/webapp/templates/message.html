@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="{{ lang }}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>isitmyisp</title><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
+<title>isitmyisp</title><link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml"><link rel="icon" href="{{ url_for('static', filename='favicon-32.png') }}" sizes="32x32" type="image/png"><link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}"><link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}"><meta name="theme-color" content="#0f121a"><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
 <body><div class="auth-wrap"><div class="auth">
-  <a class="brand" href="/"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><circle cx="4" cy="12" r="2.6"/><circle cx="12" cy="12" r="2.6" class="mark-mid"/><circle cx="20" cy="12" r="2.6"/></svg><span>isitmyisp</span></a>
+  <a class="brand" href="/"><img class="mark" src="{{ url_for('static', filename='favicon.svg') }}" alt="" width="32" height="32"><span>isitmyisp</span></a>
   <div class="card"><p>{{ message }}</p></div>
 </div></div></body></html>

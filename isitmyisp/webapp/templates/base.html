@@ -6,11 +6,16 @@
   <meta name="color-scheme" content="dark light">
   {% block head %}{% endblock %}
   <title>{% block title %}isitmyisp{% endblock %} · isitmyisp</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="icon" href="{{ url_for('static', filename='favicon-32.png') }}" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+  <meta name="theme-color" content="#0f121a">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 <svg class="sprite" aria-hidden="true" focusable="false">
-  <symbol id="i-mark" viewBox="0 0 24 24"><path d="M5 12h14"/><circle cx="4" cy="12" r="2.6"/><circle cx="12" cy="12" r="2.6" class="mark-mid"/><circle cx="20" cy="12" r="2.6"/></symbol>
+  <symbol id="i-mark" viewBox="0 0 64 64"><rect class="mark-bg" width="64" height="64" rx="15"/><path class="mark-line" d="M11 32H53"/><circle class="mark-halo" cx="32" cy="32" r="11"/><circle class="mark-node" cx="11" cy="32" r="5.5"/><circle class="mark-node" cx="53" cy="32" r="5.5"/><circle class="mark-mid" cx="32" cy="32" r="7"/></symbol>
   <symbol id="i-panel" viewBox="0 0 24 24"><path d="M4 18V6M4 18h16"/><path d="M7.5 14.5l3.5-4 3 2.5 4.5-6"/></symbol>
   <symbol id="i-incidents" viewBox="0 0 24 24"><path d="M12 3.8 21.2 19.5H2.8Z"/><path d="M12 10v4.2M12 16.9v.2"/></symbol>
   <symbol id="i-tunnels" viewBox="0 0 24 24"><path d="M4 8.5h15m-3.5-3.5L19 8.5 15.5 12M20 15.5H5m3.5 3.5L5 15.5 8.5 12"/></symbol>

@@ -12,11 +12,12 @@ import time
 from datetime import timedelta
 
 mimetypes.add_type("font/woff2", ".woff2")  # slim images ship without it
+mimetypes.add_type("application/manifest+json", ".webmanifest")
 from pathlib import Path
 from urllib.parse import urlparse
 
 from flask import (Flask, Response, abort, flash, g, make_response, redirect, render_template, request,
-                   session, url_for)
+                   send_from_directory, session, url_for)
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_login import LoginManager, current_user, login_user, logout_user
@@ -31,7 +32,7 @@ from . import auth, charts, views
 from ..api import metrics_text, status_json
 from .strings import S
 
-PUBLIC_ENDPOINTS = {"static", "healthz"}
+PUBLIC_ENDPOINTS = {"static", "healthz", "favicon"}
 AUTH_ENDPOINTS = {"login", "setup"}
 
 
@@ -118,7 +119,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         # Reports are standalone documents with an inline <style>; everything else uses /static.
         style = "'self' 'unsafe-inline'" if request.endpoint in ("report",) else "'self'"
         resp.headers.setdefault("Content-Security-Policy",
-                                f"default-src 'none'; style-src {style}; img-src 'self' data:; font-src 'self'; "
+                                f"default-src 'none'; style-src {style}; img-src 'self' data:; font-src 'self'; manifest-src 'self'; "
                                 "form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
         resp.headers["X-Content-Type-Options"] = "nosniff"
         resp.headers["X-Frame-Options"] = "DENY"
@@ -492,6 +493,11 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     @app.get("/api/status")
     def api_status():
         return status_json(store)
+
+    @app.get("/favicon.ico")
+    def favicon():
+        """Browsers ask for it before reading the page's <link rel=icon>: answer with the PNG."""
+        return send_from_directory(app.static_folder, "favicon-32.png", mimetype="image/png", max_age=86400)
 
     @app.get("/healthz")
     def healthz():

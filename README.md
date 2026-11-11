@@ -1,11 +1,43 @@
-# isitmyisp
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/logo-dark.svg">
+    <img src="docs/brand/logo-light.svg" alt="isitmyisp" width="380">
+  </picture>
+</p>
 
-**Is it your Wi-Fi, your router or your ISP?**
-A self-hosted connection monitor for homes and small offices, built by someone who worked in an ISP's NOC. It finds *where* a problem is, says it in plain words, and builds the evidence your ISP needs to escalate the ticket.
+<h3 align="center">Is it your Wi-Fi, your router or your ISP?</h3>
+
+<p align="center">
+  A self-hosted connection monitor for homes and small offices, built by someone who worked in an ISP's NOC.<br>
+  It finds <b>where</b> a problem is, says it in plain words, and builds the evidence your ISP needs to escalate the ticket.
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-9b8cff"></a>
+  <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-3987e5">
+  <img alt="Docker: amd64 and arm64" src="https://img.shields.io/badge/docker-amd64%20%7C%20arm64-3987e5">
+  <img alt="Self-hosted" src="https://img.shields.io/badge/self--hosted-no%20cloud-0ca30c">
+  <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-0ca30c">
+  <img alt="No JavaScript in the UI" src="https://img.shields.io/badge/UI-no%20JavaScript-161b26">
+  <img alt="English and Spanish" src="https://img.shields.io/badge/i18n-EN%20%7C%20ES-161b26">
+</p>
+
+<p align="center">
+  <a href="#quick-start-docker-recommended">Quick start</a> ·
+  <a href="#what-it-answers">What it answers</a> ·
+  <a href="#privacy-every-external-connection-listed">Privacy</a> ·
+  <a href="#the-evidence-report">Evidence report</a> ·
+  <a href="#roadmap">Roadmap</a>
+</p>
 
 ![Dashboard during an ISP incident: the path from your network to the internet with the ISP marked, what to do, and the last 24 hours](docs/screenshots/incident.png)
 
 > 🚧 Early development: monitoring, incidents, the evidence report (HTML/PDF), the dashboard, alerts, failover, call quality and the speed test all work. Not yet battle-tested on many networks. Screenshots use synthetic data.
+
+## Who it's for
+- **Homes** that are tired of "restart the modem" and want proof.
+- **Small offices and shops** where the internet *is* the till, the phones and the invoicing: one small box (a Raspberry Pi is enough) tells you whose fault an outage was and gives you the report to claim.
+- **IT providers** who look after those offices: a verdict you can show the client, failover and call quality at a glance, and an evidence report the ISP can't wave away.
 
 ## What it answers
 
