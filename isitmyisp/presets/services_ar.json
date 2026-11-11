@@ -1,0 +1,172 @@
+{
+  "region": "ar",
+  "verified": "2026-11-11",
+  "note": "Every target was checked from a real Argentine connection on the date above. HTTP(S) counts as reachable on any status below 500. Edit freely: name, kind (http|tcp), target.",
+  "presets": [
+    {
+      "group": "ARCA (ex AFIP)",
+      "id": "arca-clave-fiscal",
+      "name": "ARCA: Clave Fiscal",
+      "kind": "http",
+      "target": "https://auth.afip.gob.ar/contribuyente_/login.xhtml",
+      "what": {
+        "es": "La página de ingreso con Clave Fiscal (trámites, monotributo, Mis Comprobantes).",
+        "en": "The Clave Fiscal sign-in page (filings, monotributo, Mis Comprobantes)."
+      }
+    },
+    {
+      "group": "ARCA (ex AFIP)",
+      "id": "arca-facturacion",
+      "name": "ARCA: factura electrónica (WSFEv1)",
+      "kind": "tcp",
+      "target": "servicios1.afip.gov.ar:443",
+      "what": {
+        "es": "El servidor del web service de factura electrónica que usan los sistemas de facturación. Se chequea por TCP: usa claves TLS débiles (DH) que los sistemas actuales rechazan, y por HTTPS parecería caído siempre.",
+        "en": "The e-invoicing web service server billing systems use. Checked over TCP: it uses weak TLS (DH) keys that current systems refuse, so over HTTPS it would always look down."
+      }
+    },
+    {
+      "group": "ARCA (ex AFIP)",
+      "id": "arca-wsaa",
+      "name": "ARCA: autenticación (WSAA)",
+      "kind": "http",
+      "target": "https://wsaa.afip.gov.ar/ws/services/LoginCms",
+      "what": {
+        "es": "El servicio que autentica a los sistemas antes de facturar: si no responde, no se puede emitir factura electrónica.",
+        "en": "The service that authenticates billing systems before invoicing: if it's down, no electronic invoice can be issued."
+      }
+    },
+    {
+      "group": "Provincia de Jujuy",
+      "id": "rentas-jujuy",
+      "name": "Rentas Jujuy",
+      "kind": "http",
+      "target": "https://www.rentasjujuy.gob.ar",
+      "what": {
+        "es": "El sitio de la Dirección Provincial de Rentas (ingresos brutos, trámites).",
+        "en": "The provincial tax office's site."
+      }
+    },
+    {
+      "group": "Bancos",
+      "id": "banco-macro",
+      "name": "Banco Macro",
+      "kind": "http",
+      "target": "https://www.macro.com.ar",
+      "what": {
+        "es": "El sitio del banco.",
+        "en": "The bank's website."
+      }
+    },
+    {
+      "group": "Bancos",
+      "id": "banco-nacion",
+      "name": "Banco Nación",
+      "kind": "http",
+      "target": "https://www.bna.com.ar",
+      "what": {
+        "es": "El sitio del banco.",
+        "en": "The bank's website."
+      }
+    },
+    {
+      "group": "Bancos",
+      "id": "banco-galicia",
+      "name": "Banco Galicia: Online Banking",
+      "kind": "http",
+      "target": "https://onlinebanking.bancogalicia.com.ar",
+      "what": {
+        "es": "El ingreso a Online Banking.",
+        "en": "The Online Banking sign-in."
+      }
+    },
+    {
+      "group": "Bancos",
+      "id": "banco-santander",
+      "name": "Banco Santander",
+      "kind": "tcp",
+      "target": "www.santander.com.ar:443",
+      "what": {
+        "es": "Se chequea por TCP: el sitio no responde a clientes HTTP simples (protección anti-bots) aunque esté funcionando.",
+        "en": "Checked over TCP: the site doesn't answer plain HTTP clients (bot protection) even when it's up."
+      }
+    },
+    {
+      "group": "Bancos",
+      "id": "banco-bbva",
+      "name": "BBVA Argentina",
+      "kind": "http",
+      "target": "https://www.bbva.com.ar",
+      "what": {
+        "es": "El sitio del banco (responde 403 a clientes automáticos: igual prueba que está en línea).",
+        "en": "The bank's site (answers 403 to automated clients: that still proves it's up)."
+      }
+    },
+    {
+      "group": "Pagos y cobros",
+      "id": "mercado-pago",
+      "name": "Mercado Pago",
+      "kind": "http",
+      "target": "https://www.mercadopago.com.ar",
+      "what": {
+        "es": "El sitio de Mercado Pago (cobros con QR, links de pago, Point).",
+        "en": "Mercado Pago (QR payments, payment links, Point)."
+      }
+    },
+    {
+      "group": "Pagos y cobros",
+      "id": "payway",
+      "name": "Payway (ex Prisma, posnet)",
+      "kind": "http",
+      "target": "https://live.decidir.com/api/v2/healthcheck",
+      "what": {
+        "es": "El estado de la API de pagos de Payway (Decidir), la que usan posnets y tiendas online.",
+        "en": "The health check of Payway's (Decidir) payments API, used by card terminals and online shops."
+      }
+    },
+    {
+      "group": "Trabajo diario",
+      "id": "google-workspace",
+      "name": "Google Workspace (Gmail)",
+      "kind": "http",
+      "target": "https://mail.google.com",
+      "what": {
+        "es": "Gmail y las aplicaciones de Google Workspace.",
+        "en": "Gmail and Google Workspace apps."
+      }
+    },
+    {
+      "group": "Trabajo diario",
+      "id": "microsoft-365",
+      "name": "Microsoft 365 (Outlook)",
+      "kind": "http",
+      "target": "https://outlook.office365.com",
+      "what": {
+        "es": "Outlook en la nube y el resto de Microsoft 365.",
+        "en": "Outlook online and the rest of Microsoft 365."
+      }
+    },
+    {
+      "group": "Trabajo diario",
+      "id": "whatsapp-web",
+      "name": "WhatsApp Web",
+      "kind": "http",
+      "target": "https://web.whatsapp.com",
+      "what": {
+        "es": "WhatsApp Web, donde muchas pymes atienden a sus clientes.",
+        "en": "WhatsApp Web, where many small businesses talk to customers."
+      }
+    },
+    {
+      "group": "Trabajo diario",
+      "id": "zoom",
+      "name": "Zoom",
+      "kind": "http",
+      "target": "https://zoom.us",
+      "what": {
+        "es": "Videollamadas con Zoom.",
+        "en": "Zoom video calls."
+      }
+    }
+  ]
+}

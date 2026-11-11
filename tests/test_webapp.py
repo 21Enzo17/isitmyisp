@@ -526,3 +526,20 @@ class RolesAndTV(WebAppBase):
         self.client.post("/settings/tv", data={"csrf_token": csrf(page), "action": "revoke"})
         self.assertEqual(anon.get(f"/tv/{token}").status_code, 404)
         self.assertEqual(anon.get("/").status_code, 302)                       # the TV link opens nothing else
+
+
+@unittest.skipUnless(HAVE_WEB, "web extra not installed")
+class ServicePresets(WebAppBase):
+    def test_ticked_presets_are_added_once(self):
+        self.create_admin()
+        page = self.client.get("/settings?lang=es").get_data(as_text=True)
+        self.assertIn("Agregar servicios comunes en Argentina", page)
+        self.assertIn("servicios1.afip.gov.ar:443", page)
+        data = {"csrf_token": csrf(page), "preset": ["arca-facturacion", "banco-macro", "nope"]}
+        self.assertEqual(self.client.post("/settings/services/presets", data=data).status_code, 302)
+        page = self.client.get("/settings").get_data(as_text=True)
+        self.client.post("/settings/services/presets", data={**data, "csrf_token": csrf(page)})   # again: no duplicates
+        names = [s.name for s in settings_mod.load(self.store).services]
+        self.assertEqual(sorted(names), ["ARCA: factura electrónica (WSFEv1)", "Banco Macro"])
+        kinds = {s.name: s.kind for s in settings_mod.load(self.store).services}
+        self.assertEqual(kinds["ARCA: factura electrónica (WSFEv1)"], "tcp")

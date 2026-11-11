@@ -24,3 +24,4 @@ include = ["isitmyisp*"]
 
 [tool.setuptools.package-data]
 "isitmyisp.webapp" = ["templates/*.html", "static/*", "static/fonts/*"]
+"isitmyisp.presets" = ["*.json"]
