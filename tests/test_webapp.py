@@ -420,3 +420,18 @@ class SpeedTestControls(WebAppBase):
         self.assertIsNotNone(self.store.get_setting("_speed_request"))
         html = self.client.get("/?lang=en").get_data(as_text=True)
         self.assertIn("Test requested", html)
+
+
+@unittest.skipUnless(HAVE_WEB, "web extra not installed")
+class Brand(WebAppBase):
+    def test_icons_and_manifest_are_public_and_typed(self):
+        for path, mime in (("/favicon.ico", "image/png"), ("/static/favicon.svg", "image/svg+xml"),
+                           ("/static/apple-touch-icon.png", "image/png"),
+                           ("/static/manifest.webmanifest", "application/manifest+json")):
+            r = self.client.get(path)
+            self.assertEqual((r.status_code, r.mimetype), (200, mime), path)
+        page = self.client.get("/setup")                        # before any account exists
+        self.assertIn('rel="icon"', page.get_data(as_text=True))
+        self.assertIn("manifest-src 'self'", page.headers["Content-Security-Policy"])
+        self.create_admin()
+        self.assertIn('rel="manifest"', self.client.get("/").get_data(as_text=True))

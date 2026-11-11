@@ -109,8 +109,10 @@ def main(path: str, hours: float = 24.0, seed: int = 7) -> None:
         under = w(tunnel.underlay, n, n - (round(n * .5) if path_drop else 0), 41.0)
         over = w(tunnel.overlay, n, 0 if rekey_drop else (n - round(n * .5) if path_drop else n), 43.0)
         if i == int(0.47 * n_windows):          # the main ISP drops: the router fails over for ~2 h
+            store.add_network({**backup_net, "wireless": True}, ts=now)
             mon.observe_network(backup_net, now=now)
         if i == int(0.55 * n_windows):
+            store.add_network({**main_net, "wireless": True}, ts=now)
             mon.observe_network(main_net, now=now)
         mon.step(m, rows, now=now, tunnels=[(tunnel, under, over)],
                  services=[(s, list(checks[s.name])) for s in services])

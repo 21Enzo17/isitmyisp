@@ -1,34 +1,80 @@
-# isitmyisp
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/logo-dark.svg">
+    <img src="docs/brand/logo-light.svg" alt="isitmyisp" width="380">
+  </picture>
+</p>
 
-**Is it your Wi-Fi, your router or your ISP?**
-A self-hosted connection monitor, built by someone who worked in an ISP's NOC. It finds *where* the problem is and builds the evidence your ISP needs to escalate your ticket.
+<h3 align="center">Is it your Wi-Fi, your router or your ISP?</h3>
 
-> 🚧 Early development: monitoring, incidents, the evidence report (HTML/PDF), the dashboard, Prometheus metrics and tunnel mode all work. Not yet battle-tested on many networks.
+<p align="center">
+  A self-hosted connection monitor for homes and small offices, built by someone who worked in an ISP's NOC.<br>
+  It finds <b>where</b> a problem is, says it in plain words, and builds the evidence your ISP needs to escalate the ticket.
+</p>
 
-## Why another monitor?
-Most tools either run speedtests, which measure the thing that rarely breaks and eat your data cap, or plot pings without telling you what they mean. isitmyisp reads the network the way a NOC engineer does:
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-9b8cff"></a>
+  <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-3987e5">
+  <img alt="Docker: amd64 and arm64" src="https://img.shields.io/badge/docker-amd64%20%7C%20arm64-3987e5">
+  <img alt="Self-hosted" src="https://img.shields.io/badge/self--hosted-no%20cloud-0ca30c">
+  <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-0ca30c">
+  <img alt="No JavaScript in the UI" src="https://img.shields.io/badge/UI-no%20JavaScript-161b26">
+  <img alt="English and Spanish" src="https://img.shields.io/badge/i18n-EN%20%7C%20ES-161b26">
+</p>
 
-- **It separates real loss from ICMP noise.** Routers often deprioritize replies to themselves, so `mtr` shows "loss" on a middle hop while traffic through it is fine. isitmyisp only counts loss that persists to the destination.
-- **It doesn't trust ICMP alone.** For each destination it also times TCP handshakes to port 443, and it times real DNS queries to your resolvers. ICMP loss with clean TCP is deprioritization, not a problem.
-- **It doesn't cry wolf.** "1 packet lost out of 50" is not 2% loss, it's noise. Loss only counts when it's statistically significant (95% Wilson interval), latency is judged against each target's own baseline, and incidents need consecutive bad windows to open.
-- **It blames the right segment,** using address types and AS numbers, not hop positions: your home (including a second router if you have double NAT), your ISP's access network, your ISP's backbone, or a single remote destination.
-- **It doesn't over-claim.** A verdict places the problem in a segment of the path; every ISP-side incident lists **what the evidence rules out** (your LAN, ICMP noise, a single website, a full link) and **what it can't**. Connect it to your router (SNMP, read-only) and it rules out the ISP's favourite objection, "you saturated your own link", or tells you that you did.
-- **It detects CGNAT, double NAT and IPv6** and explains what that means for you.
-- **Call quality:** would a call sound good right now? An estimated MOS (ITU-T G.107 E-model) from the latency, jitter and loss it already measures, against your SIP provider if you set one; the report lists the periods that weren't fit for calls. It says plainly that it's an estimate, not a measured call.
-- **Speed against your plan, off by default:** it fills your link for a few seconds and uses data, so it ships disabled, says so, and asks you to accept the risks before it runs. Weekly at an hour you choose (or by hand), with a monthly data budget, never on the backup link, never during an incident or when the router shows the link busy; it also measures the latency with the link full (bufferbloat) and warns when the result is your Wi-Fi rather than your ISP.
-- **Failover detection:** with a dual-WAN router, it notices within about a minute when the traffic moves to the backup link and when it comes back (one TTL-limited ping per window asks who your ISP's first router is). The dashboard, the alerts and the evidence report say from when to when your main ISP wasn't carrying the traffic.
-- **Your services:** "is it my internet, or is my bank / my ERP / the tax agency down?" Add any HTTP(S) or TCP service; when it's unreachable while your connection is healthy, the verdict says so.
+<p align="center">
+  <a href="#quick-start-docker-recommended">Quick start</a> ·
+  <a href="#what-it-answers">What it answers</a> ·
+  <a href="#privacy-every-external-connection-listed">Privacy</a> ·
+  <a href="#the-evidence-report">Evidence report</a> ·
+  <a href="#roadmap">Roadmap</a>
+</p>
+
+![Dashboard during an ISP incident: the path from your network to the internet with the ISP marked, what to do, and the last 24 hours](docs/screenshots/incident.png)
+
+> 🚧 Early development: monitoring, incidents, the evidence report (HTML/PDF), the dashboard, alerts, failover, call quality and the speed test all work. Not yet battle-tested on many networks. Screenshots use synthetic data.
+
+## Who it's for
+- **Homes** that are tired of "restart the modem" and want proof.
+- **Small offices and shops** where the internet *is* the till, the phones and the invoicing: one small box (a Raspberry Pi is enough) tells you whose fault an outage was and gives you the report to claim.
+- **IT providers** who look after those offices: a verdict you can show the client, failover and call quality at a glance, and an evidence report the ISP can't wave away.
+
+## What it answers
+
+**Whose fault is it?**
+- **The path, not a ping graph.** Your network → your ISP → the internet, with the segment the evidence points to marked, using address types and AS numbers rather than hop positions (your router, a second router behind it, the ISP's access network, its backbone, or a single remote destination).
+- **Real loss vs ICMP noise.** Routers deprioritize replies to themselves, so `mtr` shows "loss" on a middle hop while traffic through it is fine. Only loss that persists to the destination counts, and ICMP and TCP (handshakes to port 443) must agree.
+- **It doesn't cry wolf.** "1 packet lost out of 50" is noise, not 2 % loss: loss must be statistically significant (95 % Wilson interval), latency is judged against each target's own baseline, and incidents need consecutive bad windows.
+- **It doesn't over-claim.** Every ISP-side incident lists **what the evidence rules out** (your LAN, ICMP noise, a single website, a full link) and **what it can't**. Connected to your router (SNMP, read-only), it rules out the ISP's favourite objection, "you saturated your own link", or tells you that you did.
+- **Your services:** "is it my internet, or is my bank / my ERP / the tax agency down?" Any HTTP(S) or TCP service; when it fails while your connection is healthy, the verdict says so.
+
+**Is the office running as it should?**
+- **Failover:** with a dual-WAN router, it notices within about a minute when the traffic moves to the backup link and when it comes back, and the report says from when to when the main ISP wasn't carrying it.
+
+  ![Dashboard while the office runs on the backup link](docs/screenshots/failover.png)
+- **Call quality:** would a call sound good right now? An estimated MOS (ITU-T G.107 E-model) from the latency, jitter and loss it already measures, against your SIP provider if you set one. It says plainly that it's an estimate, not a measured call.
+- **Speed against your plan, off by default:** it fills your link for a few seconds and uses data, so it ships disabled, explains why, and asks you to accept the risks first. Monthly data budget, never on the backup link, never during an incident; it also measures the latency with the link full (bufferbloat) and warns when the result is your Wi-Fi rather than your ISP.
+
+  ![Speed test settings: what it does and why it can be a problem](docs/screenshots/speed-test-settings.png)
+- **Tunnels:** did your IPsec/L2TP/WireGuard tunnel drop because of its configuration or because of the path? It measures outside and inside the tunnel at once, and spots drops that repeat on a schedule (mismatched rekey lifetimes).
+
+**What do I send my ISP, and who tells me?**
+- **The evidence report** (HTML/PDF): a plain-language summary for you, a ready-to-paste message for the ISP's NOC with only the incidents inside their network, every mtr capture, call quality and measured speed.
 - **Alerts** by Telegram, email or webhook (Discord, Slack, Home Assistant…), only for problems that last, each one saying whose fault it is and what to do.
-- **Tunnel mode:** did your IPsec/L2TP/WireGuard tunnel drop because of its configuration or because of the path? It measures outside and inside the tunnel at the same time, and spots drops that repeat on a schedule (the fingerprint of mismatched rekey lifetimes).
+
+<p>
+  <img src="docs/screenshots/dashboard-dark.png" alt="Full dashboard, dark theme" width="62%">
+  <img src="docs/screenshots/mobile.png" alt="Dashboard on a phone" width="22%">
+</p>
 
 ```
 $ isitmyisp discover
    1. [home]   192.168.1.1        0.0%     1.6 ms  ok
-   2. [ISP]    181.89.4.100       0.0%     4.2 ms  ok  AS7303 Telecom Argentina S.A.
-   3. [ISP]    181.96.60.162      0.0%    29.6 ms  ok  AS7303 Telecom Argentina S.A.
+   2. [ISP]    203.0.113.1        0.0%     4.2 ms  ok  AS64500 Example ISP
+   3. [ISP]    203.0.113.65       0.0%    29.6 ms  ok  AS64500 Example ISP
    4. [ISP]    ???              100.0%     0.0 ms  no reply
-   5. [ISP]    181.89.51.39      40.0%    28.9 ms  ignored (ICMP deprioritized)  AS7303 Telecom Argentina S.A.
-   6. [ISP]    181.13.127.246     0.0%    34.1 ms  ok  AS7303 Telecom Argentina S.A.
+   5. [ISP]    198.51.100.39     40.0%    28.9 ms  ignored (ICMP deprioritized)  AS64500 Example ISP
+   6. [ISP]    198.51.100.246     0.0%    34.1 ms  ok  AS64500 Example ISP
    7. [beyond] 1.1.1.1            0.0%    29.2 ms  ok  AS13335 Cloudflare, Inc.
 
   Destination reached with 0.0% loss: the path is fine. Loss on intermediate hops is ICMP handling, not real loss.
@@ -116,7 +162,7 @@ Prometheus scrapes `/metrics` with a bearer token shown in Settings (`authorizat
 ## Dashboard, metrics and API
 | Path | What |
 |---|---|
-| `/` | Current verdict, active incident, last 24 h timeline, tunnels, targets. Refreshes every 30 s, no JavaScript |
+| `/` | Verdict and path, what to do, last 24 h (who, loss, latency, calls, backup link) with hover readouts and a table view, every target with 6 h of history, your link and speed, services and tunnels, latest incidents. Refreshes every 30 s; no JavaScript (hover is pure CSS), light and dark themes |
 | `/report?since=7d&lang=es` | Evidence report (HTML) |
 | `/report.pdf?since=7d` | Evidence report (PDF) |
 | `/metrics` | Prometheus: `isitmyisp_loss_ratio`, `isitmyisp_rtt_median_ms`, `isitmyisp_verdict`, `isitmyisp_incident_active`, `isitmyisp_incidents_total` |
@@ -144,6 +190,9 @@ If configuration drops repeat at a regular interval, the report says so: that's 
 
 ## The evidence report
 `isitmyisp report` writes one self-contained HTML file: no JavaScript and no external assets. It has two readers in mind:
+
+<img src="docs/screenshots/report.png" alt="Evidence report: summary, where the problems were, timeline, call quality, incidents" width="70%">
+
 - **You:** a plain-language summary ("3 incidents, 1 h 6 min in total; 2 were inside your ISP's network"), a timeline and where each problem was.
 - **Your ISP's support and NOC:** a ready-to-paste message listing only the incidents inside their network, with the hop and AS where loss starts, plus every mtr capture and the methodology.
 
@@ -161,20 +210,19 @@ Per-target samples are kept 35 days (enough for a monthly report); window verdic
 ICMP and TCP must agree before blaming anyone, and nothing is blamed on a handful of lost packets.
 
 ## Roadmap
-- [x] Probes (fping/ping, TCP 443, DNS), discovery (gateway, ISP first hop, DNS, CGNAT, double NAT, IPv6, offline ASN), CLI verdicts (EN/ES)
-- [x] Statistical significance, per-target baselines, hysteresis, re-discovery when the route changes
-- [x] Incidents with hysteresis and automatic mtr capture stored as evidence
-- [x] HTML evidence report (EN/ES): plain-language summary, timeline, incidents, message for your ISP, mtr appendix, methodology
-- [x] Tunnel mode: path vs configuration, periodic drop (rekey) detection
-- [x] Dashboard, Prometheus `/metrics`, `/api/status`, PDF export
-- [x] CI workflow: tests on Python 3.10–3.13, multi-arch image (amd64/arm64) to GHCR
-- [x] Web UI with settings applied live, local/proxy/none authentication, console recovery
-- [x] Alerts (Telegram, email, webhook), your own services (HTTP/TCP), brief events with advice, automatic retention
-- [x] "What the evidence rules out / can't rule out" per incident; WAN usage and router CPU via SNMP; "link full: your own traffic" verdict
-- [x] Failover detection (backup link in use), main ISP learned automatically, ASN dataset from the UI
-- [x] Call quality: estimated MOS (E-model) on the dashboard, timeline and report, optional SIP provider target
-- [x] Speed test against the contracted plan (off by default, data budget, bufferbloat, Wi-Fi warning)
-- [ ] multi-site hub, read-only users, monthly SLA report
+Planned work lives in the [issues](https://github.com/21Enzo17/isitmyisp/issues), grouped in two milestones:
+- [**v0.2 Ready to sell**](https://github.com/21Enzo17/isitmyisp/milestone/1): demo mode, first-run wizard, business hours and the cost of downtime, monthly report by email, roles and a TV mode, WhatsApp alerts, local devices (card terminals, printers, cameras), easy install.
+- [**v0.3 Managed service**](https://github.com/21Enzo17/isitmyisp/milestone/2): multi-site hub, multi-client console with white-label reports, assisted ISP claims, top talkers, power vs internet outages, Wi-Fi quality, out-of-band alerts.
+
+Already done: probes and discovery (fping/ping, TCP, DNS, CGNAT, double NAT, IPv6, offline ASN), statistical verdicts with baselines and hysteresis, incidents with mtr evidence, the evidence report (EN/ES, HTML/PDF), tunnel mode, the web UI with live settings and local/proxy auth, Prometheus metrics, alerts, your own services, SNMP link usage, "what the evidence rules out", failover detection, call quality and the speed test.
+
+## Development
+```bash
+pip install -e '.[web,pdf]'
+python -m unittest discover -s tests       # also runs without the extras (web tests are skipped)
+python3 scripts/screenshots.py             # regenerate docs/screenshots from synthetic data (needs Docker)
+```
+Work happens in branches (`feat/…`, `fix/…`, `docs/…`) with a pull request that closes its issue.
 
 ## License
 MIT

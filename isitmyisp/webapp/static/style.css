@@ -85,8 +85,7 @@ b, strong { font-weight: 600; }
 .brand { display: inline-flex; align-items: center; gap: 10px; padding: 2px 10px; color: var(--ink);
          font-weight: 600; font-size: 16px; letter-spacing: -.01em; }
 .brand:hover { text-decoration: none; }
-.mark { width: 30px; height: 30px; fill: var(--surface); stroke: var(--ink-2); stroke-width: 1.6; }
-.mark .mark-mid, .mark-mid { fill: var(--accent); stroke: var(--accent); }
+.mark { width: 30px; height: 30px; flex: none; }
 .nav { display: flex; flex-direction: column; gap: 2px; }
 .nav a { color: var(--ink-2); padding: 8px 10px; border-radius: var(--r-sm); display: flex; gap: 11px;
          align-items: center; font-weight: 500; font-size: 14.5px; transition: background-color .15s, color .15s; }
