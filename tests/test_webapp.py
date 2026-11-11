@@ -517,6 +517,11 @@ class RolesAndTV(WebAppBase):
         html = r.get_data(as_text=True)
         self.assertIn("Internet is working", html)
         self.assertNotIn('class="nav"', html)                                  # no navigation, nothing to click
+        for part in ('class="noc ', 'class="tl', 'class="noc-points"', "Last 24 hours", "Call quality"):
+            self.assertIn(part, html)                                           # the board, for a technician
+        simple = anon.get(f"/tv/{token}?lang=en&layout=simple").get_data(as_text=True)
+        self.assertIn('class="tv-headline"', simple)                           # the minimal view, for a counter
+        self.assertNotIn('class="noc ', simple)
         self.assertEqual(anon.get(f"/tv/{token}x").status_code, 404)
         self.client.post("/settings/tv", data={"csrf_token": csrf(page), "action": "revoke"})
         self.assertEqual(anon.get(f"/tv/{token}").status_code, 404)
