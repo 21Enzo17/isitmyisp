@@ -399,6 +399,18 @@ html.tv { --bg: #0f121a; --side: #12161f; --surface: #161b26; --raised: #1e2432;
 .noc-path .here { margin-top: 6px; }
 .noc-path .hop { padding-top: 26px; gap: 1px; }
 
+/* ---------- service presets */
+.presets { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.presets summary { cursor: pointer; font-weight: 600; padding: 4px 0; width: fit-content; }
+.preset-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px 24px; margin-top: 10px; }
+.presets fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.presets legend { font-size: 13.5px; color: var(--ink-2); font-weight: 600; margin-bottom: 4px; }
+label.check.preset { align-items: flex-start; margin: 8px 0; }
+label.check.preset input { margin-top: 3px; }
+label.check.preset > span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+label.check.preset .mono { color: var(--ink-3); overflow-wrap: anywhere; }
+label.check.preset .badge { align-self: flex-start; margin: 2px 0; }
+
 /* ---------- link meters */
 .meters { display: grid; gap: 14px; }
 .meter { display: grid; grid-template-columns: 92px 7.5rem minmax(60px, 1fr) 11rem; align-items: center; gap: 4px 16px; }

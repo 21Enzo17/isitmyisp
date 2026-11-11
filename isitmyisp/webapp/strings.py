@@ -6,6 +6,8 @@ from ..texts import ADVICE, NOT_RULED, RULED, VERDICT
 
 S = {
     "en": {
+        "presets_title": "Add common services in Argentina", "presets_add": "Add the ticked services", "presets_added": "added",
+        "presets_sub": "Checked from a real Argentine connection. Each one says exactly what is checked; some use TCP because their HTTPS can't be checked fairly.",
         "roles": {"admin": "Admin", "viewer": "Viewer"},
         "users_title": "Users", "users_sub": "Who can open this dashboard. Viewers see everything and change nothing (they can change their own password).",
         "users_role": "Role", "users_state": "State", "users_active": "active", "users_disabled": "disabled", "users_you": "you",
@@ -221,6 +223,8 @@ S = {
         "alerts_last_errors": "Last delivery errors",
     },
     "es": {
+        "presets_title": "Agregar servicios comunes en Argentina", "presets_add": "Agregar los servicios marcados", "presets_added": "agregado",
+        "presets_sub": "Verificados desde una conexión real en Argentina. Cada uno dice exactamente qué se chequea; algunos van por TCP porque su HTTPS no se puede chequear de forma justa.",
         "roles": {"admin": "Administrador", "viewer": "Lector"},
         "users_title": "Usuarios", "users_sub": "Quién puede abrir este panel. Los lectores ven todo y no cambian nada (sí pueden cambiar su propia contraseña).",
         "users_role": "Rol", "users_state": "Estado", "users_active": "activo", "users_disabled": "desactivado", "users_you": "vos",

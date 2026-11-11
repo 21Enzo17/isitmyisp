@@ -248,6 +248,11 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
 
     # ---------------------------------------------------------------- settings
 
+    def _presets_view():
+        from .. import presets
+        have = {sv.target for sv in g.settings.services} | {sv.name for sv in g.settings.services}
+        return [(group, [(p, p.target in have or p.name in have) for p in items]) for group, items in presets.grouped("ar")]
+
     def _settings_page(error: str | None = None, status: int = 200, results: dict | None = None,
                        ifaces: list | None = None, invite: dict | None = None):
         from .. import alerts as alerts_mod
@@ -260,6 +265,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                                alerts_last=store.get_setting("_alerts_last"), test_results=results,
                                ifaces=ifaces, isp=views.isp_status(store, data_dir, ASN_JOB),
                                speed=views.speed_status(store, g.settings), invite=invite,
+                               presets=_presets_view(),
                                users=store.list_users() if is_admin else [],
                                invites=store.pending_invites() if is_admin else [],
                                tv_url=(url_for("tv", token=store.get_setting("tv_token"), _external=True)
@@ -315,6 +321,19 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         current = [sv.__dict__ for sv in g.settings.services]
         current.append({"name": f.get("name", "").strip(), "kind": f.get("kind", "http"),
                         "target": f.get("target", "").strip()})
+        return _save({"services": current})
+
+    @app.post("/settings/services/presets")
+    def service_presets():
+        """Add the ticked ready-made services (skipping the ones already there, by name or target)."""
+        _guard_write()
+        from .. import presets
+        chosen = set(request.form.getlist("preset"))
+        current = [sv.__dict__ for sv in g.settings.services]
+        have = {(sv["name"]) for sv in current} | {sv["target"] for sv in current}
+        for p in presets.load("ar"):
+            if p.id in chosen and p.name not in have and p.target not in have:
+                current.append({"name": p.name, "kind": p.kind, "target": p.target})
         return _save({"services": current})
 
     @app.post("/settings/services/delete")
