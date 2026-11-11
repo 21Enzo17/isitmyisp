@@ -89,6 +89,8 @@ R = {
         "speed_intro": "Tests against speed.cloudflare.com with several parallel streams. A test over Wi-Fi measures the Wi-Fi as well.",
         "speed_down": "Download", "speed_up": "Upload", "speed_loaded": "Latency under load", "speed_via": "Measured over",
         "speed_wifi": "Wi-Fi", "speed_cable": "cable",
+        "demo_banner": "Synthetic demo data: this is not a measurement of any real network and is not evidence.",
+        "demo_page": "SYNTHETIC DEMO DATA - NOT EVIDENCE",
         "calls": "Call quality",
         "calls_fit": "Fit for calls {pct} of the time measured. Periods when it wasn't:",
         "calls_all_fit": "Calls would have sounded acceptable or better the whole time.",
@@ -170,6 +172,8 @@ R = {
         "speed_intro": "Pruebas contra speed.cloudflare.com con varias conexiones en paralelo. Una prueba por Wi-Fi mide también el Wi-Fi.",
         "speed_down": "Bajada", "speed_up": "Subida", "speed_loaded": "Latencia con carga", "speed_via": "Medido por",
         "speed_wifi": "Wi-Fi", "speed_cable": "cable",
+        "demo_banner": "Datos sintéticos de demostración: no es una medición de ninguna red real ni sirve como evidencia.",
+        "demo_page": "DATOS SINTÉTICOS DE DEMOSTRACIÓN - NO ES EVIDENCIA",
         "calls": "Calidad para llamadas",
         "calls_fit": "Apta para llamadas el {pct} del tiempo medido. Períodos en que no lo fue:",
         "calls_all_fit": "Las llamadas se habrían escuchado aceptable o mejor todo el tiempo.",
@@ -569,10 +573,15 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
         meta.append(f'<span>{t["connection"]}: <b>{t["wifi"] if net.get("wireless") else t["cable"]}</b></span>')
         meta.append(f'<span>{t["cgnat"]}: <b>{t["yes"] if net.get("cgnat") else t["no"]}</b></span>')
 
+    demo = bool(store.get_setting("_demo"))  # synthetic data: say so on screen and on every printed page
+    demo_css = (f'\n.demo {{ margin:0 0 16px; padding:10px 14px; border-radius:8px; background:#fff4d6; '
+                f'border:1px solid #e0b04a; font-weight:600; }}\n@page {{ @top-center {{ content: "{t["demo_page"]}"; '
+                f'font: 600 10px sans-serif; color: #8a5a00; }} }}') if demo else ""
     out = [f'<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
            f'<meta name="viewport" content="width=device-width, initial-scale=1">'
-           f'<title>{_e(t["title"])}</title><style>{CSS}</style></head><body><main>',
-           f'<header><div class="brand">isitmyisp</div><h1>{_e(t["title"])}</h1>'
+           f'<title>{_e(t["title"])}</title><style>{CSS}{demo_css}</style></head><body><main>',
+           (f'<div class="demo">{_e(t["demo_banner"])}</div>' if demo else "")
+           + f'<header><div class="brand">isitmyisp</div><h1>{_e(t["title"])}</h1>'
            f'<div class="meta">{"".join(meta)}</div></header>']
 
     if not windows:

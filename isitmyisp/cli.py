@@ -381,6 +381,48 @@ def _lang_code(args, t) -> str:
     return args.lang or ("es" if t is pick("es") else "en")
 
 
+def cmd_demo(args, t) -> int:
+    """The full UI on synthetic data, live, read-only: for showing the product without a network."""
+    import shutil
+    import tempfile
+    import threading
+    from pathlib import Path
+
+    try:
+        from .webapp import WebServer, create_app
+    except ImportError:
+        raise SystemExit("the demo needs the web UI: pip install 'isitmyisp[web]' (the Docker image includes it)")
+    from .demo import WIN, build
+
+    lang = _lang_code(args, t)
+    work = Path(tempfile.mkdtemp(prefix="isitmyisp-demo-"))
+    print(t["demo_building"])
+    sim = build(work / "demo.db", scenario=args.scenario, lang=lang, speed=True)
+    stop = threading.Event()
+
+    def feed():  # one synthetic window every 30 s, so the demo never goes stale
+        while not stop.wait(WIN):
+            now = time.time()
+            sim.step(now, sim.scenario_state(args.scenario, now))
+    threading.Thread(target=feed, daemon=True, name="demo-feed").start()
+    server = WebServer(create_app(sim.store, data_dir=work, bind=args.bind, default_lang=lang, demo=True),
+                       args.bind).start()
+    host, _, _ = args.bind.rpartition(":")
+    print(t["demo_ready"].format(url=f"http://{host or '127.0.0.1'}:{server.port}", scenario=args.scenario))
+    print(t["stop_hint"])
+    try:
+        while True:
+            time.sleep(3600)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        stop.set()
+        server.stop()
+        sim.store.close()
+        shutil.rmtree(work, ignore_errors=True)
+    return 0
+
+
 def cmd_web(args, t) -> int:
     store = Store(args.db)
     args.web = args.bind
@@ -495,6 +537,11 @@ def build_parser() -> argparse.ArgumentParser:
     adm.add_argument("--db", help="SQLite path (default: ~/.local/share/isitmyisp/data.db)")
 
     sub.add_parser("update-asn", help="download the public IP-to-ASN dataset for offline lookups")
+
+    demo = sub.add_parser("demo", help="the full web UI on synthetic data, live and read-only (no network, no root)")
+    demo.add_argument("--scenario", choices=["healthy", "isp", "failover", "wifi"], default="healthy",
+                      help="what the network is doing right now in the demo")
+    demo.add_argument("--bind", default="127.0.0.1:8090", help="where to serve it (default 127.0.0.1:8090)")
     return p
 
 
@@ -503,7 +550,7 @@ def main(argv: list[str] | None = None) -> int:
     t = pick(args.lang)
     handlers = {"discover": cmd_discover, "status": cmd_status, "mtr": cmd_mtr,
                 "monitor": cmd_monitor, "report": cmd_report, "web": cmd_web, "admin": cmd_admin,
-                "update-asn": cmd_update_asn}
+                "update-asn": cmd_update_asn, "demo": cmd_demo}
     return handlers[args.cmd](args, t)
 
 

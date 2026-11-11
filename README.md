@@ -23,6 +23,7 @@
 </p>
 
 <p align="center">
+  <a href="#try-it-in-a-minute">Try the demo</a> ·
   <a href="#quick-start-docker-recommended">Quick start</a> ·
   <a href="#what-it-answers">What it answers</a> ·
   <a href="#privacy-every-external-connection-listed">Privacy</a> ·
@@ -33,6 +34,14 @@
 ![Dashboard during an ISP incident: the path from your network to the internet with the ISP marked, what to do, and the last 24 hours](docs/screenshots/incident.png)
 
 > 🚧 Early development: monitoring, incidents, the evidence report (HTML/PDF), the dashboard, alerts, failover, call quality and the speed test all work. Not yet battle-tested on many networks. Screenshots use synthetic data.
+
+## Try it in a minute
+The whole UI on a synthetic day, live and read-only: no network access, no root, nothing measured, nothing stored.
+```bash
+docker build -t isitmyisp .
+docker run --rm -p 127.0.0.1:8090:8080 isitmyisp --lang en demo --scenario isp --bind 0.0.0.0:8080
+```
+Open **http://127.0.0.1:8090**. `--scenario` picks what the network is doing right now: `healthy`, `isp` (an incident in the ISP's network), `failover` (running on the backup link) or `wifi` (the problem is on your side). Every page says it's demo data, and reports generated from it are marked as synthetic on every page. Without Docker: `pip install -e '.[web]' && isitmyisp demo`.
 
 ## Who it's for
 - **Homes** that are tired of "restart the modem" and want proof.
@@ -110,6 +119,7 @@ isitmyisp monitor           # measure continuously, open/close incidents, captur
 isitmyisp report --since 7d # self-contained HTML evidence report
 isitmyisp report --pdf      # PDF (pip install 'isitmyisp[pdf]')
 isitmyisp web               # dashboard + /metrics from an existing database
+isitmyisp demo --scenario isp  # the UI on synthetic data, live and read-only
 isitmyisp --lang es status  # Spanish output
 ```
 
@@ -196,7 +206,7 @@ If configuration drops repeat at a regular interval, the report says so: that's 
 - **You:** a plain-language summary ("3 incidents, 1 h 6 min in total; 2 were inside your ISP's network"), a timeline and where each problem was.
 - **Your ISP's support and NOC:** a ready-to-paste message listing only the incidents inside their network, with the hop and AS where loss starts, plus every mtr capture and the methodology.
 
-To try it without waiting for real problems, generate a clearly synthetic dataset: `python3 scripts/demo_data.py /tmp/demo.db && isitmyisp report --db /tmp/demo.db --since 1d`.
+To try it without waiting for real problems, `isitmyisp demo` serves it on a synthetic day (the report link works there), or generate a database with `python3 scripts/demo_data.py /tmp/demo.db && isitmyisp report --db /tmp/demo.db --since 1d`. Reports built from demo data say so on every page.
 
 ## Retention
 Per-target samples are kept 35 days (enough for a monthly report); window verdicts, incidents and their mtr evidence about 13 months. Old data is deleted automatically every hour.

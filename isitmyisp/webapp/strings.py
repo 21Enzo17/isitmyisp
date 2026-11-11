@@ -6,6 +6,7 @@ from ..texts import ADVICE, NOT_RULED, RULED, VERDICT
 
 S = {
     "en": {
+        "demo_title": "Demo data.", "demo_text": "Everything here is synthetic and read-only: it shows how isitmyisp reports a real network.",
         "speed_dash_title": "Speed against your plan",
         "speed_dash_off": "The speed test is off: it fills your link for a few seconds and uses data.",
         "speed_dash_more": "What it does and how to turn it on",
@@ -196,6 +197,7 @@ S = {
         "alerts_last_errors": "Last delivery errors",
     },
     "es": {
+        "demo_title": "Datos de demostración.", "demo_text": "Todo lo que ves es sintético y de solo lectura: muestra cómo isitmyisp informa sobre una red real.",
         "speed_dash_title": "Velocidad contra tu plan",
         "speed_dash_off": "La prueba de velocidad está apagada: llena tu enlace unos segundos y consume datos.",
         "speed_dash_more": "Qué hace y cómo activarla",

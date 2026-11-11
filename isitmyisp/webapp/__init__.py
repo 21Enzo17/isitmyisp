@@ -40,7 +40,10 @@ ASN_JOB: dict = {"running": False, "error": None, "lock": threading.Lock()}
 
 
 def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | None = None,
-               bind: str = "127.0.0.1:8080", secure_cookies: bool = False, default_lang: str = "en") -> Flask:
+               bind: str = "127.0.0.1:8080", secure_cookies: bool = False, default_lang: str = "en",
+               demo: bool = False) -> Flask:
+    """`demo` (only from `isitmyisp demo`, never from data in the database): no login, everything
+    read-only, every POST refused, and a banner on every page."""
     app = Flask(__name__)
     host = bind.rpartition(":")[0] or "127.0.0.1"
     app.config.update(
@@ -55,6 +58,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         WTF_CSRF_TIME_LIMIT=8 * 3600,
         MAX_CONTENT_LENGTH=64 * 1024,
         BIND=bind,
+        DEMO=demo,
         LOOPBACK=auth.is_loopback(host),
     )
     CSRFProtect(app)
@@ -86,6 +90,11 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                 abort(403)
         endpoint = request.endpoint or ""
         if endpoint in PUBLIC_ENDPOINTS:
+            return None
+        if app.config["DEMO"]:
+            if request.method not in ("GET", "HEAD"):
+                abort(403)
+            g.user, g.readonly = auth.User("demo", "demo", "demo"), True
             return None
         if endpoint == "metrics" and auth.bearer_matches(request.headers.get("Authorization"),
                                                           settings_mod.metrics_token(store)):
@@ -179,7 +188,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     @app.context_processor
     def inject():
         return {"t": g.get("t", S["en"]), "lang": g.get("lang", "en"), "user": g.get("user"),
-                "readonly": g.get("readonly", False), "version": __version__,
+                "readonly": g.get("readonly", False), "version": __version__, "demo": app.config["DEMO"],
                 "auth_mode": g.settings.auth_mode if g.get("settings") else "local"}
 
     # ---------------------------------------------------------------- pages
