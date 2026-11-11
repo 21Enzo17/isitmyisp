@@ -119,9 +119,19 @@ b, strong { font-weight: 600; }
 .hero .sub { color: var(--ink-2); font-size: 17px; max-width: 62ch; }
 
 .path { list-style: none; margin: 32px 0 6px; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.hop { position: relative; padding: 32px 18px 4px 0; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.hop::after { content: ""; position: absolute; top: 9px; left: 22px; right: 4px; height: 2px; background: var(--line-2); border-radius: 2px; }
-.hop:last-child::after { display: none; }
+/* first node on the left edge, middle one centred, last on the right edge: the path spans the hero */
+.hop { position: relative; padding: 32px 0 4px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hop::before, .hop::after { content: ""; position: absolute; top: 9px; height: 2px; background: var(--line-2); border-radius: 2px; }
+.hop:first-child::before, .hop:last-child::after { display: none; }
+.hop:first-child::after { left: 22px; right: 0; }
+.hop:nth-child(2) { align-items: center; text-align: center; }
+.hop:nth-child(2)::before { left: 0; right: calc(50% + 12px); }
+.hop:nth-child(2)::after { left: calc(50% + 12px); right: 0; }
+.hop:nth-child(2) .node { left: 50%; transform: translateX(-50%); }
+.hop:last-child { align-items: flex-end; text-align: right; }
+.hop:last-child::before { left: 0; right: 22px; }
+.hop:last-child .node { left: auto; right: 0; }
+.hop .hop-id { max-width: 100%; }
 .node { position: absolute; top: 0; left: 0; width: 20px; height: 20px; border-radius: 50%;
         background: var(--surface); border: 2px solid var(--line-2); }
 .s-good .node { border-color: var(--good); background: color-mix(in srgb, var(--good) 22%, var(--surface)); }
@@ -134,7 +144,7 @@ b, strong { font-weight: 600; }
 .hop-val { color: var(--ink-2); font-size: 14px; margin-top: 6px; }
 .hop-val b { color: var(--ink); font-size: 20px; font-weight: 500; letter-spacing: -.01em; }
 .hop-val .sep { color: var(--ink-3); padding: 0 4px; }
-.here { align-self: flex-start; margin-top: 10px; font-size: 13px; font-weight: 500; padding: 3px 10px; border-radius: 999px;
+.here { align-self: auto; margin-top: 10px; font-size: 13px; font-weight: 500; padding: 3px 10px; border-radius: 999px;
         background: color-mix(in srgb, var(--blame) 20%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blame) 55%, transparent); }
 
 .advice { display: flex; gap: 12px; margin-top: 22px; padding: 14px 16px; border-radius: var(--r);
@@ -430,9 +440,11 @@ label.check input { width: 17px; height: 17px; accent-color: var(--accent); }
   .headline { font-size: 2.25rem; padding-right: 0; }
   .hero .sub { font-size: 16px; }
   .path { grid-template-columns: minmax(0, 1fr); margin-top: 22px; }
-  .hop { padding: 0 0 18px 36px; }
-  .hop::after { top: 24px; bottom: 0; left: 9px; right: auto; width: 2px; height: auto; }
-  .node { top: 1px; }
+  .hop, .hop:nth-child(2), .hop:last-child { padding: 0 0 18px 36px; align-items: flex-start; text-align: left; }
+  .hop::before, .hop:nth-child(2)::before, .hop:last-child::before { display: none; }
+  .hop::after, .hop:first-child::after, .hop:nth-child(2)::after { top: 24px; bottom: 0; left: 9px; right: auto; width: 2px; height: auto; }
+  .hop:last-child::after { display: none; }
+  .node, .hop:nth-child(2) .node, .hop:last-child .node { top: 1px; left: 0; right: auto; transform: none; }
   .panel { padding: 18px 16px; }
   .tl { grid-template-columns: 58px minmax(0, 1fr); column-gap: 10px; }
   .tl-name { font-size: 12.5px; }
