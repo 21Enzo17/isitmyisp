@@ -1,5 +1,12 @@
 FROM python:3.12-slim
 
+ARG VERSION=dev
+LABEL org.opencontainers.image.title="isitmyisp" \
+      org.opencontainers.image.description="Is it your Wi-Fi, your router or your ISP? Self-hosted connection monitor." \
+      org.opencontainers.image.source="https://github.com/21Enzo17/isitmyisp" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="${VERSION}"
+
 # fping: main probe engine (one process, many targets). mtr: evidence on incidents.
 # iputils-ping: fallback prober. iproute2: route/addr discovery. iw: Wi-Fi signal (optional).
 # libpango + fonts: PDF reports via WeasyPrint. tzdata: local times in reports (set TZ).
