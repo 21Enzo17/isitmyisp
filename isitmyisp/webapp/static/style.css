@@ -86,11 +86,6 @@ b, strong { font-weight: 600; }
          font-weight: 600; font-size: 16px; letter-spacing: -.01em; }
 .brand:hover { text-decoration: none; }
 .mark { width: 30px; height: 30px; flex: none; }
-.mark .mark-bg { fill: #161b26; }
-.mark .mark-line { stroke: #aab3c5; stroke-width: 3.5; stroke-linecap: round; fill: none; }
-.mark .mark-node { fill: #161b26; stroke: #aab3c5; stroke-width: 3.5; }
-.mark .mark-halo { fill: #9b8cff; opacity: .28; }
-.mark .mark-mid { fill: #9b8cff; }
 .nav { display: flex; flex-direction: column; gap: 2px; }
 .nav a { color: var(--ink-2); padding: 8px 10px; border-radius: var(--r-sm); display: flex; gap: 11px;
          align-items: center; font-weight: 500; font-size: 14.5px; transition: background-color .15s, color .15s; }
