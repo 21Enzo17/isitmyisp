@@ -14,13 +14,17 @@ Abrí el link que mostró el instalador (`http://<ip-del-equipo>:8080/setup?toke
 
 ## 2. El asistente
 
-Después de crear la cuenta se abre **Primeros pasos**. Cada paso se puede saltar, y todo se puede cambiar después en **Configuración**, donde también hay un botón para volver a abrir el asistente.
+Después de crear la cuenta se abre **Primeros pasos**. Son cuatro pasos y cada uno se puede saltar, y todo se puede cambiar después en **Configuración**, donde también hay un botón para volver a abrir el asistente.
 
 ### Tu plan
 
 Arriba aparece lo que ya detectó: tu router, tu ISP con su número de sistema autónomo (AS), si estás detrás de CGNAT y si la sonda está conectada por Wi-Fi. Abajo te pide las **velocidades que contrataste**, que están en la factura o en el contrato.
 
 Con esas velocidades, isitmyisp distingue un enlace lleno por tus propias descargas de un ISP que falla. También las usa para comparar el [test de velocidad](features.md#test-de-velocidad), que está apagado salvo que lo actives.
+
+### Horario
+
+Cuándo atendés, por día y con hasta dos turnos. Viene cargado con el horario típico de un comercio (de lunes a viernes de 8 a 13 y de 17 a 21, y los sábados a la mañana): cambialo por el tuyo. Con el horario, el panel y los informes dicen cuánto te afectó cada corte mientras atendías, y podés retener las alertas con el local cerrado. Ver [Horario de atención](features.md#horario-de-atencion).
 
 ### Tus servicios
 

@@ -266,7 +266,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                                alerts_last=store.get_setting("_alerts_last"), test_results=results,
                                ifaces=ifaces, isp=views.isp_status(store, data_dir, ASN_JOB),
                                speed=views.speed_status(store, g.settings), invite=invite,
-                               presets=_presets_view(),
+                               presets=_presets_view(), hours=_hours_view(),
                                users=store.list_users() if is_admin else [],
                                invites=store.pending_invites() if is_admin else [],
                                tv_url=(url_for("tv", token=store.get_setting("tv_token"), _external=True)
@@ -323,6 +323,31 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         current.append({"name": f.get("name", "").strip(), "kind": f.get("kind", "http"),
                         "target": f.get("target", "").strip()})
         return _save({"services": current})
+
+    def _hours_form(form) -> dict:
+        """The hours form (d<day>_a<shift>, d<day>_b<shift>) -> the dict hours.validate takes."""
+        return {"enabled": bool(form.get("hours_enabled")), "quiet_alerts": bool(form.get("hours_quiet")),
+                "days": {str(d): [[form.get(f"d{d}_a{k}", ""), form.get(f"d{d}_b{k}", "")] for k in range(2)]
+                         for d in range(7)}}
+
+    def _hours_view():
+        """Saved hours, or a typical shop's as a starting point when none were ever set."""
+        from .. import hours
+        cfg = hours.load(store)
+        if not any(cfg["days"].values()):
+            cfg = {**cfg, "days": {**cfg["days"], **hours.SUGGESTED}}
+        return cfg
+
+    @app.post("/settings/hours")
+    def settings_hours():
+        from .. import hours
+        _guard_write()
+        try:
+            hours.save(store, _hours_form(request.form))
+        except hours.HoursError as exc:
+            return _settings_page(str(exc), 400)
+        flash(g.t["saved"])
+        return redirect(url_for("settings_page") + "#hours")
 
     @app.post("/settings/services/presets")
     def service_presets():
@@ -591,7 +616,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
 
     # ---------------------------------------------------------------- first-run wizard
 
-    WIZARD = ("plan", "services", "alerts", "done")
+    WIZARD = ("plan", "hours", "services", "alerts", "done")
 
     def _wizard_page(step: str, error: str | None = None, status: int = 200, results: dict | None = None):
         from .. import alerts as alerts_mod
@@ -600,6 +625,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
             cfg["public_url"] = request.host_url.rstrip("/")     # links in alerts open this same address
         return render_template("welcome.html", active="settings", step=step, steps=WIZARD, s=g.settings,
                                error=error, test_results=results, alerts=cfg, presets=_presets_view(),
+                               hours=_hours_view(),
                                net=store.network_at(time.time()),
                                isp=views.isp_status(store, data_dir, ASN_JOB)), status
 
@@ -631,7 +657,13 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                                                    "up_mbps": f.get("up_mbps") or 0}})
             elif step == "services":
                 settings_mod.save(store, {"services": _with_presets(f.getlist("preset"))})
-        except settings_mod.SettingsError as exc:
+            elif step == "hours":
+                from .. import hours
+                raw = _hours_form(f)
+                raw["enabled"] = True                    # "save and continue" here means: we have hours
+                raw["quiet_alerts"] = bool(f.get("hours_quiet"))
+                hours.save(store, raw)
+        except (settings_mod.SettingsError, ValueError) as exc:     # HoursError is a ValueError
             g.settings = current_settings()
             return _wizard_page(step, str(exc), 400)
         if step == "alerts":

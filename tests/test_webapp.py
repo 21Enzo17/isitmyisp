@@ -641,10 +641,10 @@ class FirstRunWizard(WebAppBase):
         for found in ("192.168.1.1", "Telecom Argentina", "AS7303", "CGNAT"):
             self.assertIn(found, page)                                        # what was detected is shown
         r = self.step("plan", down_mbps="5", up_mbps="1", action="skip")
-        self.assertTrue(r.headers["Location"].endswith("/welcome/services"))
+        self.assertTrue(r.headers["Location"].endswith("/welcome/hours"))
         self.assertEqual(settings_mod.load(self.store).link["down_mbps"], 0)
         r = self.step("plan", down_mbps="300", up_mbps="100", action="save")
-        self.assertTrue(r.headers["Location"].endswith("/welcome/services"))
+        self.assertTrue(r.headers["Location"].endswith("/welcome/hours"))
         link = settings_mod.load(self.store).link
         self.assertEqual((link["down_mbps"], link["up_mbps"], link["enabled"]), (300, 100, False))
         self.assertEqual(self.step("plan", down_mbps="-3", up_mbps="1", action="save").status_code, 400)
@@ -678,3 +678,58 @@ class FirstRunWizard(WebAppBase):
         self.create_admin()
         self.assertEqual(self.client.get("/welcome/nope").status_code, 404)
         self.assertTrue(self.client.get("/welcome").headers["Location"].endswith("/welcome/plan"))
+
+
+class BusinessHoursWeb(WebAppBase):
+    """Settings card, wizard step, and what the dashboard, the TV board and the report say with hours set."""
+
+    def hours_form(self, **extra):
+        data = {f"d{d}_a0": "00:00" for d in range(7)} | {f"d{d}_b0": "24:00" for d in range(7)}   # always open
+        return data | extra
+
+    def test_settings_saves_validates_and_suggests_a_typical_shop(self):
+        from isitmyisp import hours
+        self.create_admin()
+        page = self.client.get("/settings").get_data(as_text=True)
+        self.assertIn('id="hours"', page)
+        self.assertIn('name="d0_a0" value="08:00"', page)                     # suggested, not saved
+        self.assertFalse(hours.load(self.store)["enabled"])
+        r = self.client.post("/settings/hours", data={"csrf_token": csrf(page), "hours_enabled": "1",
+                                                      "d0_a0": "09:00", "d0_b0": "13:00", "d0_a1": "16:00", "d0_b1": "20:00"})
+        self.assertEqual(r.status_code, 302)
+        cfg = hours.load(self.store)
+        self.assertTrue(cfg["enabled"])
+        self.assertEqual(cfg["days"]["0"], [["09:00", "13:00"], ["16:00", "20:00"]])
+        self.assertEqual(cfg["days"]["1"], [])                                 # the suggestion isn't saved
+        bad = self.client.post("/settings/hours", data={"csrf_token": csrf(page), "hours_enabled": "1",
+                                                        "d0_a0": "13:00", "d0_b0": "09:00"})
+        self.assertEqual(bad.status_code, 400)
+
+    def test_wizard_step_turns_hours_on(self):
+        from isitmyisp import hours
+        self.create_admin()
+        page = self.client.get("/welcome/hours").get_data(as_text=True)
+        r = self.client.post("/welcome/hours", data={"csrf_token": csrf(page), "action": "save", **self.hours_form()})
+        self.assertTrue(r.headers["Location"].endswith("/welcome/services"))
+        self.assertTrue(hours.load(self.store)["enabled"])
+        self.assertIn("7 days a week", self.client.get("/welcome/done").get_data(as_text=True))
+
+    def test_dashboard_tv_and_report_count_downtime_while_open(self):
+        import time as _t
+        from isitmyisp import hours
+        self.create_admin()
+        now = _t.time()
+        for k in range(1, 121):                                  # an hour of measured windows
+            self.store.add_window_verdict("ok", 30, ts=now - 3600 + 30 * k)
+        iid = self.store.open_incident("isp", ["x"], ts=now - 1800)
+        self.store.close_incident(iid, ts=now - 600)
+        self.assertNotIn("While open", self.client.get("/").get_data(as_text=True))   # off: unchanged
+        hours.save(self.store, {"enabled": True, "days": {str(d): [["00:00", "24:00"]] for d in range(7)}})
+        self.assertIn("While open: 20 min.", self.client.get("/").get_data(as_text=True))
+        page = self.client.get("/settings").get_data(as_text=True)
+        self.client.post("/settings/tv", data={"csrf_token": csrf(page), "action": "rotate"})
+        tv = self.app.test_client().get(f"/tv/{self.store.get_setting('tv_token')}?lang=en").get_data(as_text=True)
+        self.assertIn("<dt>While open</dt><dd>20 min</dd>", tv)
+        report = self.client.get("/report?since=1d&lang=en").get_data(as_text=True)
+        self.assertIn("Problems while open", report)
+        self.assertIn("20 min while open", report)

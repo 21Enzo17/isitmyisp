@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_presets.html" import preset_groups with context %}
+{% from "_hours.html" import hours_fields with context %}
 {% block title %}{{ t.wiz_title }}{% endblock %}
 {% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
 {% macro buttons(test=False) %}
@@ -41,6 +42,16 @@
     {{ buttons() }}
   </form>
 
+{% elif step == 'hours' %}
+  <h3>{{ t.wiz_hours_title }}</h3>
+  <p class="muted">{{ t.wiz_hours_sub }}</p>
+  <form method="post" action="{{ url_for('welcome', step='hours') }}">{{ csrf() }}
+    {{ hours_fields(hours) }}
+    <label class="check"><input type="checkbox" name="hours_quiet" value="1" {{ 'checked' if hours.quiet_alerts }}> {{ t.hours_quiet }}</label>
+    <p class="muted small">{{ t.hours_quiet_help }}</p>
+    {{ buttons() }}
+  </form>
+
 {% elif step == 'services' %}
   <h3>{{ t.wiz_svc_title }}</h3>
   <p class="muted">{{ t.wiz_svc_sub }}</p>
@@ -75,6 +86,7 @@
   <h3>{{ t.wiz_done_title }}</h3>
   <ul class="wiz-summary">
     <li class="{{ 'ok' if s.link.down_mbps else 'todo' }}"><b>{{ t.wiz_step.plan }}:</b> {% if s.link.down_mbps %}{{ '%.0f'|format(s.link.down_mbps) }} / {{ '%.0f'|format(s.link.up_mbps) }} Mbps{% else %}{{ t.wiz_not_set }}{% endif %}</li>
+    <li class="{{ 'ok' if hours.enabled else 'todo' }}"><b>{{ t.wiz_step.hours }}:</b> {{ t.hours_summary.format(n=hours.days.values()|select|list|length) if hours.enabled else t.wiz_not_set }}</li>
     <li class="{{ 'ok' if s.services else 'todo' }}"><b>{{ t.wiz_step.services }}:</b> {{ s.services|length }}</li>
     <li class="{{ 'ok' if channels else 'todo' }}"><b>{{ t.wiz_step.alerts }}:</b> {{ channels|join(', ') if channels else t.wiz_not_set }}</li>
   </ul>

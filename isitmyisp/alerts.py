@@ -39,11 +39,15 @@ T = {
     "en": {"opened": "🔴 {what}", "closed": "✅ Resolved: {what}", "test": "isitmyisp test alert",
            "test_body": "If you can read this, alerts work.", "scope_tunnel": "Tunnel {name}",
            "scope_service": "Service {name}", "scope_internet": "Internet", "scope_failover": "Internet link", "since": "Since", "lasted": "Lasted",
-           "evidence": "Evidence", "todo": "What to do", "open_dash": "Dashboard"},
+           "evidence": "Evidence", "todo": "What to do", "open_dash": "Dashboard",
+           "digest": "🌅 While closed: {n} {problems}", "digest_problems": ("problem", "problems"), "days": ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
+           "digest_intro": "Alerts were held while the business was closed. All of these are resolved:"},
     "es": {"opened": "🔴 {what}", "closed": "✅ Resuelto: {what}", "test": "isitmyisp: alerta de prueba",
            "test_body": "Si leés esto, las alertas funcionan.", "scope_tunnel": "Túnel {name}",
            "scope_service": "Servicio {name}", "scope_internet": "Internet", "scope_failover": "Enlace a internet", "since": "Desde", "lasted": "Duró",
-           "evidence": "Evidencia", "todo": "Qué hacer", "open_dash": "Panel"},
+           "evidence": "Evidencia", "todo": "Qué hacer", "open_dash": "Panel",
+           "digest": "🌅 Con el local cerrado: {n} {problems}", "digest_problems": ("problema", "problemas"), "days": ("lun", "mar", "mié", "jue", "vie", "sáb", "dom"),
+           "digest_intro": "Las alertas se retuvieron mientras el local estaba cerrado. Ya se resolvieron todos:"},
 }
 
 
@@ -144,10 +148,8 @@ def _fmt_duration(seconds: float) -> str:
     return fmt_duration(seconds)
 
 
-def describe(inc: Incident, kind: str, lang: str, public_url: str = "", now: float | None = None) -> tuple[str, str]:
-    """(title, body) in plain language: what happened, where, evidence, what to do."""
-    now = now or time.time()
-    t, verdict, advice = T[lang], VERDICT[lang], ADVICE[lang]
+def _what(inc: Incident, lang: str) -> str:
+    t, verdict = T[lang], VERDICT[lang]
     if inc.scope.startswith("tunnel:"):
         where = t["scope_tunnel"].format(name=inc.scope.split(":", 1)[1])
     elif inc.scope.startswith("service:"):
@@ -156,7 +158,29 @@ def describe(inc: Incident, kind: str, lang: str, public_url: str = "", now: flo
         where = t["scope_failover"]
     else:
         where = t["scope_internet"]
-    what = f"{where} · {verdict.get(inc.code, inc.code)}"
+    return f"{where} · {verdict.get(inc.code, inc.code)}"
+
+
+def digest(incidents: list[Incident], lang: str, public_url: str = "", now: float | None = None) -> tuple[str, str]:
+    """One message at opening time for what happened while closed (alerts held by business hours)."""
+    now = now or time.time()
+    t = T[lang]
+    title = t["digest"].format(n=len(incidents), problems=t["digest_problems"][0 if len(incidents) == 1 else 1])
+    lines = [t["digest_intro"]]
+    for inc in incidents:
+        lt = time.localtime(inc.opened)
+        a = f"{t['days'][lt.tm_wday]} {time.strftime('%H:%M', lt)}"
+        lines.append(f"• {a} ({_fmt_duration(inc.duration(now))}): {_what(inc, lang)}")
+    if public_url:
+        lines.append(f"{t['open_dash']}: {public_url}/")
+    return title, "\n".join(lines)
+
+
+def describe(inc: Incident, kind: str, lang: str, public_url: str = "", now: float | None = None) -> tuple[str, str]:
+    """(title, body) in plain language: what happened, where, evidence, what to do."""
+    now = now or time.time()
+    t, advice = T[lang], ADVICE[lang]
+    what = _what(inc, lang)
     title = t["opened" if kind == "opened" else "closed"].format(what=what)
     lines = []
     when = time.strftime("%Y-%m-%d %H:%M", time.localtime(inc.opened))
@@ -284,6 +308,15 @@ class Alerter:
 
     def _run(self, cfg: dict, now: float) -> None:
         lang = self.lang_getter()
+        from . import hours as hours_mod
+        bh = hours_mod.load(self.store)
+        if bh.get("quiet_alerts") and hours_mod.active(bh):
+            if not hours_mod.is_open(bh, now):
+                # closed: send nothing now. Short problems are dropped as usual; what lasted goes in the
+                # digest at opening, and whatever is still going on then is alerted as usual.
+                self.store.skip_close_alerts_for_unalerted()
+                return
+            self._digest(cfg, bh, lang, now)
         self.store.skip_close_alerts_for_unalerted()
         opened, closed = self.store.incidents_to_alert()
         for inc in opened:
@@ -295,6 +328,25 @@ class Alerter:
                 self._send(cfg, inc, "closed", lang, now)
             else:
                 self.store.mark_alerted(inc.id, "closed")
+
+    def _digest(self, cfg: dict, bh: dict, lang: str, now: float) -> None:
+        """Once per opening: what started while closed, lasted, and is already over."""
+        from . import hours as hours_mod
+        opened_at = hours_mod.current_open_start(bh, now)
+        if opened_at is None or (self.store.get_setting("_digest_for") or 0) >= opened_at:
+            return
+        closed_at = hours_mod.previous_close(bh, opened_at)
+        held = [] if closed_at is None else [
+            i for i in self.store.incidents_between(closed_at, opened_at, scope=None)
+            if closed_at <= i.opened < opened_at and i.closed is not None
+            and i.duration(now) >= cfg["min_minutes"] * 60]
+        if held:
+            title, body = digest(held, lang, cfg.get("public_url", ""), now)
+            results = self.sender(cfg, title, body, {"event": "closed_digest", "count": len(held),
+                                                     "incidents": [i.id for i in held]})
+            if not any(r == "ok" for r in results.values()):
+                return                                   # try again on the next window
+        self.store.set_settings({"_digest_for": opened_at}, bump=False)
 
     def _send(self, cfg: dict, inc: Incident, kind: str, lang: str, now: float) -> None:
         title, body = describe(inc, kind, lang, cfg.get("public_url", ""), now)

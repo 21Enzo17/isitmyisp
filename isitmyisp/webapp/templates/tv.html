@@ -48,7 +48,8 @@
   <div class="tv-facts">
     {% if d.calls and d.calls.now %}<p><span class="mos-dot b-{{ d.calls.now.band }}" aria-hidden="true"></span>{{ t.calls_now[d.calls.now.band] }}</p>{% endif %}
     <p>{% if not d.day.n %}{{ t.day_none }}{% else %}{{ t.day_some.format(n=d.day.n, inc=t.day_inc[0 if d.day.n == 1 else 1], dur=d.day.dur) }}
-      {% for g in ('isp', 'you', 'other') if d.day.by.get(g) %}{{ t.day_by[g].format(k=d.day.by[g]) }}{{ ', ' if not loop.last else '.' }}{% endfor %}{% endif %}</p>
+      {% for g in ('isp', 'you', 'other') if d.day.by.get(g) %}{{ t.day_by[g].format(k=d.day.by[g]) }}{{ ', ' if not loop.last else '.' }}{% endfor %}
+      {% if d.day.hours %}{{ t.day_open.format(dur=d.day.open_dur) if d.day.open_s >= 60 else t.day_open_none }}{% endif %}{% endif %}</p>
     {% set down = d.services|selectattr('state', 'equalto', 'down')|list %}
     {% if down %}<p class="tv-alert">{{ t.tv_services_down.format(names=down|map(attribute='name')|join(', ')) }}</p>{% endif %}
   </div>
@@ -67,6 +68,7 @@
     <dl class="noc-kpis">
       <div><dt>{{ t.tv_healthy }}</dt><dd>{{ d.healthy_pct }}</dd></div>
       <div><dt>{{ t.tv_incidents }}</dt><dd>{{ d.day.n if d.has_data else 0 }}{% if d.day.dur %} <small>{{ d.day.dur }}</small>{% endif %}</dd></div>
+      {% if d.day.hours %}<div><dt>{{ t.tv_open }}</dt><dd>{{ d.day.open_dur if d.day.open_s >= 60 else '0' }}</dd></div>{% endif %}
       <div><dt>{{ t.tv_updated }}</dt><dd><span class="live{{ ' stale' if d.code == 'stale' }}" aria-hidden="true"></span>{{ d.updated|tm if d.updated else '—' }}</dd></div>
     </dl>
   </header>

@@ -14,6 +14,18 @@ For Argentina there are ready-made checks to tick: the tax agency ARCA (Clave Fi
 
 Each one says exactly what it checks. Some use TCP because their HTTPS can't be checked fairly: ARCA's e-invoicing server uses a TLS setup modern clients reject, and Santander blocks automated clients.
 
+## Opening hours
+
+For a shop, 20 minutes without internet at 3 a.m. isn't the same as at 11 a.m. Set your hours in **Settings → Opening hours** (or in the wizard): per weekday, with up to two shifts, such as a split shift with a lunch break.
+
+With hours set:
+
+- **The dashboard** adds "While open: 14 min" to the last 24 hours' summary, and TV mode shows a **While open** figure.
+- **The report** adds how long the business was open in the period, how much of that time had problems, and marks each incident "while open" or "while closed".
+- **Held alerts** (optional): while closed, nothing reaches you. At opening time you get one summary of what happened, such as "While closed: 2 problems". A problem still going on when you open is alerted as usual.
+
+For a shift past midnight, enter it in two parts: until 24:00, and from 00:00 the next day. Hours use the time zone of the machine running isitmyisp.
+
 ## VPN tunnels
 
 Did the branch tunnel drop because of its configuration or because of the path? isitmyisp measures outside and inside the tunnel at once:

@@ -14,13 +14,17 @@ Open the link the installer printed (`http://<machine-ip>:8080/setup?token=…`)
 
 ## 2. The wizard
 
-After creating the account, **Get started** opens. Every step can be skipped, and everything can be changed later in **Settings**, which also has a button to reopen the wizard.
+After creating the account, **Get started** opens. There are four steps and every one can be skipped, and everything can be changed later in **Settings**, which also has a button to reopen the wizard.
 
 ### Your plan
 
 At the top is what it already found: your router, your ISP with its autonomous system number (AS), whether you're behind CGNAT and whether the probe is on Wi-Fi. Below, it asks for the **speeds you pay for**, which are on the bill or the contract.
 
 With those speeds, isitmyisp can tell a link full of your own downloads from a failing ISP. It also uses them to compare the [speed test](features.md#speed-test), which is off unless you turn it on.
+
+### Opening hours
+
+When you're open, per day and with up to two shifts. It comes filled in with a typical shop's hours: change them to yours. With hours set, the dashboard and the reports say how much each outage affected you while serving customers, and alerts can be held while you're closed. See [Opening hours](features.md#opening-hours).
 
 ### Your services
 

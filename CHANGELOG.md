@@ -3,6 +3,14 @@
 Versions follow [semantic versioning](https://semver.org). Each release has a Docker image
 (`ghcr.io/21enzo17/isitmyisp:<version>`, amd64 and arm64) and a git tag `v<version>`.
 
+## [Unreleased]
+
+### Added
+- Opening hours (#34): per weekday with up to two shifts. The dashboard, the TV board and the report
+  count the downtime that happened while the business was open, each incident in the report says
+  whether it was in or out of hours, and alerts can be held while closed with one summary at
+  opening time. A step in the first-run wizard; the public demo has a shop's hours.
+
 ## [0.1.0] - 2026-11-11
 
 The first release: everything needed to tell whether a problem is the Wi-Fi, the router or the ISP,
