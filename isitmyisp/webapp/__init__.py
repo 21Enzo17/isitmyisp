@@ -207,7 +207,8 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     @app.get("/")
     def dashboard():
         return render_template("dashboard.html", active="dashboard",
-                               d=views.dashboard_data(store, g.settings))
+                               d=views.dashboard_data(store, g.settings),
+                               wizard_pending=not g.readonly and not store.get_setting("wizard_done"))
 
     @app.get("/incidents")
     def incidents():
@@ -327,14 +328,18 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     def service_presets():
         """Add the ticked ready-made services (skipping the ones already there, by name or target)."""
         _guard_write()
+        return _save({"services": _with_presets(request.form.getlist("preset"))})
+
+    def _with_presets(chosen) -> list[dict]:
+        """The configured services plus the chosen presets (skipping those already there, by name or target)."""
         from .. import presets
-        chosen = set(request.form.getlist("preset"))
+        chosen = set(chosen)
         current = [sv.__dict__ for sv in g.settings.services]
-        have = {(sv["name"]) for sv in current} | {sv["target"] for sv in current}
+        have = {sv["name"] for sv in current} | {sv["target"] for sv in current}
         for p in presets.load("ar"):
             if p.id in chosen and p.name not in have and p.target not in have:
                 current.append({"name": p.name, "kind": p.kind, "target": p.target})
-        return _save({"services": current})
+        return current
 
     @app.post("/settings/services/delete")
     def service_delete():
@@ -584,6 +589,74 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         flash(g.t["rotated"])
         return redirect(url_for("settings_page"))
 
+    # ---------------------------------------------------------------- first-run wizard
+
+    WIZARD = ("plan", "services", "alerts", "done")
+
+    def _wizard_page(step: str, error: str | None = None, status: int = 200, results: dict | None = None):
+        from .. import alerts as alerts_mod
+        cfg = alerts_mod.masked(alerts_mod.load(store))
+        if not cfg["public_url"]:
+            cfg["public_url"] = request.host_url.rstrip("/")     # links in alerts open this same address
+        return render_template("welcome.html", active="settings", step=step, steps=WIZARD, s=g.settings,
+                               error=error, test_results=results, alerts=cfg, presets=_presets_view(),
+                               net=store.network_at(time.time()),
+                               isp=views.isp_status(store, data_dir, ASN_JOB)), status
+
+    @app.get("/welcome")
+    def welcome_start():
+        return redirect(url_for("welcome", step=WIZARD[0]))
+
+    @app.route("/welcome/<step>", methods=["GET", "POST"])
+    def welcome(step: str):
+        """A few skippable steps after creating the admin: what makes the verdicts useful from day one.
+        Every step saves through the same validation as Settings and can be redone from there."""
+        if step not in WIZARD:
+            abort(404)
+        if g.readonly and not app.config["DEMO"]:
+            return redirect(url_for("dashboard"))
+        if request.method == "GET":
+            return _wizard_page(step)
+        _guard_write()
+        f = request.form
+        nxt = WIZARD[min(WIZARD.index(step) + 1, len(WIZARD) - 1)]
+        if step == "done":
+            store.set_settings({"wizard_done": True}, bump=False)
+            return redirect(url_for("dashboard"))
+        if f.get("action") == "skip":
+            return redirect(url_for("welcome", step=nxt))
+        try:
+            if step == "plan":
+                settings_mod.save(store, {"link": {**g.settings.link, "down_mbps": f.get("down_mbps") or 0,
+                                                   "up_mbps": f.get("up_mbps") or 0}})
+            elif step == "services":
+                settings_mod.save(store, {"services": _with_presets(f.getlist("preset"))})
+        except settings_mod.SettingsError as exc:
+            g.settings = current_settings()
+            return _wizard_page(step, str(exc), 400)
+        if step == "alerts":
+            from .. import alerts as alerts_mod
+            cur = alerts_mod.load(store)
+            em = cur["email"]
+            form = {"min_minutes": cur["min_minutes"], "notify_close": "1" if cur["notify_close"] else "",
+                    "public_url": f.get("public_url", ""),
+                    # email is set up in Settings; keep whatever is there (its password stays stored)
+                    "email_enabled": "1" if em["enabled"] else "", "email_port": em["port"],
+                    **{f"email_{k}": em[k] for k in ("host", "security", "username", "sender", "to")},
+                    **{k: f.get(k, "") for k in ("telegram_enabled", "telegram_bot_token", "telegram_chat_id",
+                                                 "webhook_enabled", "webhook_url")}}
+            try:
+                cfg = alerts_mod.validate(form, cur)
+            except alerts_mod.AlertError as exc:
+                return _wizard_page(step, str(exc), 400)
+            alerts_mod.save(store, cfg)
+            if f.get("action") == "test":
+                title, body = alerts_mod.T[g.lang]["test"], alerts_mod.T[g.lang]["test_body"]
+                results = alerts_mod.send_all(cfg, title, body, {"event": "test"})
+                return _wizard_page(step, results=results or {"-": g.t["alerts_none_enabled"]})
+        g.settings = current_settings()
+        return redirect(url_for("welcome", step=nxt))
+
     # ---------------------------------------------------------------- auth pages
 
     @app.route("/login", methods=["GET", "POST"])
@@ -633,7 +706,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                     session.clear()
                     session.permanent = True
                     login_user(auth.User(str(uid), f["username"].strip()))
-                    return redirect(url_for("dashboard"))
+                    return redirect(url_for("welcome", step="plan"))
         return render_template("setup.html", error=error, token=request.args.get("token", "")), (400 if error else 200)
 
     # ---------------------------------------------------------------- machine endpoints

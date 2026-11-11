@@ -4,6 +4,12 @@
 {% block title %}{{ t.nav.dashboard }}{% endblock %}
 {% block content %}
 {% macro num(v, fmt='%.1f') %}{{ fmt|format(v) if v is not none else '—' }}{% endmacro %}
+{% if wizard_pending %}
+<div class="wiz-banner" role="note"><p><b>{{ t.wiz_banner }}</b> {{ t.wiz_banner_sub }}</p>
+  <a class="btn primary" href="{{ url_for('welcome', step='plan') }}">{{ t.wiz_start }}</a>
+  <form class="inline" method="post" action="{{ url_for('welcome', step='done') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="linkish" type="submit">{{ t.wiz_dismiss }}</button></form></div>
+{% endif %}
 
 <section class="hero g-{{ 'other' if d.failover and d.code == 'ok' else d.group }}" aria-labelledby="headline">
   <p class="stamp">{% if d.has_data %}<span class="live{{ ' stale' if d.code == 'stale' }}" aria-hidden="true"></span>{% if demo_static %}{{ t.demo_generated.format(when=d.updated|dt) }}{% else %}{{ t.min_ago.format(ago=d.updated_ago) }}{% endif %}{% endif %}</p>

@@ -614,3 +614,67 @@ class PointsAndBoardFit(unittest.TestCase):
         self.assertEqual(b["conns_hidden"]["none"], 20 - len(b["conns"]))
         self.assertEqual(b["conns_rot"]["pages"], 5)                     # 20 / 4 per page
         self.assertEqual(board(d, now=30)["conns"][0].name, "s4")        # next refresh, next page
+
+
+class FirstRunWizard(WebAppBase):
+    """After creating the admin: plan, services, alerts. Every step skippable, saved like Settings."""
+
+    def step(self, name, **data):
+        page = self.client.get(f"/welcome/{name}").get_data(as_text=True)
+        return self.client.post(f"/welcome/{name}", data={"csrf_token": csrf(page), **data})
+
+    def test_setup_lands_in_the_wizard_and_the_dashboard_reminds_until_done(self):
+        r = self.create_admin()
+        self.assertTrue(r.headers["Location"].endswith("/welcome/plan"))
+        self.assertIn('class="wiz-banner"', self.client.get("/").get_data(as_text=True))
+        r = self.step("done")
+        self.assertTrue(r.headers["Location"].endswith("/"))
+        self.assertNotIn('class="wiz-banner"', self.client.get("/").get_data(as_text=True))
+        self.assertIn("/welcome/plan", self.client.get("/settings").get_data(as_text=True))   # can be reopened
+
+    def test_plan_saves_the_contracted_speeds_and_skip_saves_nothing(self):
+        self.create_admin()
+        self.assertIn("Still measuring", self.client.get("/welcome/plan").get_data(as_text=True))
+        self.store.add_network({"isp_hop": "181.0.0.1", "isp_asn": "AS7303", "isp_name": "Telecom Argentina",
+                                "wireless": False, "cgnat": True, "home_routers": ["192.168.1.1"], "path": []})
+        page = self.client.get("/welcome/plan").get_data(as_text=True)
+        for found in ("192.168.1.1", "Telecom Argentina", "AS7303", "CGNAT"):
+            self.assertIn(found, page)                                        # what was detected is shown
+        r = self.step("plan", down_mbps="5", up_mbps="1", action="skip")
+        self.assertTrue(r.headers["Location"].endswith("/welcome/services"))
+        self.assertEqual(settings_mod.load(self.store).link["down_mbps"], 0)
+        r = self.step("plan", down_mbps="300", up_mbps="100", action="save")
+        self.assertTrue(r.headers["Location"].endswith("/welcome/services"))
+        link = settings_mod.load(self.store).link
+        self.assertEqual((link["down_mbps"], link["up_mbps"], link["enabled"]), (300, 100, False))
+        self.assertEqual(self.step("plan", down_mbps="-3", up_mbps="1", action="save").status_code, 400)
+
+    def test_services_step_adds_the_ticked_presets_once(self):
+        from isitmyisp import presets
+        self.create_admin()
+        first = presets.load("ar")[0]
+        for _ in range(2):
+            self.step("services", preset=first.id, action="save")
+        names = [s.name for s in settings_mod.load(self.store).services]
+        self.assertEqual(names, [first.name])
+
+    def test_alerts_step_keeps_email_set_up_in_settings(self):
+        from isitmyisp import alerts as alerts_mod
+        self.create_admin()
+        cfg = alerts_mod.load(self.store)
+        cfg["email"].update(enabled=True, host="smtp.example", sender="a@b.example", to="c@d.example", password="secret")
+        alerts_mod.save(self.store, cfg)
+        r = self.step("alerts", webhook_enabled="1", webhook_url="https://hooks.example/x", public_url="", action="save")
+        self.assertTrue(r.headers["Location"].endswith("/welcome/done"))
+        cfg = alerts_mod.load(self.store)
+        self.assertTrue(cfg["webhook"]["enabled"])
+        self.assertTrue(cfg["email"]["enabled"])
+        self.assertEqual(cfg["email"]["password"], "secret")
+        bad = self.step("alerts", telegram_enabled="1", telegram_bot_token="nope", action="save")
+        self.assertEqual(bad.status_code, 400)
+        self.assertNotIn("secret", bad.get_data(as_text=True))
+
+    def test_unknown_step_and_viewers(self):
+        self.create_admin()
+        self.assertEqual(self.client.get("/welcome/nope").status_code, 404)
+        self.assertTrue(self.client.get("/welcome").headers["Location"].endswith("/welcome/plan"))
