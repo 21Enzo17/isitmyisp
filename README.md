@@ -94,7 +94,16 @@ $ isitmyisp discover
   Destination reached with 0.0% loss: the path is fine. Loss on intermediate hops is ICMP handling, not real loss.
 ```
 
-## Quick start (Docker, recommended)
+## Install (one line)
+On a Linux machine that stays on (a Raspberry Pi, a mini PC, a server), wired to the router:
+```bash
+curl -fsSL https://isitmyisp.enzo-meneghini.com/install.sh | sh
+```
+The [installer](install.sh) is short and shows every command before running it. It installs Docker if it's missing, starts the monitor with the flags below and prints the link to create the admin account; a first-run wizard does the rest. Run it again to update (data is kept). Options: `--local` (dashboard on this machine only), `--port`, `--lang`, `--tz`, `--version`, `--uninstall`, `--dry-run`.
+
+New Raspberry Pi? Follow the [Raspberry Pi guide](docs/raspberry-pi.md) ([español](docs/raspberry-pi.es.md)): about 15 minutes from flashing the card to the setup page. Releases are listed in the [changelog](CHANGELOG.md).
+
+## Manual install (Docker)
 ```bash
 docker build -t isitmyisp .
 docker run --rm --net=host --cap-add=NET_RAW -v isitmyisp:/data isitmyisp update-asn   # once, optional

@@ -1,7 +1,7 @@
 # Public demo (isitmyisp.enzo-meneghini.com): the web UI rendered to static files from SYNTHETIC data.
 # Every deploy regenerates it, so the dates are always recent. Nothing here measures any network.
 [build]
-  command = "pip install --no-cache-dir '.[web]' && python -m isitmyisp.cli demo --static site"
+  command = "pip install --no-cache-dir '.[web]' && python -m isitmyisp.cli demo --static site && cp install.sh site/install.sh"
   publish = "site"
 
 [build.environment]
@@ -12,3 +12,10 @@
   from = "/"
   to = "/es/isp/"
   status = 302
+
+# the installer, readable in a browser before piping it into a shell
+[[headers]]
+  for = "/install.sh"
+  [headers.values]
+    Content-Type = "text/plain; charset=utf-8"
+    Cache-Control = "no-cache"
