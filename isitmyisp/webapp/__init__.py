@@ -189,6 +189,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     def inject():
         return {"t": g.get("t", S["en"]), "lang": g.get("lang", "en"), "user": g.get("user"),
                 "readonly": g.get("readonly", False), "version": __version__, "demo": app.config["DEMO"],
+                "demo_static": app.config.get("DEMO_STATIC"),
                 "auth_mode": g.settings.auth_mode if g.get("settings") else "local"}
 
     # ---------------------------------------------------------------- pages

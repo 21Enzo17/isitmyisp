@@ -43,6 +43,8 @@ docker run --rm -p 127.0.0.1:8090:8080 isitmyisp --lang en demo --scenario isp -
 ```
 Open **http://127.0.0.1:8090**. `--scenario` picks what the network is doing right now: `healthy`, `isp` (an incident in the ISP's network), `failover` (running on the backup link) or `wifi` (the problem is on your side). Every page says it's demo data, and reports generated from it are marked as synthetic on every page. Without Docker: `pip install -e '.[web]' && isitmyisp demo`.
 
+The UI has no JavaScript, so the demo also works as a plain static site: `isitmyisp demo --static site` renders every page of every scenario in Spanish and English (about 10 seconds) with a scenario switcher and the same strict CSP in a Netlify `_headers` file. `netlify.toml` builds it on every deploy.
+
 ## Who it's for
 - **Homes** that are tired of "restart the modem" and want proof.
 - **Small offices and shops** where the internet *is* the till, the phones and the invoicing: one small box (a Raspberry Pi is enough) tells you whose fault an outage was and gives you the report to claim.

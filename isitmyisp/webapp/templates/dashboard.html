@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% from "_charts.html" import line_plot, xaxis %}
-{% block head %}<meta http-equiv="refresh" content="30">{% endblock %}
+{% block head %}{% if not demo_static %}<meta http-equiv="refresh" content="30">{% endif %}{% endblock %}
 {% block title %}{{ t.nav.dashboard }}{% endblock %}
 {% block content %}
 {% macro num(v, fmt='%.1f') %}{{ fmt|format(v) if v is not none else '—' }}{% endmacro %}
 
 <section class="hero g-{{ 'other' if d.failover and d.code == 'ok' else d.group }}" aria-labelledby="headline">
-  <p class="stamp">{% if d.has_data %}<span class="live{{ ' stale' if d.code == 'stale' }}" aria-hidden="true"></span>{{ t.min_ago.format(ago=d.updated_ago) }}{% endif %}</p>
+  <p class="stamp">{% if d.has_data %}<span class="live{{ ' stale' if d.code == 'stale' }}" aria-hidden="true"></span>{% if demo_static %}{{ t.demo_generated.format(when=d.updated|dt) }}{% else %}{{ t.min_ago.format(ago=d.updated_ago) }}{% endif %}{% endif %}</p>
   {% set fo = d.failover %}
   <h1 id="headline" class="headline">{% if fo and d.code == 'ok' %}{{ t.headline_backup }}{% else %}{{ t.headline.get(d.code, t.verdict.get(d.code, d.code)) }}{% endif %}</h1>
   <p class="sub">{% if fo and d.code == 'ok' %}{{ t.sub_backup }}{% else %}{{ t.verdict_sub.get(d.code, '') }}{% endif %}</p>
@@ -55,7 +55,7 @@
       {% endif %} {{ t.healthy_of.format(pct=d.healthy_pct) }}</p>
     <div class="actions">
       <a class="btn{{ ' primary' if d.day.by.get('isp') }}" href="{{ url_for('report', since='7d') }}">{{ t.claim }}</a>
-      <a class="btn quiet" href="{{ url_for('report_pdf', since='7d') }}"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg>{{ t.claim_pdf }}</a>
+      {% if not demo_static %}<a class="btn quiet" href="{{ url_for('report_pdf', since='7d') }}"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg>{{ t.claim_pdf }}</a>{% endif %}
     </div>
   </div>
   {% endif %}

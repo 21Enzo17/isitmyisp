@@ -394,6 +394,11 @@ def cmd_demo(args, t) -> int:
         raise SystemExit("the demo needs the web UI: pip install 'isitmyisp[web]' (the Docker image includes it)")
     from .demo import WIN, build
 
+    if args.static:   # render every page to files instead of serving (static hosting, e.g. Netlify)
+        from .demo_static import export
+        pages = export(Path(args.static))
+        print(t["demo_static"].format(n=len(pages), path=args.static))
+        return 0
     lang = _lang_code(args, t)
     work = Path(tempfile.mkdtemp(prefix="isitmyisp-demo-"))
     print(t["demo_building"])
@@ -542,6 +547,8 @@ def build_parser() -> argparse.ArgumentParser:
     demo.add_argument("--scenario", choices=["healthy", "isp", "failover", "wifi"], default="healthy",
                       help="what the network is doing right now in the demo")
     demo.add_argument("--bind", default="127.0.0.1:8090", help="where to serve it (default 127.0.0.1:8090)")
+    demo.add_argument("--static", metavar="DIR", help="write the demo as a static site into DIR (every page, "
+                      "scenario and language) instead of serving it")
     return p
 
 

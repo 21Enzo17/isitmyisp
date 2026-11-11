@@ -302,6 +302,11 @@ table.kv .badge { margin-left: 8px; }
 .demo-banner { margin: 0 0 18px; padding: 10px 16px; border-radius: var(--r); font-size: 14px; color: var(--ink);
                background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); }
 .demo-banner b { margin-right: 6px; }
+.demo-switch { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; margin-top: 8px; font-size: 13.5px; }
+.demo-switch span { color: var(--ink-2); margin-right: 4px; }
+.demo-switch a { padding: 3px 10px; border-radius: 999px; color: var(--ink); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-2); }
+.demo-switch a:hover { text-decoration: none; box-shadow: inset 0 0 0 1px var(--accent); }
+.demo-switch a[aria-current] { background: var(--accent); color: var(--accent-ink); box-shadow: none; }
 
 /* ---------- link meters */
 .meters { display: grid; gap: 14px; }
