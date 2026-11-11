@@ -182,7 +182,13 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
         for i in incs:
             g = charts.GROUP.get(i.code, "other")
             by[g] = by.get(g, 0) + 1
-        d.day = {"n": len(incs), "dur": fmt_duration(sum(i.duration(now) for i in incs)), "by": by}
+        d.day = {"n": len(incs), "dur": fmt_duration(sum(i.duration(now) for i in incs)), "by": by, "hours": False}
+        from .. import hours as hours_mod
+        bh = hours_mod.load(store)
+        if hours_mod.active(bh):
+            # downtime that fell while the business was open (each incident clipped to the last 24 h)
+            in_s = sum(hours_mod.in_hours(bh, max(i.opened, now - 86400), i.closed or now) for i in incs)
+            d.day |= {"hours": True, "open_s": in_s, "open_dur": fmt_duration(in_s)}
         end = last[0]  # draw up to the last finished window: the one in progress isn't "missing data"
         series = _anchor_series(store.samples_between(start, end, role="anchor"))
         backup = [(i.opened, i.closed or now) for i in store.incidents_between(start, now, scope="failover")]

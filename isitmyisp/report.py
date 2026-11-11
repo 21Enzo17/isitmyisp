@@ -31,7 +31,9 @@ R = {
         "period": "Period", "generated": "Generated", "isp": "ISP", "connection": "Measured over",
         "wifi": "Wi-Fi", "cable": "cable", "cgnat": "CGNAT", "yes": "yes", "no": "no",
         "measured": "Time measured", "healthy": "Healthy", "incidents": "Incidents",
-        "degraded": "Time with problems", "peak": "Worst loss",
+        "degraded": "Time with problems", "peak": "Worst loss", "open_tile": "Problems while open",
+        "open_line": "Business hours: {open} open in this period, {bad} of it with problems ({pct}).",
+        "open_inc": "{dur} while open", "closed_inc": "while closed",
         "hero_none": "No incidents in this period. Your connection was healthy {pct} of the time measured.",
         "hero_some": "{n} {incidents}, {dur} in total. {k} of them {were} inside your ISP's network.",
         "hero_home": "Most problems ({k} of {n}) were on your side (Wi-Fi, LAN or your router), not your ISP's.",
@@ -115,7 +117,9 @@ R = {
         "period": "Período", "generated": "Generado", "isp": "ISP", "connection": "Medido por",
         "wifi": "Wi-Fi", "cable": "cable", "cgnat": "CGNAT", "yes": "sí", "no": "no",
         "measured": "Tiempo medido", "healthy": "Sana", "incidents": "Incidentes",
-        "degraded": "Tiempo con problemas", "peak": "Peor pérdida",
+        "degraded": "Tiempo con problemas", "peak": "Peor pérdida", "open_tile": "Problemas en horario",
+        "open_line": "Horario de atención: {open} abierto en este período, {bad} de eso con problemas ({pct}).",
+        "open_inc": "{dur} en horario", "closed_inc": "fuera de horario",
         "hero_none": "Sin incidentes en este período. Tu conexión estuvo sana el {pct} del tiempo medido.",
         "hero_some": "{n} {incidents}, {dur} en total. {k} {were} dentro de la red de tu ISP.",
         "hero_home": "La mayoría de los problemas ({k} de {n}) fueron de tu lado (Wi-Fi, LAN o tu router), no de tu ISP.",
@@ -564,6 +568,12 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
     pct = f"{100 * healthy / measured:.1f}%" if measured else "—"
     total_bad = sum(i.duration(now) for i in incidents)
     peak = max((i.peak_loss for i in incidents), default=0.0)
+    from . import hours as hours_mod
+    bh = hours_mod.load(store)
+    bh_on = hours_mod.active(bh)
+
+    def in_hours(i: Incident) -> float:         # the part of an incident inside business hours and the period
+        return hours_mod.in_hours(bh, max(i.opened, start), min(i.closed or now, end)) if bh_on else 0.0
 
     meta = [f'<span>{t["period"]}: <b>{_e(_dt(start))} → {_e(_dt(end))}</b></span>',
             f'<span>{t["generated"]}: <b>{_e(_dt(now))}</b></span>']
@@ -604,6 +614,12 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
     out.append(f'<div class="hero" style="--c:{color}">{_e(hero)}</div>')
     tiles = [(t["measured"], fmt_duration(measured)), (t["healthy"], pct), (t["incidents"], str(n)),
              (t["degraded"], fmt_duration(total_bad)), (t["peak"], f"{peak:.1f}%")]
+    if bh_on:
+        open_s = hours_mod.open_seconds(bh, start, end)
+        bad_open = sum(in_hours(i) for i in incidents)
+        tiles.insert(4, (t["open_tile"], fmt_duration(bad_open)))
+        share = f"{100 * bad_open / open_s:.1f}%" if open_s else "—"
+        out.append(f'<p class="muted">{_e(t["open_line"].format(open=fmt_duration(open_s), bad=fmt_duration(bad_open), pct=share))}</p>')
     out.append('<div class="tiles">' + "".join(
         f'<div class="tile"><div class="k">{_e(k)}</div><div class="v">{_e(v)}</div></div>' for k, v in tiles) + "</div>")
 
@@ -644,6 +660,13 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
                    f'<p class="muted">{_e(t["calls_method"])}</p>')
 
     # ---- incidents
+    def _open_note(inc: Incident) -> str:
+        if not bh_on:
+            return ""
+        s = in_hours(inc)
+        txt = t["open_inc"].format(dur=fmt_duration(s)) if s >= 60 else t["closed_inc"]
+        return f'<br><span class="muted">{_e(txt)}</span>'
+
     if incidents:
         rows = []
         for idx, inc in enumerate(incidents, 1):
@@ -654,7 +677,7 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
             rows.append(
                 f'<tr><td class="num">{idx}</td><td class="dt">{_dt_html(inc.opened)}</td>'
                 f'<td class="dt">{_dt_html(inc.closed) if inc.closed else _e(t["ongoing"])}</td>'
-                f'<td class="num">{fmt_duration(inc.duration(now))}</td>'
+                f'<td class="num">{fmt_duration(inc.duration(now))}{_open_note(inc)}</td>'
                 f'<td class="where"><span class="dot" style="background:{COLORS[inc.code]}"></span>{_e(t["legend"][inc.code])}</td>'
                 f'<td class="num">{inc.peak_loss:.1f}%</td><td class="ev">{ev}<br>{links}</td></tr>')
         out.append(f'<h2>{_e(t["incident_list"])}</h2><table class="incidents"><colgroup><col style="width:4%">'

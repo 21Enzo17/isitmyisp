@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_presets.html" import preset_groups with context %}
+{% from "_hours.html" import hours_fields with context %}
 {% block head %}{% if isp and isp.asn_running %}<meta http-equiv="refresh" content="4;url={{ url_for('settings_page') }}#isp">{% endif %}{% endblock %}
 {% block title %}{{ t.settings_title }}{% endblock %}
 {% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
@@ -131,6 +132,16 @@
       <p class="muted small">{{ t.snmp_help }}</p>
       {% if not readonly %}<div class="actions"><button class="btn primary" type="submit" name="action" value="save">{{ t.save }}</button>
         <button class="btn" type="submit" name="action" value="test">{{ t.snmp_test }}</button></div>{% endif %}
+    </form>
+  </div>
+
+  <div class="card" id="hours"><h3>{{ t.hours_title }}</h3><p class="muted">{{ t.hours_sub }}</p>
+    <form method="post" action="{{ url_for('settings_hours') }}">{{ csrf() }}
+      <label class="check"><input type="checkbox" name="hours_enabled" value="1" {{ 'checked' if hours.enabled }} {{ 'disabled' if readonly }}> {{ t.hours_enabled }}</label>
+      {{ hours_fields(hours, readonly) }}
+      <label class="check"><input type="checkbox" name="hours_quiet" value="1" {{ 'checked' if hours.quiet_alerts }} {{ 'disabled' if readonly }}> {{ t.hours_quiet }}</label>
+      <p class="muted small">{{ t.hours_quiet_help }}</p>
+      {% if not readonly %}<div class="actions"><button class="btn primary" type="submit">{{ t.save }}</button></div>{% endif %}
     </form>
   </div>
 

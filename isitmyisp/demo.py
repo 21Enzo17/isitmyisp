@@ -75,6 +75,8 @@ class Simulator:
         # synthetic data in a throwaway file: no need to wait for the disk on each of ~3,000 commits per day
         store.db.execute("PRAGMA synchronous = OFF")
         store.set_settings({"_demo": True}, bump=False)   # reports built from this database say so on every page
+        from . import hours
+        hours.save(store, {"enabled": True, "days": hours.SUGGESTED})   # a shop: Mon–Fri with siesta, Saturday morning
         settings_mod.save(store, {
             "lang": lang if lang in ("en", "es") else "en",
             "tunnels": [{"name": self.tunnel.name, "underlay": self.tunnel.underlay,

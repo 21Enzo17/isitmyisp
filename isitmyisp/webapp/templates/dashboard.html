@@ -58,6 +58,7 @@
     <p>{% if not d.day.n %}{{ t.day_none }}{% else %}
       {{ t.day_some.format(n=d.day.n, inc=t.day_inc[0 if d.day.n == 1 else 1], dur=d.day.dur) }}
       {% for g in ('isp', 'you', 'other') if d.day.by.get(g) %}{{ t.day_by[g].format(k=d.day.by[g]) }}{{ ', ' if not loop.last else '.' }}{% endfor %}
+      {% if d.day.hours %}<b class="day-open">{{ t.day_open.format(dur=d.day.open_dur) if d.day.open_s >= 60 else t.day_open_none }}</b>{% endif %}
       {% endif %} {{ t.healthy_of.format(pct=d.healthy_pct) }}</p>
     <div class="actions">
       <a class="btn{{ ' primary' if d.day.by.get('isp') }}" href="{{ url_for('report', since='7d') }}">{{ t.claim }}</a>

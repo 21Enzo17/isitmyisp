@@ -14,6 +14,18 @@ Para Argentina hay servicios listos para tildar: ARCA (Clave Fiscal, facturació
 
 Cada uno dice qué chequea exactamente. Algunos se chequean por TCP porque su HTTPS no se puede evaluar de forma justa: el servidor de facturación de ARCA usa una configuración TLS que los clientes modernos rechazan, y Santander bloquea a los clientes automáticos.
 
+## Horario de atención
+
+Para un comercio, 20 minutos sin internet a las 3 de la mañana no son lo mismo que a las 11. Cargá tu horario en **Configuración → Horario de atención** (o en el asistente): por día de la semana, con hasta dos turnos, como el horario cortado con siesta.
+
+Con el horario cargado:
+
+- **El panel** suma "Con el local abierto: 14 min" al resumen de las últimas 24 horas, y el modo TV muestra el indicador **En horario**.
+- **El informe** agrega cuántas horas estuvo abierto el local en el período, cuánto de ese tiempo hubo problemas, y marca cada incidente como "en horario" o "fuera de horario".
+- **Alertas retenidas** (opcional): con el local cerrado no te llega nada. Al abrir, recibís un solo resumen de lo que pasó, por ejemplo "Con el local cerrado: 2 problemas". Si un problema sigue cuando abrís, se avisa como siempre.
+
+Si un turno pasa la medianoche, cargalo en dos partes: hasta 24:00, y desde 00:00 el día siguiente. Los horarios usan la zona horaria del equipo donde corre isitmyisp.
+
 ## Túneles VPN
 
 ¿Se cayó el túnel a la sucursal por su configuración o por el camino? isitmyisp mide afuera y adentro del túnel a la vez:
