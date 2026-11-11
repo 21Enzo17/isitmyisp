@@ -298,6 +298,11 @@ table.kv .badge { margin-left: 8px; }
               background: color-mix(in srgb, var(--you) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--you) 40%, var(--line)); }
 .speed .muted.small { margin-top: 8px; }
 
+/* ---------- demo mode */
+.demo-banner { margin: 0 0 18px; padding: 10px 16px; border-radius: var(--r); font-size: 14px; color: var(--ink);
+               background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.demo-banner b { margin-right: 6px; }
+
 /* ---------- link meters */
 .meters { display: grid; gap: 14px; }
 .meter { display: grid; grid-template-columns: 92px 7.5rem minmax(60px, 1fr) 11rem; align-items: center; gap: 4px 16px; }
