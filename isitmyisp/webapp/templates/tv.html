@@ -1,4 +1,5 @@
 <!doctype html>
+{% from "_charts.html" import line_plot, xaxis %}
 <html lang="{{ lang }}" class="tv">
 <head>
   <meta charset="utf-8">
@@ -12,25 +13,37 @@
 </head>
 <body class="tv-page">
 {% macro num(v, fmt='%.1f') %}{{ fmt|format(v) if v is not none else '—' }}{% endmacro %}
-<main class="tv-main g-{{ 'other' if d.failover and d.code == 'ok' else d.group }}">
+{% set fo = d.failover %}
+{% set group = 'other' if fo and d.code == 'ok' else d.group %}
+{% set headline = t.headline.no_data if not d.has_data else (t.headline_backup if fo and d.code == 'ok' else t.headline.get(d.code, d.code)) %}
+{% set sub = t.sub_backup if fo and d.code == 'ok' else t.verdict_sub.get(d.code, '') %}
+
+{% macro path() %}
+<ol class="path" aria-label="{{ t.hop.home }}, {{ t.hop.isp }}, {{ t.hop.internet }}">
+  {% for h in d.path %}
+  <li class="hop s-{{ h.state }}{{ ' blamed' if h.blamed }}">
+    <span class="node" aria-hidden="true"></span>
+    <span class="hop-name">{{ t.hop[h.key] }}</span>
+    <span class="hop-id">{% if h.key == 'internet' %}{{ t.hop_dest.format(n=h.name) }}{% else %}{{ h.name }}{% endif %}</span>
+    <span class="hop-val"><b>{{ num(h.median) }}</b> ms <span class="sep" aria-hidden="true">/</span> <b>{{ num(h.loss) }}</b>%</span>
+    {% if h.key == 'isp' and fo %}<span class="here alt">{{ t.isp_backup_badge }}</span>{% endif %}
+    {% if h.blamed %}<span class="here">{{ t.hop_here }}</span>{% endif %}
+  </li>
+  {% endfor %}
+</ol>
+{% endmacro %}
+
+{% if simple %}
+{# ------------------------------------------------------------ simple: for a shop counter #}
+<main class="tv-main g-{{ group }}">
   <header class="tv-top">
     <span class="tv-brand"><img src="{{ url_for('static', filename='favicon.svg') }}" alt="" width="40" height="40">isitmyisp</span>
     <span class="tv-stamp">{% if d.has_data %}<span class="live{{ ' stale' if d.code == 'stale' }}" aria-hidden="true"></span>{{ t.min_ago.format(ago=d.updated_ago) }}{% endif %}</span>
   </header>
-  <h1 class="tv-headline">{% if not d.has_data %}{{ t.headline.no_data }}{% elif d.failover and d.code == 'ok' %}{{ t.headline_backup }}{% else %}{{ t.headline.get(d.code, d.code) }}{% endif %}</h1>
-  <p class="tv-sub">{% if d.failover and d.code == 'ok' %}{{ t.sub_backup }}{% else %}{{ t.verdict_sub.get(d.code, '') }}{% endif %}</p>
+  <h1 class="tv-headline">{{ headline }}</h1>
+  <p class="tv-sub">{{ sub }}</p>
   {% if d.has_data %}
-  <ol class="path tv-path" aria-label="{{ t.hop.home }}, {{ t.hop.isp }}, {{ t.hop.internet }}">
-    {% for h in d.path %}
-    <li class="hop s-{{ h.state }}{{ ' blamed' if h.blamed }}">
-      <span class="node" aria-hidden="true"></span>
-      <span class="hop-name">{{ t.hop[h.key] }}</span>
-      <span class="hop-id">{% if h.key == 'internet' %}{{ t.hop_dest.format(n=h.name) }}{% else %}{{ h.name }}{% endif %}</span>
-      <span class="hop-val"><b>{{ num(h.median) }}</b> ms <span class="sep" aria-hidden="true">/</span> <b>{{ num(h.loss) }}</b>%</span>
-      {% if h.blamed %}<span class="here">{{ t.hop_here }}</span>{% endif %}
-    </li>
-    {% endfor %}
-  </ol>
+  <div class="tv-path">{{ path() }}</div>
   <div class="tv-facts">
     {% if d.calls and d.calls.now %}<p><span class="mos-dot b-{{ d.calls.now.band }}" aria-hidden="true"></span>{{ t.calls_now[d.calls.now.band] }}</p>{% endif %}
     <p>{% if not d.day.n %}{{ t.day_none }}{% else %}{{ t.day_some.format(n=d.day.n, inc=t.day_inc[0 if d.day.n == 1 else 1], dur=d.day.dur) }}
@@ -40,5 +53,128 @@
   </div>
   {% endif %}
 </main>
+
+{% else %}
+{# ------------------------------------------------------------ board: for a technician's wall #}
+<main class="noc g-{{ group }}">
+  <header class="noc-head">
+    <div class="noc-verdict">
+      <h1>{{ headline }}</h1>
+      <p>{{ sub }}{% if fo %} {{ t.backup_note.format(backup=fo.backup, since=fo.since|tm, dur=fo['for'], primary=fo.primary or t.isp_primary.lower()) }}{% endif %}</p>
+    </div>
+    <dl class="noc-kpis">
+      <div><dt>{{ t.tv_healthy }}</dt><dd>{{ d.healthy_pct }}</dd></div>
+      <div><dt>{{ t.tv_incidents }}</dt><dd>{{ d.day.n if d.has_data else 0 }}{% if d.day.dur %} <small>{{ d.day.dur }}</small>{% endif %}</dd></div>
+      <div><dt>{{ t.tv_updated }}</dt><dd><span class="live{{ ' stale' if d.code == 'stale' }}" aria-hidden="true"></span>{{ d.updated|tm if d.updated else '—' }}</dd></div>
+    </dl>
+  </header>
+
+  {% if d.has_data %}
+  <section class="noc-row top">
+    <div class="panel noc-path">{{ path() }}</div>
+    <div class="panel noc-calls b-{{ d.calls.now.band if d.calls and d.calls.now else 'none' }}">
+      <h2>{{ t.calls_title }}</h2>
+      {% if d.calls and d.calls.now %}
+      <p class="noc-big"><span class="mos-dot" aria-hidden="true"></span>MOS <b>{{ '%.1f'|format(d.calls.now.mos) }}</b> <span class="muted">{{ t.band[d.calls.now.band] }}</span></p>
+      <p class="muted">{{ t.calls_fit.format(pct=d.calls.fit_pct) }}</p>
+      {% else %}<p class="muted">—</p>{% endif %}
+    </div>
+    <div class="panel noc-link">
+      <h2>{{ t.link_title }}</h2>
+      {% if d.link %}
+      {% for label, mbps, pct in [(t.link_down, d.link.down, d.link.down_pct), (t.link_up, d.link.up, d.link.up_pct)] %}
+      <div class="meter{{ ' full' if pct is not none and pct >= 85 }}">
+        <span class="m-label">{{ label }}</span><span class="m-val"><b>{{ '%.0f'|format(mbps) }}</b> Mbps</span>
+        {% if pct is not none %}<svg class="bar" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true">
+          <rect class="bar-track" x="0" y="2" width="100" height="6"/><rect class="bar-fill" x="0" y="2" width="{{ [pct, 100]|min }}" height="6"/>
+          <rect class="bar-mark" x="84.6" y="0" width="0.8" height="10"/></svg>
+        <span class="m-pct">{{ '%.0f'|format(pct) }}%</span>{% endif %}
+      </div>
+      {% endfor %}
+      {% else %}<p class="muted">{{ t.link_off if not d.link_enabled else t.link_err }}</p>{% endif %}
+      {% if d.speed and d.speed.last and not d.speed.last.error %}
+      <p class="muted small">{{ t.tv_speed.format(down='%.0f'|format(d.speed.last.down_mbps or 0), up='%.0f'|format(d.speed.last.up_mbps or 0), when=d.speed.last.ts|dt) }}</p>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if d.timeline %}{% set tl = d.timeline %}{% set o = 1 if tl.backup_runs else 0 %}{% set last = (4 if tl.calls else 3) + o %}
+  <section class="panel noc-timeline">
+    <div class="panel-head"><h2>{{ t.last24 }}</h2>
+      <ul class="key">{% for g in tl.groups %}<li><i class="sw g-{{ g }}" aria-hidden="true"></i>{{ t.group[g] }}</li>{% endfor %}</ul></div>
+    <figure class="tl{{ ' fo' if tl.backup_runs }}{{ ' calls' if tl.calls }}">
+      {% if tl.backup_runs %}
+      <span class="tl-name row-1">{{ t.row_backup }}</span>
+      <div class="tl-plot strip row-1"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
+        <rect class="track" x="0" y="0" width="1000" height="100"/>{% for x, w in tl.backup_runs %}<rect class="backup" x="{{ x }}" y="0" width="{{ w }}" height="100"/>{% endfor %}</svg></div>
+      {% endif %}
+      <span class="tl-name row-{{ 1 + o }}">{{ t.row_status }}</span>
+      <div class="tl-plot strip row-{{ 1 + o }}"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
+        <rect class="track" x="0" y="0" width="1000" height="100"/>
+        {% for x, w, g, code in tl.strip %}<rect class="g-{{ g }}" x="{{ x }}" y="{{ 72 if g == 'good' else 0 }}" width="{{ w }}" height="{{ 28 if g == 'good' else 100 }}"/>{% endfor %}</svg></div>
+      <span class="tl-name row-{{ 2 + o }}">{{ t.row_loss }}</span>{{ line_plot(tl.loss, 'row-%d' % (2 + o)) }}
+      <span class="tl-name row-{{ 3 + o }}">{{ t.row_latency }}</span>{{ line_plot(tl.latency, 'row-%d' % (3 + o)) }}
+      {% if tl.calls %}<span class="tl-name row-{{ 4 + o }}">{{ t.row_calls }}</span>{{ line_plot(tl.calls, 'row-%d' % (4 + o)) }}{% endif %}
+      {{ xaxis(tl.xticks, 'row-%d' % (last + 1)) }}
+    </figure>
+  </section>
+  {% endif %}
+
+  <section class="noc-row bottom">
+    <div class="panel noc-targets">
+      <h2>{{ t.net_state }}</h2>
+      <table class="noc-points"><tbody>
+        {% for c in d.targets %}
+        {% set st = 'good' if c.status == 'ok' else ('warn' if c.status == 'warn' else 'bad') %}
+        <tr class="s-{{ st }}">
+          <td><i class="pt" aria-hidden="true"></i>{{ t.role.get(c.role, c.role) }}</td>
+          <td class="ip">{{ c.target }}</td>
+          <td class="pt-spark">{% if not c.history.empty %}<div class="spark" aria-hidden="true"><svg viewBox="0 0 1000 100" preserveAspectRatio="none">
+            <path class="area" d="{{ c.history.area }}"/><path class="ln" d="{{ c.history.line }}"/></svg></div>{% endif %}</td>
+          <td class="num"><b>{{ num(c.median) }}</b> ms</td>
+          <td class="num pt-loss">{{ '%.0f'|format(c.loss) }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody></table>
+    </div>
+    <div class="panel noc-services">
+      <h2>{{ t.conn_title }}</h2>
+      {% if not d.services and not d.tunnels %}<p class="muted">{{ t.no_services }}</p>{% else %}
+      <ul class="rows">
+        {% for c in d.services %}{% set st = 'good' if c.state == 'up' else ('bad' if c.state == 'down' else 'none') %}
+        <li class="row s-{{ st }}"><svg class="ico st" aria-hidden="true"><use href="#i-{{ 'check' if st == 'good' else ('cross' if st == 'bad' else 'wait') }}"/></svg>
+          <span class="r-main"><span class="r-name">{{ c.name }}</span></span>
+          <span class="r-val">{% if c.ms is not none %}{{ '%.0f'|format(c.ms) }} ms{% endif %}</span>
+          <span class="r-state">{{ t.svc[c.state] }}{% if c.since %}, {{ c.since }}{% endif %}</span></li>
+        {% endfor %}
+        {% for c in d.tunnels %}{% set st = 'good' if c.state == 'up' else ('bad' if c.state == 'down' else 'none') %}
+        <li class="row s-{{ st }}"><svg class="ico st" aria-hidden="true"><use href="#i-{{ 'check' if st == 'good' else ('cross' if st == 'bad' else 'wait') }}"/></svg>
+          <span class="r-main"><span class="r-name">{{ c.name }}</span><span class="r-sub">{{ t.tunnel_word }} {{ c.type }}</span></span>
+          <span class="r-val"></span><span class="r-state">{{ t.tun[c.state] }}{% if c.since %}, {{ c.since }}{% endif %}</span></li>
+        {% endfor %}
+      </ul>{% endif %}
+    </div>
+    <div class="panel noc-recent">
+      <h2>{{ t.recent_title }}</h2>
+      {% if not d.recent %}<p class="muted">{{ t.recent_none }}</p>{% else %}
+      <table class="recent"><tbody>
+        {% for r in d.recent[:5] %}
+        <tr{% if r.ongoing %} class="now"{% endif %}>
+          <td class="num-l">{{ r.opened|tm }}</td>
+          <td><i class="sw g-{{ r.group }}" aria-hidden="true"></i>{{ t.verdict.get(r.code, r.code) }}{% if r.name %} <span class="muted">{{ r.name }}</span>{% endif %}{% if r.count > 1 %} <span class="muted">×{{ r.count }}</span>{% endif %}</td>
+          <td class="num">{% if r.ongoing %}<b>{{ t.ongoing_now }}</b> {% endif %}{{ r.duration }}</td>
+        </tr>
+        {% endfor %}
+      </tbody></table>{% endif %}
+    </div>
+  </section>
+  {% endif %}
+</main>
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-cross" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11m0-11-11 11"/></symbol>
+  <symbol id="i-wait" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.5l3 2"/></symbol>
+</svg>
+{% endif %}
 </body>
 </html>
