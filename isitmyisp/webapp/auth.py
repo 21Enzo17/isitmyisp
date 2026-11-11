@@ -23,11 +23,19 @@ _ph = PasswordHasher()  # Argon2id with argon2-cffi's (RFC 9106) defaults
 MIN_PASSWORD = 10
 
 
+ROLES = ("admin", "viewer")
+
+
 class User(UserMixin):
-    def __init__(self, uid: str, username: str, source: str = "local"):
+    def __init__(self, uid: str, username: str, source: str = "local", role: str = "admin"):
         self.id = uid
         self.username = username
-        self.source = source  # local | proxy | none
+        self.source = source  # local | proxy | none | demo
+        self.role = role      # admin: everything; viewer: sees everything, changes nothing
+
+    @property
+    def is_admin(self) -> bool:
+        return self.role == "admin"
 
 
 def hash_password(password: str) -> str:
@@ -44,9 +52,12 @@ def verify_password(store: Store, username: str, password: str) -> User | None:
         _ph.verify(phash, password)
     except (VerifyMismatchError, VerificationError, InvalidHashError):
         return None
+    info = store.user_info(uid)
+    if info is None or info["disabled"]:   # checked after the hash: same cost as a wrong password
+        return None
     if _ph.check_needs_rehash(phash):
         store.set_password_hash(uid, _ph.hash(password))
-    return User(str(uid), name)
+    return User(str(uid), name, role=info["role"])
 
 
 def password_problem(password: str, confirm: str) -> str | None:
@@ -59,10 +70,26 @@ def password_problem(password: str, confirm: str) -> str | None:
 
 def load_local_user(store: Store, uid: str) -> User | None:
     try:
-        row = store.get_user(user_id=int(uid))
+        info = store.user_info(int(uid))
     except (TypeError, ValueError):
         return None
-    return User(str(row[0]), row[1]) if row else None
+    if info is None or info["disabled"]:   # a disabled account loses its open sessions at once
+        return None
+    return User(str(info["id"]), info["username"], role=info["role"])
+
+
+USERNAME_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-@")
+
+
+def username_problem(name: str) -> str | None:
+    if not 2 <= len(name) <= 64 or not set(name) <= USERNAME_CHARS:
+        return "username"
+    return None
+
+
+def token_hash(token: str) -> str:
+    import hashlib
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 def client_is_trusted_proxy(remote_addr: str | None, trusted: list[str]) -> bool:

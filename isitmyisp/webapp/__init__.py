@@ -6,7 +6,9 @@ Flask-Limiter (login rate limit), served by Waitress. No JavaScript: plain HTML 
 
 from __future__ import annotations
 
+import hmac
 import mimetypes
+import secrets
 import threading
 import time
 from datetime import timedelta
@@ -32,8 +34,10 @@ from . import auth, charts, views
 from ..api import metrics_text, status_json
 from .strings import S
 
-PUBLIC_ENDPOINTS = {"static", "healthz", "favicon"}
-AUTH_ENDPOINTS = {"login", "setup"}
+PUBLIC_ENDPOINTS = {"static", "healthz", "favicon", "tv"}   # tv checks its own token
+AUTH_ENDPOINTS = {"login", "setup", "invite"}
+VIEWER_WRITES = {"logout", "settings_password"}   # the only POSTs a read-only user may make
+INVITE_TTL = 48 * 3600
 
 
 ASN_JOB: dict = {"running": False, "error": None, "lock": threading.Lock()}
@@ -121,6 +125,11 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                 return Response("authentication required\n", 401, {"WWW-Authenticate": 'Bearer realm="isitmyisp"'})
             return redirect(url_for("login", next=request.full_path if request.method == "GET" else None))
         g.user = current_user
+        if not current_user.is_admin:
+            # Enforced here, for every route, not only where a route remembers to check.
+            g.readonly = True
+            if request.method not in ("GET", "HEAD") and endpoint not in VIEWER_WRITES:
+                abort(403)
         return None
 
     @app.after_request
@@ -132,7 +141,8 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                                 "form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
         resp.headers["X-Content-Type-Options"] = "nosniff"
         resp.headers["X-Frame-Options"] = "DENY"
-        resp.headers["Referrer-Policy"] = "same-origin"
+        # URLs with a secret in them (TV, invitations) must not leak through the Referer header
+        resp.headers["Referrer-Policy"] = "no-referrer" if request.endpoint in ("tv", "invite") else "same-origin"
         if request.endpoint not in PUBLIC_ENDPOINTS:
             resp.headers["Cache-Control"] = "no-store"
         if request.args.get("lang") in S:  # remember the language picked in the UI
@@ -239,15 +249,21 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     # ---------------------------------------------------------------- settings
 
     def _settings_page(error: str | None = None, status: int = 200, results: dict | None = None,
-                       ifaces: list | None = None):
+                       ifaces: list | None = None, invite: dict | None = None):
         from .. import alerts as alerts_mod
         token = settings_mod.metrics_token(store) if not g.readonly else None
+        is_admin = (not g.readonly and g.settings.auth_mode == "local"
+                    and bool(g.user and getattr(g.user, "is_admin", False)))
         return render_template("settings.html", active="settings", s=g.settings, error=error,
                                metrics_token=token, bind=app.config["BIND"],
                                alerts=alerts_mod.masked(alerts_mod.load(store)),
                                alerts_last=store.get_setting("_alerts_last"), test_results=results,
                                ifaces=ifaces, isp=views.isp_status(store, data_dir, ASN_JOB),
-                               speed=views.speed_status(store, g.settings)), status
+                               speed=views.speed_status(store, g.settings), invite=invite,
+                               users=store.list_users() if is_admin else [],
+                               invites=store.pending_invites() if is_admin else [],
+                               tv_url=(url_for("tv", token=store.get_setting("tv_token"), _external=True)
+                                       if is_admin and store.get_setting("tv_token") else None)), status
 
     @app.get("/settings")
     def settings_page():
@@ -351,6 +367,112 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         flash(g.t["speed_requested"])
         return redirect(request.form.get("back") == "dashboard" and url_for("dashboard") or url_for("settings_page") + "#speed")
 
+    # ---------------------------------------------------------------- users (local accounts only)
+
+    def _guard_admin():
+        _guard_write()
+        if g.settings.auth_mode != "local" or not (g.user and getattr(g.user, "is_admin", False)):
+            abort(403)
+
+    def _make_invite(username: str, role: str, user_id: int | None) -> dict:
+        token = secrets.token_urlsafe(24)
+        store.add_invite(auth.token_hash(token), username, role, time.time() + INVITE_TTL, user_id)
+        return {"username": username, "url": url_for("invite", token=token, _external=True), "reset": user_id is not None}
+
+    @app.post("/settings/users/invite")
+    def users_invite():
+        _guard_admin()
+        name, role = request.form.get("username", "").strip(), request.form.get("role", "viewer")
+        if role not in auth.ROLES:
+            abort(400)
+        if auth.username_problem(name):
+            return _settings_page(g.t["users_bad_name"], 400)
+        if store.get_user(username=name):
+            return _settings_page(g.t["users_exists"].format(name=name), 400)
+        return _settings_page(invite=_make_invite(name, role, None))
+
+    @app.post("/settings/users/<int:uid>")
+    def users_update(uid: int):
+        _guard_admin()
+        info = store.user_info(uid)
+        if info is None:
+            abort(404)
+        action, me = request.form.get("action"), str(uid) == str(g.user.id)
+        last_admin = info["role"] == "admin" and not info["disabled"] and store.active_admins() <= 1
+        if action == "reset":
+            return _settings_page(invite=_make_invite(info["username"], info["role"], uid))
+        if action in ("disable", "enable"):
+            if me:
+                return _settings_page(g.t["users_not_self"], 400)
+            if action == "disable" and last_admin:
+                return _settings_page(g.t["users_last_admin"], 400)
+            store.set_user(uid, disabled=action == "disable")
+        elif action in auth.ROLES:
+            if action == "viewer" and (me or last_admin):
+                return _settings_page(g.t["users_not_self"] if me else g.t["users_last_admin"], 400)
+            store.set_user(uid, role=action)
+        else:
+            abort(400)
+        flash(g.t["saved"])
+        return redirect(url_for("settings_page") + "#users")
+
+    @app.route("/invite/<token>", methods=["GET", "POST"])
+    @limiter.limit("10 per minute", methods=["POST"])
+    def invite(token: str):
+        """One-time link: a new account sets its password, or an existing one sets a new password."""
+        if g.settings.auth_mode != "local":
+            abort(404)
+        th = auth.token_hash(token)
+        inv = store.get_invite(th)
+        if inv is None:
+            return render_template("message.html", message=g.t["invite_invalid"]), 404
+        error = None
+        if request.method == "POST":
+            f = request.form
+            problem = auth.password_problem(f.get("password", ""), f.get("confirm", ""))
+            if problem:
+                error = g.t["pw_" + problem]
+            elif inv["user_id"] is not None:
+                store.set_password_hash(inv["user_id"], auth.hash_password(f["password"]))
+                uid = inv["user_id"]
+            elif store.get_user(username=inv["username"]):
+                error = g.t["users_exists"].format(name=inv["username"])
+            else:
+                uid = store.add_user(inv["username"], auth.hash_password(f["password"]), role=inv["role"])
+            if error is None:
+                store.delete_invite(th)
+                user = auth.load_local_user(store, str(uid))
+                if user is None:      # the account was disabled meanwhile
+                    return render_template("message.html", message=g.t["invite_invalid"]), 403
+                session.clear()
+                login_user(user)
+                return redirect(url_for("dashboard"))
+        return render_template("invite.html", inv=inv, error=error), (400 if error else 200)
+
+    # ---------------------------------------------------------------- TV mode
+
+    @app.get("/tv/<token>")
+    @limiter.limit("120 per minute")
+    def tv(token: str):
+        """Read-only wall screen: large type, auto-refresh, no navigation, no login, revocable token."""
+        expected = store.get_setting("tv_token")
+        if not expected or not hmac.compare_digest(token.encode(), str(expected).encode()):
+            abort(404)
+        return render_template("tv.html", d=views.dashboard_data(store, g.settings))
+
+    @app.post("/settings/tv")
+    def settings_tv():
+        _guard_admin()
+        action = request.form.get("action")
+        if action == "rotate":
+            store.set_settings({"tv_token": secrets.token_urlsafe(24)}, bump=False)
+        elif action == "revoke":
+            store.set_settings({"tv_token": None}, bump=False)
+        else:
+            abort(400)
+        flash(g.t["saved"])
+        return redirect(url_for("settings_page") + "#tv")
+
     @app.post("/settings/isp/primary")
     def isp_primary():
         """'This is my main ISP': the provider in use now becomes the main one (closes a failover)."""
@@ -406,7 +528,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
 
     @app.post("/settings/password")
     def settings_password():
-        _guard_write()
+        # readers may change their own password: no _guard_write() here, only "it's your own local account"
         if not g.user or g.user.source != "local":
             abort(403)
         f = request.form

@@ -211,6 +211,45 @@
     </form>
   </div>
 
+  {% if users %}
+  <div class="card" id="users"><h3>{{ t.users_title }}</h3><p class="muted">{{ t.users_sub }}</p>
+    {% if invite %}
+    <div class="flash ok invite-box"><p><b>{{ (t.users_link_reset if invite.reset else t.users_link_new).format(name=invite.username) }}</b></p>
+      <p class="token mono">{{ invite.url }}</p><p class="small">{{ t.users_link_hint }}</p></div>
+    {% endif %}
+    <table class="users">
+      <thead><tr><th>{{ t.username }}</th><th>{{ t.users_role }}</th><th>{{ t.users_state }}</th><th></th></tr></thead>
+      <tbody>{% for u in users %}{% set me = (user.id|string) == (u.id|string) %}
+        <tr{% if u.disabled %} class="muted"{% endif %}><td>{{ u.username }}{% if me %} <span class="badge muted">{{ t.users_you }}</span>{% endif %}</td>
+          <td>{{ t.roles[u.role] }}</td><td>{{ t.users_disabled if u.disabled else t.users_active }}</td>
+          <td class="num"><form method="post" action="{{ url_for('users_update', uid=u.id) }}" class="inline-actions">{{ csrf() }}
+            {% if not me %}<button class="btn small" name="action" value="{{ 'viewer' if u.role == 'admin' else 'admin' }}">{{ t.users_make_viewer if u.role == 'admin' else t.users_make_admin }}</button>
+            <button class="btn small{{ '' if u.disabled else ' danger' }}" name="action" value="{{ 'enable' if u.disabled else 'disable' }}">{{ t.users_enable if u.disabled else t.users_disable }}</button>{% endif %}
+            <button class="btn small" name="action" value="reset">{{ t.users_reset }}</button></form></td></tr>
+      {% endfor %}</tbody>
+    </table>
+    {% if invites %}<p class="muted small">{{ t.users_pending }}: {% for i in invites %}{{ i.username }} ({{ t.roles[i.role] }}, {{ t.users_until }} {{ i.expires|dt }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+    <h4>{{ t.users_invite_title }}</h4>
+    <form method="post" action="{{ url_for('users_invite') }}">{{ csrf() }}
+      <div class="form-row">
+        <div><label for="iu">{{ t.username }}</label><input type="text" id="iu" name="username" required maxlength="64" autocomplete="off"></div>
+        <div><label for="ir">{{ t.users_role }}</label><select id="ir" name="role">
+          <option value="viewer">{{ t.roles.viewer }}</option><option value="admin">{{ t.roles.admin }}</option></select></div>
+      </div>
+      <p class="muted small">{{ t.users_roles_hint }}</p>
+      <div class="actions"><button class="btn primary" type="submit">{{ t.users_invite }}</button></div>
+    </form>
+  </div>
+
+  <div class="card" id="tv"><h3>{{ t.tv_title }}</h3><p class="muted">{{ t.tv_sub }}</p>
+    {% if tv_url %}<p class="token mono">{{ tv_url }}</p><p class="muted small">{{ t.tv_hint }}</p>{% endif %}
+    <form method="post" action="{{ url_for('settings_tv') }}" class="actions">{{ csrf() }}
+      <button class="btn{{ '' if tv_url else ' primary' }}" name="action" value="rotate">{{ t.tv_rotate if tv_url else t.tv_create }}</button>
+      {% if tv_url %}<button class="btn danger" name="action" value="revoke">{{ t.tv_revoke }}</button>{% endif %}
+    </form>
+  </div>
+  {% endif %}
+
   {% if user and user.source == 'local' %}
   <div class="card"><h3>{{ t.change_password }}</h3>
     <form method="post" action="{{ url_for('settings_password') }}">{{ csrf() }}
