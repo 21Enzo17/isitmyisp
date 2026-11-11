@@ -24,6 +24,7 @@
 
 <p align="center">
   <a href="https://isitmyisp.enzo-meneghini.com"><b>Live demo</b></a> ·
+  <a href="https://isitmyisp.enzo-meneghini.com/docs/en/"><b>Docs</b></a> ([español](https://isitmyisp.enzo-meneghini.com/docs/es/)) ·
   <a href="#try-it-in-a-minute">Run the demo</a> ·
   <a href="#quick-start-docker-recommended">Quick start</a> ·
   <a href="#what-it-answers">What it answers</a> ·
@@ -101,7 +102,7 @@ curl -fsSL https://isitmyisp.enzo-meneghini.com/install.sh | sh
 ```
 The [installer](install.sh) is short and shows every command before running it. It installs Docker if it's missing, starts the monitor with the flags below and prints the link to create the admin account; a first-run wizard does the rest. Run it again to update (data is kept). Options: `--local` (dashboard on this machine only), `--port`, `--lang`, `--tz`, `--version`, `--uninstall`, `--dry-run`.
 
-New Raspberry Pi? Follow the [Raspberry Pi guide](docs/raspberry-pi.md) ([español](docs/raspberry-pi.es.md)): about 15 minutes from flashing the card to the setup page. Releases are listed in the [changelog](CHANGELOG.md).
+New Raspberry Pi? Follow the [Raspberry Pi guide](https://isitmyisp.enzo-meneghini.com/docs/en/raspberry-pi/) ([español](https://isitmyisp.enzo-meneghini.com/docs/es/raspberry-pi/)): about 15 minutes from flashing the card to the setup page. Releases are listed in the [changelog](CHANGELOG.md).
 
 ## Manual install (Docker)
 ```bash
@@ -244,6 +245,7 @@ Already done: probes and discovery (fping/ping, TCP, DNS, CGNAT, double NAT, IPv
 ## Development
 ```bash
 pip install -e '.[web,pdf]'
+pip install markdown && python3 scripts/build_docs.py site   # the docs site (docs/site/*.md) into site/docs
 python -m unittest discover -s tests       # also runs without the extras (web tests are skipped)
 python3 scripts/screenshots.py             # regenerate docs/screenshots from synthetic data (needs Docker)
 ```

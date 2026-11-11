@@ -1,7 +1,8 @@
-# Public demo (isitmyisp.enzo-meneghini.com): the web UI rendered to static files from SYNTHETIC data.
+# Public demo (isitmyisp.enzo-meneghini.com): the web UI rendered to static files from SYNTHETIC data,
+# the documentation at /docs (docs/site/*.md) and the installer at /install.sh.
 # Every deploy regenerates it, so the dates are always recent. Nothing here measures any network.
 [build]
-  command = "pip install --no-cache-dir '.[web]' && python -m isitmyisp.cli demo --static site && cp install.sh site/install.sh"
+  command = "pip install --no-cache-dir '.[web]' markdown && python -m isitmyisp.cli demo --static site && python scripts/build_docs.py site && cp install.sh site/install.sh"
   publish = "site"
 
 [build.environment]

@@ -646,3 +646,5 @@ label.check input { width: 17px; height: 17px; accent-color: var(--accent); }
 .wiz-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 18px; padding: 14px 18px;
   border: 1px solid var(--line-2); border-radius: var(--r); background: var(--surface); }
 .wiz-banner p { margin: 0; flex: 1 1 320px; }
+
+.demo-switch .demo-docs { margin-left: auto; font-weight: 500; }
