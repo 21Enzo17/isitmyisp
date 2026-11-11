@@ -1,6 +1,6 @@
 <!doctype html>
 {% from "_charts.html" import line_plot, xaxis %}
-<html lang="{{ lang }}" class="tv">
+<html lang="{{ lang }}" class="tv{{ '' if simple else ' tv-board' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">

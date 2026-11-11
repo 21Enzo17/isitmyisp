@@ -521,6 +521,8 @@ class RolesAndTV(WebAppBase):
             self.assertIn(part, html)                                           # the board, for a technician
         simple = anon.get(f"/tv/{token}?lang=en&layout=simple").get_data(as_text=True)
         self.assertIn('class="tv-headline"', simple)                           # the minimal view, for a counter
+        self.assertIn('class="tv tv-board"', html)                             # the board sizes itself to the window
+        self.assertNotIn("tv-board", simple)
         self.assertNotIn('class="noc ', simple)
         self.assertEqual(anon.get(f"/tv/{token}x").status_code, 404)
         self.client.post("/settings/tv", data={"csrf_token": csrf(page), "action": "revoke"})
