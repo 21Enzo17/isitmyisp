@@ -616,3 +616,13 @@ label.check input { width: 17px; height: 17px; accent-color: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* TV board: something down must be visible from across the room (text + icon, not colour alone) */
+.noc-alarm { display: flex; align-items: center; gap: .5rem; margin: .4rem 0 .1rem; padding: .35rem .7rem; width: fit-content; max-width: 100%;
+  border-radius: 6px; background: color-mix(in srgb, var(--isp) 22%, transparent); border: 1px solid var(--isp);
+  color: var(--ink); font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.noc-alarm .ico { width: 1.2rem; height: 1.2rem; flex: none; color: var(--isp); stroke: currentColor; stroke-width: 3; fill: none; }
+.noc .panel.alarm { border-color: var(--isp); box-shadow: inset 0 0 0 1px var(--isp); background: color-mix(in srgb, var(--isp) 7%, var(--surface)); }
+.noc .panel.alarm > h2 { color: var(--ink); }
+.noc .rows .row.s-bad, .noc-points tr.s-bad td { background: color-mix(in srgb, var(--isp) 16%, transparent); }
+.noc .rows .row.s-bad .r-name { font-weight: 600; }

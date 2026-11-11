@@ -28,7 +28,7 @@ S = {
         "tv_hint": "Open it on the TV's browser and put it in full screen. If the link leaks, create a new one.",
         "tv_services_down": "Not answering: {names}",
         "point_label": {"home": "Your router", "isp": "ISP first hop", "internet": "Internet", "voip": "Your calls", "dns": "DNS"},
-        "dns_slowest": "the slowest server", "board_more": "+{n} more:", "board_more_ok": "all fine.", "board_more_bad": "{n} with problems, see the dashboard.", "board_more_none": "{n} without data yet.",
+        "dns_slowest": "the slowest server", "board_more": "+{n} more:", "board_more_ok": "all fine.", "board_more_bad": "{n} with problems, see the dashboard.", "board_more_none": "{n} without data yet.", "board_rot": "{shown} of {total}, rotates every 30 s ({page}/{pages}).", "tv_alarm": "Not answering:", "tv_alarm_more": "and {n} more.",
         "tv_healthy": "Healthy, 24 h", "tv_incidents": "Incidents, 24 h", "tv_updated": "Updated",
         "tv_speed": "Last speed test: {down} / {up} Mbps ({when})",
 
@@ -247,7 +247,7 @@ S = {
         "tv_hint": "Abrilo en el navegador de la TV y ponelo en pantalla completa. Si el link se filtra, creá uno nuevo.",
         "tv_services_down": "No responden: {names}",
         "point_label": {"home": "Tu router", "isp": "Primer salto ISP", "internet": "Internet", "voip": "Tus llamadas", "dns": "DNS"},
-        "dns_slowest": "el servidor más lento", "board_more": "+{n} más:", "board_more_ok": "todos bien.", "board_more_bad": "{n} con problemas, mirá el panel.", "board_more_none": "{n} todavía sin datos.",
+        "dns_slowest": "el servidor más lento", "board_more": "+{n} más:", "board_more_ok": "todos bien.", "board_more_bad": "{n} con problemas, mirá el panel.", "board_more_none": "{n} todavía sin datos.", "board_rot": "{shown} de {total}, rota cada 30 s ({page}/{pages}).", "tv_alarm": "No responde:", "tv_alarm_more": "y {n} más.",
         "tv_healthy": "Sana, 24 h", "tv_incidents": "Incidentes, 24 h", "tv_updated": "Actualizado",
         "tv_speed": "Última prueba de velocidad: {down} / {up} Mbps ({when})",
 

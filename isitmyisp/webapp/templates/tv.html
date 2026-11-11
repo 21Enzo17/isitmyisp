@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body class="tv-page">
-{% macro more(h) %}{{ t.board_more.format(n=h.bad + h.none + h.good) }} {% if h.bad %}{{ t.board_more_bad.format(n=h.bad) }}{% elif h.none %}{{ t.board_more_none.format(n=h.none) }}{% else %}{{ t.board_more_ok }}{% endif %}{% endmacro %}
+{% macro more(h, rot) %}{% if h.bad %}{{ t.board_more.format(n=h.bad + h.none + h.good) }} {{ t.board_more_bad.format(n=h.bad) }} {% endif %}{% if rot %}{{ t.board_rot.format(shown=rot.shown, total=rot.total, page=rot.page, pages=rot.pages) }}{% endif %}{% endmacro %}
 {% macro num(v, fmt='%.1f') %}{{ fmt|format(v) if v is not none else '—' }}{% endmacro %}
 {% set fo = d.failover %}
 {% set group = 'other' if fo and d.code == 'ok' else d.group %}
@@ -61,6 +61,7 @@
   <header class="noc-head">
     <div class="noc-verdict">
       <h1>{{ headline }}</h1>
+      {% if b.alarms %}<p class="noc-alarm" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-cross"/></svg>{{ t.tv_alarm }} {% for c in b.alarms[:3] %}<b>{{ c.name }}</b>{% if c.since %} ({{ c.since }}){% endif %}{{ ', ' if not loop.last }}{% endfor %}{% if b.alarms|length > 3 %} {{ t.tv_alarm_more.format(n=b.alarms|length - 3) }}{% endif %}</p>{% endif %}
       <p>{{ sub }}{% if fo %} {{ t.backup_note.format(backup=fo.backup, since=fo.since|tm, dur=fo['for'], primary=fo.primary or t.isp_primary.lower()) }}{% endif %}</p>
     </div>
     <dl class="noc-kpis">
@@ -122,7 +123,7 @@
   {% endif %}
 
   <section class="noc-row bottom">
-    <div class="panel noc-targets">
+    <div class="panel noc-targets{{ ' alarm' if b.points_alarm }}">
       <h2>{{ t.net_state }}</h2>
       <table class="noc-points"><tbody>
         {% for p in b.points %}
@@ -137,10 +138,10 @@
         </tr>
         {% endfor %}
         {% set h = b.points_hidden %}
-        {% if h.bad or h.none or h.good %}<tr class="more"><td colspan="5">{{ more(h) }}</td></tr>{% endif %}
+        {% if b.points_rot %}<tr class="more"><td colspan="5">{{ more(h, b.points_rot) }}</td></tr>{% endif %}
       </tbody></table>
     </div>
-    <div class="panel noc-services">
+    <div class="panel noc-services{{ ' alarm' if b.alarms }}">
       <h2>{{ t.conn_title }}</h2>
       {% if not b.conns %}<p class="muted">{{ t.no_services }}</p>{% else %}
       <ul class="rows">
@@ -151,7 +152,7 @@
           <span class="r-state">{{ (t.svc if c.kind == 'service' else t.tun)[c.state] }}{% if c.since %}, {{ c.since }}{% endif %}</span></li>
         {% endfor %}
         {% set h = b.conns_hidden %}
-        {% if h.bad or h.none or h.good %}<li class="row more">{{ more(h) }}</li>{% endif %}
+        {% if b.conns_rot %}<li class="row more">{{ more(h, b.conns_rot) }}</li>{% endif %}
       </ul>{% endif %}
     </div>
     <div class="panel noc-recent">

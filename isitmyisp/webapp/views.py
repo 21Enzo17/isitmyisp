@@ -74,20 +74,31 @@ def build_points(targets: list) -> list[Point]:
     return out
 
 
-def fit(items: list, cap: int, state=lambda x: "good") -> tuple[list, dict]:
-    """At most `cap` items for a fixed-size panel: problems first, then the ones without data, then the
-    rest, each in its own order. Returns (shown, {"bad": n, "none": n, "good": n} of what was left out),
-    so the panel says what it hid, and never claims "all fine" about something it can't vouch for."""
+def fit(items: list, cap: int, state=lambda x: "good", tick: int = 0) -> tuple[list, dict, dict | None]:
+    """At most `cap` lines for a fixed-size panel. Items with problems are pinned (they never rotate
+    away); the rest rotate one page per `tick` (the board refreshes every 30 s, so no JavaScript).
+    Returns (shown in their original order, {"bad", "none", "good"} counts of what's hidden right now,
+    rotation {"page", "pages", "shown", "total"} or None when everything fits)."""
     hidden = {"bad": 0, "none": 0, "good": 0}
     if len(items) <= cap:
-        return items, hidden
-    rank = {"bad": 0, "none": 1, "good": 2}
-    room = cap - 1                     # one line says what was left out
-    keep = set(map(id, sorted(items, key=lambda i: rank.get(state(i), 2))[:room]))
+        return items, hidden, None
+    room = cap - 1                     # one line says what's going on
+    pinned = [i for i in items if state(i) == "bad"][:room]
+    pinned_ids = set(map(id, pinned))
+    rest = [i for i in items if id(i) not in pinned_ids]
+    slots = room - len(pinned)
+    page, pages, window = 0, 1, []
+    if slots > 0 and rest:
+        pages = -(-len(rest) // slots)
+        page = tick % pages
+        # the last page wraps to the first items, so the panel keeps the same number of rows
+        window = [rest[(page * slots + k) % len(rest)] for k in range(min(slots, len(rest)))]
+    keep = pinned_ids | set(map(id, window))
     for i in items:
         if id(i) not in keep:
             hidden[state(i) if state(i) in hidden else "good"] += 1
-    return [i for i in items if id(i) in keep], hidden
+    shown = [i for i in items if id(i) in keep]
+    return shown, hidden, {"page": page + 1, "pages": pages, "shown": len(shown), "total": len(items)}
 
 
 @dataclass
@@ -463,13 +474,18 @@ class Conn:
 BOARD_POINTS, BOARD_CONNS, BOARD_RECENT = 6, 5, 5
 
 
-def board(d: Dashboard) -> dict:
-    """What each fixed-size panel of the TV board shows; nothing can push the 24 h timeline out."""
+def board(d: Dashboard, now: float | None = None) -> dict:
+    """What each fixed-size panel of the TV board shows; nothing can push the 24 h timeline out.
+    Long lists rotate on every refresh; whatever is failing is pinned and also named in the header."""
+    tick = int((now or time.time()) // 30)
     conns = [Conn("service", c.name, "", c.ms, c.state, c.since,
                   "good" if c.state == "up" else "bad" if c.state == "down" else "none") for c in d.services]
     conns += [Conn("tunnel", c.name, c.type, None, c.state, c.since,
                    "good" if c.state == "up" else "bad" if c.state == "down" else "none") for c in d.tunnels]
-    points, p_hidden = fit(d.points, BOARD_POINTS, state=lambda p: "good" if p.status == "ok" else "bad")
-    shown, c_hidden = fit(conns, BOARD_CONNS, state=lambda c: c.st)
-    return {"points": points, "points_hidden": p_hidden, "conns": shown, "conns_hidden": c_hidden,
+    points, p_hidden, p_rot = fit(d.points, BOARD_POINTS, state=lambda p: "good" if p.status == "ok" else "bad", tick=tick)
+    shown, c_hidden, c_rot = fit(conns, BOARD_CONNS, state=lambda c: c.st, tick=tick)
+    return {"points": points, "points_hidden": p_hidden, "points_rot": p_rot,
+            "conns": shown, "conns_hidden": c_hidden, "conns_rot": c_rot,
+            "alarms": [c for c in conns if c.st == "bad"],
+            "points_alarm": any(p.status == "bad" for p in d.points),
             "recent": d.recent[:BOARD_RECENT]}
