@@ -308,6 +308,37 @@ table.kv .badge { margin-left: 8px; }
 .demo-switch a:hover { text-decoration: none; box-shadow: inset 0 0 0 1px var(--accent); }
 .demo-switch a[aria-current] { background: var(--accent); color: var(--accent-ink); box-shadow: none; }
 
+/* ---------- users and invitations */
+table.users td { vertical-align: middle; }
+.inline-actions { display: inline-flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin: 0; }
+.invite-box p + p { margin-top: 8px; }
+.invite-box .token { color: var(--ink); }
+
+/* ---------- TV mode: always dark, large type, nothing to click */
+html.tv { --bg: #0f121a; --side: #12161f; --surface: #161b26; --raised: #1e2432; --line: #262e3f; --line-2: #353e54;
+          --ink: #e8ecf4; --ink-2: #aab3c5; --ink-3: #8a93a6; --accent: #9b8cff; --accent-ink: #15112e; --series: #3987e5;
+          --other: #8a94a8; --track: #222a3a; color-scheme: dark; }
+.tv-page { min-height: 100vh; }
+.tv-main { --blame: var(--other); max-width: 1500px; margin: 0 auto; padding: 4vh 5vw; }
+.tv-main.g-you { --blame: var(--you); } .tv-main.g-isp { --blame: var(--isp); } .tv-main.g-good { --blame: var(--good); }
+.tv-top { display: flex; justify-content: space-between; align-items: center; color: var(--ink-2); font-size: 1.4rem; }
+.tv-brand { display: inline-flex; gap: 14px; align-items: center; font-weight: 600; color: var(--ink); }
+.tv-stamp { display: inline-flex; gap: 10px; align-items: center; }
+.tv-headline { font-size: clamp(3rem, 7vw, 7rem); line-height: 1.02; letter-spacing: -.03em; margin: 6vh 0 2vh; }
+.tv-sub { font-size: clamp(1.2rem, 2vw, 2rem); color: var(--ink-2); max-width: 60ch; }
+.tv-path { margin-top: 7vh; }
+.tv-path .hop-name { font-size: clamp(1.3rem, 2vw, 2.2rem); }
+.tv-path .hop-id { font-size: clamp(1rem, 1.4vw, 1.5rem); }
+.tv-path .hop-val, .tv-path .hop-val b { font-size: clamp(1.2rem, 1.8vw, 2rem); }
+.tv-path .node { width: 30px; height: 30px; }
+.tv-path .hop { padding-top: 48px; }
+.tv-path .hop::before, .tv-path .hop::after { top: 14px; height: 3px; }
+.tv-path .here { font-size: clamp(1rem, 1.3vw, 1.4rem); }
+.tv-facts { margin-top: 7vh; display: grid; gap: 1.6vh; font-size: clamp(1.2rem, 1.8vw, 2rem); color: var(--ink-2); }
+.tv-facts .mos-dot { display: inline-block; margin-right: 14px; vertical-align: .1em; width: 16px; height: 16px; border-radius: 50%; background: var(--good); }
+.tv-facts .mos-dot.b-fair { background: var(--you); } .tv-facts .mos-dot.b-poor, .tv-facts .mos-dot.b-bad { background: var(--isp); }
+.tv-alert { color: var(--ink); font-weight: 500; }
+
 /* ---------- link meters */
 .meters { display: grid; gap: 14px; }
 .meter { display: grid; grid-template-columns: 92px 7.5rem minmax(60px, 1fr) 11rem; align-items: center; gap: 4px 16px; }

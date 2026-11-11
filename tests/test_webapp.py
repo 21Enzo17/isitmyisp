@@ -435,3 +435,89 @@ class Brand(WebAppBase):
         self.assertIn("manifest-src 'self'", page.headers["Content-Security-Policy"])
         self.create_admin()
         self.assertIn('rel="manifest"', self.client.get("/").get_data(as_text=True))
+
+
+@unittest.skipUnless(HAVE_WEB, "web extra not installed")
+class RolesAndTV(WebAppBase):
+    def invite_link(self, username, role):
+        page = self.client.get("/settings").get_data(as_text=True)
+        html = self.client.post("/settings/users/invite", data={"csrf_token": csrf(page), "username": username,
+                                                               "role": role}).get_data(as_text=True)
+        m = re.search(r"(/invite/[A-Za-z0-9_\-]+)", html)
+        self.assertIsNotNone(m, "no invitation link shown")
+        return m.group(1)
+
+    def accept(self, client, link, password=PASSWORD):
+        page = client.get(link).get_data(as_text=True)
+        return client.post(link, data={"csrf_token": csrf(page), "password": password, "confirm": password})
+
+    def viewer_client(self):
+        self.create_admin()
+        link = self.invite_link("duena", "viewer")
+        viewer = self.app.test_client()
+        self.assertEqual(self.accept(viewer, link).status_code, 302)
+        self.assertEqual(self.app.test_client().get(link).status_code, 404)        # one use only
+        return viewer
+
+    def test_a_viewer_reaches_no_write_route_at_all(self):
+        from isitmyisp.webapp import VIEWER_WRITES
+        viewer = self.viewer_client()
+        self.app.config["WTF_CSRF_ENABLED"] = False        # prove the role gate itself refuses, not the CSRF check
+        posts = sorted({(r.rule, r.endpoint) for r in self.app.url_map.iter_rules() if "POST" in r.methods})
+        self.assertGreater(len(posts), 15)
+        for rule, endpoint in posts:
+            if endpoint in VIEWER_WRITES or endpoint in ("login", "setup", "invite"):
+                continue
+            url = re.sub(r"<[^>]+>", "1", rule)
+            self.assertEqual(viewer.post(url, data={"action": "rotate"}).status_code, 403, rule)
+        html = viewer.get("/settings").get_data(as_text=True)
+        for hidden in ('id="users"', 'id="tv"', "metrics_token"):
+            self.assertNotIn(hidden, html)
+        self.assertIn("Viewer", viewer.get("/?lang=en").get_data(as_text=True))
+
+    def test_viewer_can_change_their_own_password(self):
+        viewer = self.viewer_client()
+        page = viewer.get("/settings").get_data(as_text=True)
+        r = viewer.post("/settings/password", data={"csrf_token": csrf(page), "password": PASSWORD,
+                                                    "new_password": "another long pw 1", "confirm": "another long pw 1"})
+        self.assertEqual(r.status_code, 302)
+
+    def test_disabling_logs_out_and_the_last_admin_is_protected(self):
+        viewer = self.viewer_client()
+        uid = next(u["id"] for u in self.store.list_users() if u["username"] == "duena")
+        admin_id = next(u["id"] for u in self.store.list_users() if u["username"] == "admin")
+        page = self.client.get("/settings").get_data(as_text=True)
+        self.client.post(f"/settings/users/{uid}", data={"csrf_token": csrf(page), "action": "disable"})
+        self.assertEqual(viewer.get("/").status_code, 302)                      # its session is gone
+        for action in ("disable", "viewer"):                                     # not on yourself / the last admin
+            r = self.client.post(f"/settings/users/{admin_id}", data={"csrf_token": csrf(page), "action": action})
+            self.assertEqual(r.status_code, 400)
+        self.assertEqual(self.store.active_admins(), 1)
+
+    def test_password_reset_link_for_an_existing_user(self):
+        self.viewer_client()
+        uid = next(u["id"] for u in self.store.list_users() if u["username"] == "duena")
+        page = self.client.get("/settings").get_data(as_text=True)
+        html = self.client.post(f"/settings/users/{uid}", data={"csrf_token": csrf(page), "action": "reset"}).get_data(as_text=True)
+        link = re.search(r"(/invite/[A-Za-z0-9_\-]+)", html).group(1)
+        fresh = self.app.test_client()
+        self.assertEqual(self.accept(fresh, link, "brand new password").status_code, 302)
+        self.assertEqual(self.store.user_info(uid)["role"], "viewer")            # a reset keeps the role
+
+    def test_tv_mode_token(self):
+        self.create_admin()
+        self.assertEqual(self.app.test_client().get("/tv/anything").status_code, 404)   # off by default
+        page = self.client.get("/settings").get_data(as_text=True)
+        self.client.post("/settings/tv", data={"csrf_token": csrf(page), "action": "rotate"})
+        token = self.store.get_setting("tv_token")
+        anon = self.app.test_client()
+        r = anon.get(f"/tv/{token}?lang=en")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.headers["Referrer-Policy"], "no-referrer")
+        html = r.get_data(as_text=True)
+        self.assertIn("Internet is working", html)
+        self.assertNotIn('class="nav"', html)                                  # no navigation, nothing to click
+        self.assertEqual(anon.get(f"/tv/{token}x").status_code, 404)
+        self.client.post("/settings/tv", data={"csrf_token": csrf(page), "action": "revoke"})
+        self.assertEqual(anon.get(f"/tv/{token}").status_code, 404)
+        self.assertEqual(anon.get("/").status_code, 302)                       # the TV link opens nothing else

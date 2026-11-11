@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="{{ lang }}" class="tv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="refresh" content="30">
+  <title>{{ t.headline.get(d.code, d.code) if d.has_data else t.headline.no_data }} · isitmyisp</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="tv-page">
+{% macro num(v, fmt='%.1f') %}{{ fmt|format(v) if v is not none else '—' }}{% endmacro %}
+<main class="tv-main g-{{ 'other' if d.failover and d.code == 'ok' else d.group }}">
+  <header class="tv-top">
+    <span class="tv-brand"><img src="{{ url_for('static', filename='favicon.svg') }}" alt="" width="40" height="40">isitmyisp</span>
+    <span class="tv-stamp">{% if d.has_data %}<span class="live{{ ' stale' if d.code == 'stale' }}" aria-hidden="true"></span>{{ t.min_ago.format(ago=d.updated_ago) }}{% endif %}</span>
+  </header>
+  <h1 class="tv-headline">{% if not d.has_data %}{{ t.headline.no_data }}{% elif d.failover and d.code == 'ok' %}{{ t.headline_backup }}{% else %}{{ t.headline.get(d.code, d.code) }}{% endif %}</h1>
+  <p class="tv-sub">{% if d.failover and d.code == 'ok' %}{{ t.sub_backup }}{% else %}{{ t.verdict_sub.get(d.code, '') }}{% endif %}</p>
+  {% if d.has_data %}
+  <ol class="path tv-path" aria-label="{{ t.hop.home }}, {{ t.hop.isp }}, {{ t.hop.internet }}">
+    {% for h in d.path %}
+    <li class="hop s-{{ h.state }}{{ ' blamed' if h.blamed }}">
+      <span class="node" aria-hidden="true"></span>
+      <span class="hop-name">{{ t.hop[h.key] }}</span>
+      <span class="hop-id">{% if h.key == 'internet' %}{{ t.hop_dest.format(n=h.name) }}{% else %}{{ h.name }}{% endif %}</span>
+      <span class="hop-val"><b>{{ num(h.median) }}</b> ms <span class="sep" aria-hidden="true">/</span> <b>{{ num(h.loss) }}</b>%</span>
+      {% if h.blamed %}<span class="here">{{ t.hop_here }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  <div class="tv-facts">
+    {% if d.calls and d.calls.now %}<p><span class="mos-dot b-{{ d.calls.now.band }}" aria-hidden="true"></span>{{ t.calls_now[d.calls.now.band] }}</p>{% endif %}
+    <p>{% if not d.day.n %}{{ t.day_none }}{% else %}{{ t.day_some.format(n=d.day.n, inc=t.day_inc[0 if d.day.n == 1 else 1], dur=d.day.dur) }}
+      {% for g in ('isp', 'you', 'other') if d.day.by.get(g) %}{{ t.day_by[g].format(k=d.day.by[g]) }}{{ ', ' if not loop.last else '.' }}{% endfor %}{% endif %}</p>
+    {% set down = d.services|selectattr('state', 'equalto', 'down')|list %}
+    {% if down %}<p class="tv-alert">{{ t.tv_services_down.format(names=down|map(attribute='name')|join(', ')) }}</p>{% endif %}
+  </div>
+  {% endif %}
+</main>
+</body>
+</html>

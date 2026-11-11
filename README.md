@@ -159,7 +159,8 @@ Authentication is built on audited libraries, not hand-rolled crypto:
 | **Server** | Waitress (production WSGI), untrusted `X-Forwarded-*` headers stripped |
 
 Three authentication modes, chosen in Settings → Access:
-- **local** (default): accounts with passwords.
+- **local** (default): accounts with passwords, each one an **admin** (changes settings, users and alerts) or a **viewer** (sees the dashboard, incidents and reports, changes nothing but their own password). Admins invite people and reset passwords with one-time links that expire in 48 hours, and can disable an account, which ends its open sessions at once. The role is enforced for every request, not route by route.
+- **TV mode:** a read-only wall screen for the office (large type, refreshes by itself, no menus, no login) behind a revocable link from Settings.
 - **proxy**: trust a user header (`Remote-User`) from **Authelia, Authentik, oauth2-proxy or Tailscale**, only from the proxy addresses you list. You get SSO, 2FA and passkeys from your proxy. The UI refuses to switch to this mode unless your current request really comes through the proxy, so you can't lock yourself out.
 - **none**: only allowed while the UI listens on localhost, and settings become read-only.
 

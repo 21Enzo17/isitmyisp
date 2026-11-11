@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="{{ lang }}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ t.invite_title }} · isitmyisp</title><link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml"><link rel="icon" href="{{ url_for('static', filename='favicon-32.png') }}" sizes="32x32" type="image/png"><link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}"><link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}"><meta name="theme-color" content="#0f121a"><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
+<body><div class="auth-wrap"><div class="auth">
+  <a class="brand" href="/"><img class="mark" src="{{ url_for('static', filename='favicon.svg') }}" alt="" width="32" height="32"><span>isitmyisp</span></a>
+  <div class="card"><h3>{{ t.invite_title if not inv.user_id else t.invite_reset_title }}</h3>
+    <p class="muted">{{ (t.invite_sub if not inv.user_id else t.invite_reset_sub).format(name=inv.username, role=t.roles[inv.role]) }}</p>
+    {% if error %}<div class="flash err">{{ error }}</div>{% endif %}
+    <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="u">{{ t.username }}</label><input type="text" id="u" value="{{ inv.username }}" autocomplete="username" readonly>
+      <label for="p">{{ t.password }}</label><input type="password" id="p" name="password" autocomplete="new-password" minlength="10" required>
+      <label for="c">{{ t.confirm }}</label><input type="password" id="c" name="confirm" autocomplete="new-password" minlength="10" required>
+      <div class="actions"><button class="btn primary" type="submit">{{ t.invite_save }}</button></div>
+    </form></div>
+</div></div></body></html>

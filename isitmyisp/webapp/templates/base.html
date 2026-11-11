@@ -44,7 +44,7 @@
       {% endfor %}
     </nav>
     <div class="foot">
-      {% if user %}<span class="who">{{ user.username }}</span>{% endif %}
+      {% if user %}<span class="who">{{ user.username }}{% if user.role == 'viewer' %} <span class="badge muted">{{ t.roles.viewer }}</span>{% endif %}</span>{% endif %}
       {% if user and user.source == 'local' %}
       <form class="inline" method="post" action="{{ url_for('logout') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

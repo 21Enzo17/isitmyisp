@@ -89,7 +89,18 @@ CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,   -- argon2id
-    created REAL NOT NULL
+    created REAL NOT NULL,
+    role TEXT NOT NULL DEFAULT 'admin',      -- admin | viewer
+    disabled INTEGER NOT NULL DEFAULT 0
+);
+
+-- one-time links to join (new user) or to set a new password (existing user); only the hash is kept
+CREATE TABLE IF NOT EXISTS invites (
+    token_hash TEXT PRIMARY KEY,
+    username TEXT NOT NULL,
+    role TEXT NOT NULL,
+    user_id INTEGER,               -- set: password reset for this user; NULL: a new account
+    expires REAL NOT NULL
 );
 """
 
@@ -156,6 +167,11 @@ class Store:
                     self.db.execute(f"ALTER TABLE incidents ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0")
             if "details" not in icols:
                 self.db.execute("ALTER TABLE incidents ADD COLUMN details TEXT")
+            ucols = {r[1] for r in self.db.execute("PRAGMA table_info(users)")}
+            if "role" not in ucols:  # databases created before roles: everyone stays an admin
+                self.db.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'admin'")
+            if "disabled" not in ucols:
+                self.db.execute("ALTER TABLE users ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0")
 
     # ------------------------------------------------------------ writes
 
@@ -403,12 +419,62 @@ class Store:
         with self._lock:
             return self.db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
 
-    def add_user(self, username: str, password_hash: str) -> int:
+    def add_user(self, username: str, password_hash: str, role: str = "admin") -> int:
         with self._lock:
-            cur = self.db.execute("INSERT INTO users (username, password_hash, created) VALUES (?,?,?)",
-                                  (username, password_hash, time.time()))
+            cur = self.db.execute("INSERT INTO users (username, password_hash, created, role) VALUES (?,?,?,?)",
+                                  (username, password_hash, time.time(), role))
             self.db.commit()
             return int(cur.lastrowid)
+
+    def user_info(self, user_id: int) -> dict | None:
+        with self._lock:
+            r = self.db.execute("SELECT id, username, role, disabled, created FROM users WHERE id = ?",
+                                (user_id,)).fetchone()
+        return {"id": r[0], "username": r[1], "role": r[2], "disabled": bool(r[3]), "created": r[4]} if r else None
+
+    def list_users(self) -> list[dict]:
+        with self._lock:
+            rows = self.db.execute("SELECT id, username, role, disabled, created FROM users ORDER BY id").fetchall()
+        return [{"id": r[0], "username": r[1], "role": r[2], "disabled": bool(r[3]), "created": r[4]} for r in rows]
+
+    def set_user(self, user_id: int, *, role: str | None = None, disabled: bool | None = None) -> None:
+        with self._lock:
+            if role is not None:
+                self.db.execute("UPDATE users SET role = ? WHERE id = ?", (role, user_id))
+            if disabled is not None:
+                self.db.execute("UPDATE users SET disabled = ? WHERE id = ?", (int(disabled), user_id))
+            self.db.commit()
+
+    def active_admins(self) -> int:
+        with self._lock:
+            return self.db.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND disabled = 0").fetchone()[0]
+
+    def add_invite(self, token_hash: str, username: str, role: str, expires: float,
+                   user_id: int | None = None) -> None:
+        with self._lock:
+            self.db.execute("DELETE FROM invites WHERE username = ? OR expires < ?", (username, time.time()))
+            self.db.execute("INSERT INTO invites (token_hash, username, role, user_id, expires) VALUES (?,?,?,?,?)",
+                            (token_hash, username, role, user_id, expires))
+            self.db.commit()
+
+    def get_invite(self, token_hash: str) -> dict | None:
+        with self._lock:
+            r = self.db.execute("SELECT username, role, user_id, expires FROM invites WHERE token_hash = ?",
+                                (token_hash,)).fetchone()
+        if not r or r[3] < time.time():
+            return None
+        return {"username": r[0], "role": r[1], "user_id": r[2], "expires": r[3]}
+
+    def delete_invite(self, token_hash: str) -> None:
+        with self._lock:
+            self.db.execute("DELETE FROM invites WHERE token_hash = ?", (token_hash,))
+            self.db.commit()
+
+    def pending_invites(self) -> list[dict]:
+        with self._lock:
+            rows = self.db.execute("SELECT username, role, user_id, expires FROM invites WHERE expires >= ? "
+                                   "ORDER BY expires", (time.time(),)).fetchall()
+        return [{"username": r[0], "role": r[1], "user_id": r[2], "expires": r[3]} for r in rows]
 
     def get_user(self, *, user_id: int | None = None, username: str | None = None) -> tuple | None:
         q, arg = ("id = ?", user_id) if user_id is not None else ("username = ?", username)
