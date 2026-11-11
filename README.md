@@ -23,7 +23,8 @@
 </p>
 
 <p align="center">
-  <a href="#try-it-in-a-minute">Try the demo</a> ·
+  <a href="https://isitmyisp.enzo-meneghini.com"><b>Live demo</b></a> ·
+  <a href="#try-it-in-a-minute">Run the demo</a> ·
   <a href="#quick-start-docker-recommended">Quick start</a> ·
   <a href="#what-it-answers">What it answers</a> ·
   <a href="#privacy-every-external-connection-listed">Privacy</a> ·
@@ -36,7 +37,9 @@
 > 🚧 Early development: monitoring, incidents, the evidence report (HTML/PDF), the dashboard, alerts, failover, call quality and the speed test all work. Not yet battle-tested on many networks. Screenshots use synthetic data.
 
 ## Try it in a minute
-The whole UI on a synthetic day, live and read-only: no network access, no root, nothing measured, nothing stored.
+**Online:** [isitmyisp.enzo-meneghini.com](https://isitmyisp.enzo-meneghini.com) (Spanish; [English](https://isitmyisp.enzo-meneghini.com/en/isp/)). Switch between "your ISP is failing", "on the backup link", "problem on your side" and "all fine" from the banner. It's synthetic data, regenerated on every deploy.
+
+**On your machine:** the whole UI on a synthetic day, live and read-only: no network access, no root, nothing measured, nothing stored.
 ```bash
 docker build -t isitmyisp .
 docker run --rm -p 127.0.0.1:8090:8080 isitmyisp --lang en demo --scenario isp --bind 0.0.0.0:8080
