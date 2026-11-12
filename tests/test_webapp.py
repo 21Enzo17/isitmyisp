@@ -824,6 +824,95 @@ class LocalDevicesWeb(WebAppBase):
 
 
 @unittest.skipUnless(HAVE_WEB, "web extra not installed")
+class EnlargedChart(WebAppBase):
+    """/chart: the 24-hour chart at any zoom, with plain links (no JavaScript)."""
+
+    def setUp(self):
+        super().setUp()
+        import time as _t
+
+        from isitmyisp.probes.icmp import WindowStats
+        self.create_admin()
+        self.now = now = _t.time()
+        for k in range(240):                                    # two hours of 30 s windows
+            ts = now - 7200 + 30 * (k + 1)
+            spike = k == 200                                   # one window with 40 % loss
+            self.store.add_window_verdict("isp" if spike else "ok", 30, ts=ts)
+            for a in ("1.1.1.1", "8.8.8.8"):
+                self.store.add_window("anchor", WindowStats(a, 15, 9 if spike else 15, 30, 30, 30, 0.5, 30), ts=ts)
+
+    def test_dashboard_links_and_the_peak_in_the_tooltip(self):
+        html = self.client.get("/?lang=en").get_data(as_text=True)
+        self.assertIn('href="/chart?span=24h"', html)                          # "Enlarge" and the strip
+        self.assertIn('class="kpi-strip strip"', html)
+        self.assertIn("peak 40.0%", html)              # the mean of a 15-minute column hides the spike
+
+    def test_one_hour_shows_every_window_with_seconds(self):
+        html = self.client.get("/chart?span=1h&lang=en").get_data(as_text=True)
+        self.assertIn("Last hour", html)                                            # the picker's label
+        self.assertEqual(html.count('<tr class="bad-row">'), 1)                 # the spike, alone
+        self.assertIn("40.0%", html)
+        self.assertRegex(html, r'<td class="num-l">\d\d:\d\d:\d\d–')       # 30 s columns: seconds
+        self.assertIn('href="/chart?span=1h&amp;k=1"', html)                    # an earlier hour exists
+        self.assertIn('href="/chart?span=15m&amp;k=', html)                     # and 15 minutes, closer
+
+    def test_zoom_links_land_on_the_view_that_contains_the_column(self):
+        html = self.client.get("/chart?span=24h&lang=en").get_data(as_text=True)
+        self.assertIn('href="/chart?span=12h&amp;k=0"', html)                   # click a column: 12 h
+        self.assertNotIn("span=12h&amp;k=1", html)             # no data 12 h back: no link that way
+        self.assertIn('href="/chart?span=2d&amp;k=0"', html)                    # zoom out
+        self.assertIn('aria-disabled="true">←</span>', html)                    # before the first window
+
+    def test_a_from_to_range(self):
+        a, b = int(self.now - 1800), int(self.now - 600)
+        r = self.client.get(f"/chart?from={a}&to={b}&lang=en")
+        html = r.get_data(as_text=True)
+        self.assertIn("40.0%", html)                                             # the spike is in there
+        self.assertIn(f'href="/chart?from={a - 1200}&amp;to={a}"', html)         # earlier: same length
+        self.assertIn(f'href="/chart?from={b}&amp;to={b + 1200}"', html)         # later
+        self.assertIn(f'href="/chart?from={a + 300}&amp;to={b - 300}"', html)    # zoom in: the middle half
+        self.assertIn('>Now</a>', html)
+        self.assertIn("script-src 'self'", r.headers["Content-Security-Policy"])  # drag-to-zoom
+        self.assertIn('src="/static/chart.js', html)
+        # the form's datetime-local values work too, and a tiny or reversed range is widened
+        import time as _t
+        local = lambda ts: _t.strftime("%Y-%m-%dT%H:%M", _t.localtime(ts))
+        form = self.client.get(f"/chart?from={local(b)}&to={local(a)}&lang=en").get_data(as_text=True)
+        self.assertIn(f'value="{local(a)}"', form)
+        tiny = self.client.get(f"/chart?from={a}&to={a + 5}&lang=en").get_data(as_text=True)
+        self.assertIn("Each column: 30 s", tiny)                                 # widened to 5 minutes
+
+    def test_range_picker_on_the_dashboard_and_no_script_elsewhere(self):
+        r = self.client.get("/?lang=en")
+        dash = r.get_data(as_text=True)
+        self.assertNotIn("script-src", r.headers["Content-Security-Policy"])      # no script on the dashboard
+        self.assertNotIn("<script", dash)
+        self.assertIn('<details class="range-menu">', dash)
+        for span in ("15m", "3h", "7d", "30d"):
+            self.assertIn(f'href="/chart?span={span}"', dash)
+        self.assertIn('type="datetime-local" id="rp-fromd" name="from"', dash)
+        self.assertIn('type="datetime-local" id="rp-tod" name="to"', dash)
+
+    def test_bad_parameters_fall_back(self):
+        for q in ("span=nope&k=x", "span=6h&k=-4", "k=99999", "from=garbage&to=x", "from=0&to=99999999999",
+                  "from=2020-01-01T00:00&to=2020-01-02T00:00", "who=%3Cscript%3E"):
+            r = self.client.get(f"/chart?{q}")
+            self.assertEqual(r.status_code, 200)
+            self.assertNotIn("<script>", r.get_data(as_text=True))           # nothing injected
+
+    def test_one_destination(self):
+        html = self.client.get("/?lang=en").get_data(as_text=True)
+        self.assertIn('href="/chart?span=24h&amp;who=1.1.1.1"', html)                # each row is a link
+        html = self.client.get("/chart?span=1h&who=8.8.8.8&lang=en").get_data(as_text=True)
+        self.assertIn("Internet <span class=\"h1-sub\">8.8.8.8</span>", html)
+        self.assertIn("this destination only", html)
+        self.assertIn('href="/chart?span=1h&amp;k=1&amp;who=8.8.8.8"', html)          # moving keeps it
+        self.assertIn("40.0%", html)
+        unknown = self.client.get("/chart?who=10.9.9.9&lang=en").get_data(as_text=True)
+        self.assertIn("<h1>Connection over time</h1>", unknown)                       # not measured: all
+
+
+@unittest.skipUnless(HAVE_WEB, "web extra not installed")
 class IntermittentOnDashboard(WebAppBase):
     def test_an_intermittent_incident_says_so_with_its_drops(self):
         import time as _t

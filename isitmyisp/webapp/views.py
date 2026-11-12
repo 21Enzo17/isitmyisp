@@ -398,14 +398,10 @@ def kpis(store: Store, windows, series, start: float, now: float) -> dict:
     ongoing = any(i.closed is None for i in incs)
     last_end = max((i.closed for i in incs if i.closed is not None), default=None)
     first = store.first_and_last_window()[0] or start
-    healthy_s, acc = 0.0, []
-    for w in sorted(windows):                    # healthy hours piling up over the day
-        if w[2] == "ok":
-            healthy_s += w[1]
-        acc.append((w[0], healthy_s / 3600))
+    # the last 24 h as a strip: green while fine, the colour of whoever was at fault in each outage
     out["uptime"] = {"ongoing": ongoing, "since": None if ongoing else (last_end or first),
                      "value": None if ongoing else fmt_duration(now - (last_end or first)),
-                     "spark": charts.plot(acc[::10], start, now, unit=" h", floor=1)}
+                     "strip": charts.strip_runs(sorted(windows), start, now)}
     # latency: median to the internet destinations, now vs the day before
     lats = [v for _, _, v in series if v is not None]
     lat = statistics.median(lats) if lats else None
@@ -574,3 +570,142 @@ def board(d: Dashboard, now: float | None = None) -> dict:
             "alarms": [c for c in conns if c.st == "bad"],
             "points_alarm": any(p.status == "bad" for p in d.points),
             "recent": d.recent[:BOARD_RECENT]}
+
+
+# ------------------------------------------------------------------ the chart, enlarged, with zoom
+
+# Quick ranges ("the last …"), and how many columns each one gets. Up to 90 minutes a column is one
+# 30 s window: exact values. Any other stretch is a from/to range (picked, or dragged on the chart).
+SPANS = {"15m": (900, 30), "1h": (3600, 120), "3h": (3 * 3600, 180), "6h": (6 * 3600, 144),
+         "12h": (12 * 3600, 144), "24h": (86400, 144), "2d": (2 * 86400, 144), "7d": (7 * 86400, 168),
+         "30d": (30 * 86400, 180)}
+SPAN_ORDER = list(SPANS)
+MIN_RANGE = 300                 # five minutes: ten windows
+MAX_RANGE = 35 * 86400          # what's kept of the per-target samples
+WHO_ROLES = {"home": "home", "isp": "isp", "anchor": "internet", "voip": "voip"}
+
+
+@dataclass
+class ChartView:
+    span: str | None            # the quick range, or None for a from/to range
+    k: int                      # quick ranges: how many spans back from now (0 is the latest)
+    start: float
+    end: float
+    timeline: charts.Timeline | None
+    zoom_in: list[dict | None]  # per column: the params of the closer view centred on it
+    nav: dict                   # older / newer / zoom_in / zoom_out params (None when not possible)
+    rows: list[charts.Bucket]   # the table: every column with data
+    spans: list[str]            # the quick ranges offered
+    who: str | None = None      # one destination (its address, or "dns"), or None for the internet as a whole
+    who_kind: str | None = None  # home | isp | internet | voip | dns
+    first: float | None = None  # first measured window (the range picker's bounds)
+    now: float = 0.0
+    custom: bool = False        # a from/to range rather than "the last …"
+
+
+def parse_when(value) -> float | None:
+    """A from/to value: epoch seconds (links, the drag script) or a datetime-local field (the form)."""
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        pass
+    for fmt in ("%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+        try:
+            return time.mktime(time.strptime(str(value), fmt))
+        except (ValueError, OverflowError):
+            continue
+    return None
+
+
+def chart_view(store: Store, settings: Settings, span: str = "24h", k: int = 0,
+               now: float | None = None, spans: list[str] | None = None, who: str | None = None,
+               frm: float | None = None, to: float | None = None) -> ChartView:
+    """Any stretch of the 24-hour chart, at any zoom, for the internet as a whole or one destination.
+
+    Two kinds of view, both plain links (the page works with no JavaScript; dragging is a bonus):
+    - "the last …" (`span`, `k`): a grid counted back from the last window, end = now - k * span,
+      which the static demo can render as files;
+    - a from/to range: anything you pick or drag, from five minutes to 35 days."""
+    spans = spans or SPAN_ORDER
+    last = store.last_window()
+    now = last[0] if last else (now or time.time())
+    first = store.first_and_last_window()[0]
+    custom = frm is not None and to is not None
+    if custom:
+        start, end = sorted((float(frm), float(to)))
+        end = min(end, now)
+        start = max(start, end - MAX_RANGE)
+        if end - start < MIN_RANGE:
+            mid = (start + end) / 2
+            start, end = mid - MIN_RANGE / 2, mid + MIN_RANGE / 2
+            if end > now:
+                start, end = now - MIN_RANGE, now
+        seconds = end - start
+        n = int(min(180, max(10, seconds // 30)))
+        span, k = None, 0
+    else:
+        span = span if span in spans else "24h" if "24h" in spans else spans[0]
+        seconds, n = SPANS[span]
+        k = max(0, int(k))
+        end = now - k * seconds
+        start = end - seconds
+
+    # whose line: the internet destinations together, or one of them (or every DNS server)
+    who_kind = None
+    if who == "dns":
+        who_kind = "dns"
+    elif who:
+        role = next((s["role"] for s in store.latest_samples() if s["target"] == who and s["role"] in WHO_ROLES), None)
+        who, who_kind = (who, WHO_ROLES[role]) if role else (None, None)
+
+    def samples(a: float, b: float) -> list[dict]:
+        if who == "dns":
+            return store.samples_between(a, b, role="dns")
+        if who:
+            return [r for r in store.samples_between(a, b) if r["target"] == who and r["role"] in WHO_ROLES]
+        return store.samples_between(a, b, role="anchor")
+
+    windows = store.windows_between(start, end)
+    tl = None
+    if windows:
+        series = _anchor_series(samples(start, end))
+        backup = [(i.opened, i.closed or now) for i in store.incidents_between(start, end, scope="failover")]
+        calls = call_summary(store, settings, start, end) if seconds <= 86400 and not who else None
+        tl = charts.timeline(windows, series, start, end, n=n, backup=backup,
+                             calls=calls["series"] if calls else None)
+
+    extra = {"who": who} if who else {}
+    mid = (start + end) / 2
+    has_older = first is not None and start > first
+    if custom:
+        def rng(a: float, b: float) -> dict:
+            return {"from": int(a), "to": int(b), **extra}
+        nav = {"older": rng(start - seconds, start) if has_older else None,
+               "newer": rng(end, end + seconds) if end < now - 1 else None,
+               "zoom_in": rng(mid - seconds / 4, mid + seconds / 4) if seconds > MIN_RANGE else None,
+               "zoom_out": rng(mid - seconds, mid + seconds) if seconds < MAX_RANGE else None}
+        zoom_in = [rng((b.start + b.end) / 2 - seconds / 8, (b.start + b.end) / 2 + seconds / 8)
+                   if seconds > MIN_RANGE and b.group != "none" else None for b in (tl.buckets if tl else [])]
+    else:
+        def at(level: str, ts: float) -> dict | None:
+            """The quick-range view of `level` that contains `ts`, if it has data."""
+            if level not in spans:
+                return None
+            size = SPANS[level][0]
+            kk = max(0, int((now - ts) // size))
+            if first is not None and now - kk * size <= first:
+                return None
+            return {"span": level, "k": kk, **extra}
+        i = spans.index(span)
+        closer = spans[i - 1] if i > 0 else None
+        wider = spans[i + 1] if i + 1 < len(spans) else None
+        nav = {"older": {"span": span, "k": k + 1, **extra} if has_older else None,
+               "newer": {"span": span, "k": k - 1, **extra} if k > 0 else None,
+               "zoom_in": at(closer, mid) if closer else None,
+               "zoom_out": at(wider, mid) if wider else None}
+        zoom_in = [at(closer, (b.start + b.end) / 2) if closer and b.group != "none" else None
+                   for b in (tl.buckets if tl else [])]
+    rows = [b for b in (tl.buckets if tl else []) if b.group != "none" or b.loss is not None]
+    return ChartView(span, k, start, end, tl, zoom_in, nav, rows, spans, who, who_kind, first, now, custom)

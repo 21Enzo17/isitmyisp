@@ -31,7 +31,7 @@ Colours always come with text or an icon, so they still read if you can't tell t
 On the left is the verdict in one sentence ("Your ISP's network is failing", "The internet is working"), with a large icon in the colour of whoever is responsible. Beside it are three figures, each with a small chart of the last 24 hours:
 
 - **Availability, 24 h:** how much of the measured time the connection worked. The arrow compares it with the 24 hours before.
-- **Without outages:** how long since the last problem with your connection. While one is going on, the card turns into **"Problem going on for"** and shows its duration in red.
+- **Without outages:** how long since the last problem with your connection. While one is going on, the card turns into **"Problem going on for"** and shows its duration in red. Underneath, a strip of the last 24 hours: green while fine, and the colour of whoever was at fault in each outage. Click it to see that day enlarged.
 - **Latency to the internet:** the median time the internet destinations take to answer. When it went down compared with the day before, the arrow is green.
 
 ## Last 24 hours
@@ -43,11 +43,23 @@ A timeline with several rows on the same time axis:
 - **Calls:** estimated call quality, if set up.
 - **Backup:** when the office was on the secondary link, if it happened.
 
-Hover to read the exact values at any moment. Below it there's a table view with the same data.
+Hover to read each moment: every column is 15 minutes, with the average loss and, when one window had a higher spike, the **peak**. Below it there's a table view with the same data.
+
+### Enlarge and zoom
+
+**Enlarge** (top right of the chart) opens it full size:
+
+- **Drag across the chart** to zoom into that stretch, like in Grafana. **Double-click** to zoom out.
+- **Pick the range** with the button at the top: quick ranges (from the last 15 minutes to the last 30 days) or an **exact range**, with a start and end date and time. The **Last 24 hours** button on the dashboard opens the same picker.
+- **← and →** move earlier and later by the same length; **Zoom in** and **Zoom out** change the zoom; **Now** goes back to the present.
+
+Up to an hour and a half, every column is one 30-second measurement window, with its exact loss. A drop of a few seconds stops being a thin line: the table below says when it was, how much was lost and how long each destination took to answer.
+
+It also works with no JavaScript: zooming and moving are links, and a click on a column zooms into it. The one script is the dragging, and all it does is build the link of the stretch you selected.
 
 ## Monitored destinations
 
-Every measured destination, with its current latency and a small chart of the last 6 hours: your router, the ISP's first hop, the internet destinations and your DNS servers. The coloured dot says how it's doing. When a destination loses packets, the percentage shows in red under its latency.
+Every measured destination, with its current latency and a small chart of the last 6 hours: your router, the ISP's first hop, the internet destinations and your DNS servers. The coloured dot says how it's doing. When a destination loses packets, the percentage shows in red under its latency. Click one to see its loss and latency enlarged, with the same zoom.
 
 ## Latest events
 

@@ -11,10 +11,10 @@ El panel tiene la configuración de tu red y la evidencia de tus incidentes, as�
 | **Cuentas** | Sesiones de Flask-Login, contraseñas con **Argon2id** y límite de intentos de inicio de sesión |
 | **Primer administrador** | Se crea con un token de un solo uso que aparece en el registro, así nadie en tu red puede adueñarse de la instancia antes que vos |
 | **CSRF** | Token en cada formulario y control de que el pedido venga del mismo origen |
-| **Encabezados** | CSP estricta (sin ningún script), `X-Frame-Options: DENY`, cookies `HttpOnly` y `SameSite` |
+| **Encabezados** | CSP estricta (sin código inline, y scripts solo en el gráfico ampliado), `X-Frame-Options: DENY`, cookies `HttpOnly` y `SameSite` |
 | **Servidor** | Waitress, un servidor WSGI de producción; ignora los `X-Forwarded-*` que no vienen de un proxy de confianza |
 
-El panel **no usa JavaScript**: ni siquiera los gráficos, cuyo hover es CSS puro. Así la política de seguridad puede prohibir todos los scripts.
+El panel funciona **sin JavaScript**: el hover de los gráficos es CSS puro, y el zoom y el paso del tiempo son links comunes. El único script es opcional, `/static/chart.js` en el gráfico ampliado, para arrastrar sobre él y hacer zoom como en Grafana; solo arma un link. En todas las demás páginas la política de seguridad prohíbe cualquier script, y en ninguna se permite código inline.
 
 ## Modos de acceso
 

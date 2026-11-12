@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ t.chart_title }}{% endblock %}
+{% block content %}
+{% macro num(v, fmt='%.1f') %}{{ fmt|format(v) if v is not none else '—' }}{% endmacro %}
+{% set extra = {'who': cv.who} if cv.who else {} %}
+<div class="topbar"><h1>{% if cv.who %}{{ t.point_label[cv.who_kind] }}{% if cv.who != 'dns' %} <span class="h1-sub">{{ cv.who }}</span>{% endif %}{% else %}{{ t.chart_title }}{% endif %}</h1>
+  <div class="right">
+    {% with spans=cv.spans, span=cv.span, custom=cv.custom, start=cv.start, end=cv.end, first=cv.first, now=cv.now, uid='c' %}{% include "_rangepick.html" %}{% endwith %}
+    <a class="btn quiet" href="{{ url_for('dashboard') }}">← {{ t.chart_back }}</a>{% include "_theme.html" %}</div></div>
+
+<section class="card chart big" aria-labelledby="ch-h">
+  <div class="card-head">
+    <h2 id="ch-h"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-bars"/></svg>{{ cv.start|dt }} → {{ cv.end|dt }}</h2>
+    <nav class="chart-nav" aria-label="zoom">
+      {% macro navlink(p, label, cls='') %}{% if p %}<a class="btn quiet {{ cls }}" href="{{ url_for('chart', **p) }}">{{ label }}</a>{% else %}<span class="btn quiet off" aria-disabled="true">{{ label }}</span>{% endif %}{% endmacro %}
+      {{ navlink(cv.nav.older, '←') }}
+      {{ navlink(cv.nav.zoom_in, '＋ ' ~ t.chart_zoom_in) }}
+      {{ navlink(cv.nav.zoom_out, '－ ' ~ t.chart_zoom_out, 'z-out') }}
+      {{ navlink(cv.nav.newer, '→') }}
+      {% if cv.k or cv.custom %}<a class="btn quiet" href="{{ url_for('chart', span=cv.span or '24h', **extra) }}">{{ t.chart_latest }}</a>{% endif %}
+    </nav>
+  </div>
+  {% if cv.timeline %}
+  {% set tl = cv.timeline %}{% set zoom = cv.zoom_in %}
+  {% if cv.timeline.groups %}<ul class="key chart-key" aria-label="{{ t.row_status }}">
+    {% for g in cv.timeline.groups %}<li><i class="sw g-{{ g }}" aria-hidden="true"></i>{{ t.group[g] }}</li>{% endfor %}
+  </ul>{% endif %}
+  <div class="zoomable" data-start="{{ cv.start|int }}" data-end="{{ cv.end|int }}" data-now="{{ cv.now|int }}"
+       data-first="{{ (cv.first or cv.start)|int }}" data-who="{{ cv.who or '' }}"
+       data-grid="{{ cv.spans|join(',') if demo_static else '' }}" data-base="{{ url_for('chart') }}">
+    {% include "_timeline.html" %}
+    <div class="drag-sel" hidden></div>
+  </div>
+  {% if cv.who %}<p class="muted small chart-hint">{{ t.chart_who_hint }}</p>{% endif %}
+  <p class="muted small chart-hint"><span class="js-only">{{ t.chart_drag_hint }} </span>{{ t.chart_hint }} {{ t.chart_col_win.format(dur=((cv.end - cv.start) / tl.buckets|length)|dur) }}.</p>
+  {% else %}<p class="muted">{{ t.chart_no_data }}</p>{% endif %}
+</section>
+
+{% if cv.rows %}
+<section class="card" aria-labelledby="ct-h">
+  <h3 id="ct-h">{{ t.chart_table }}</h3>
+  <div class="table-view open">
+  <table>
+    <thead><tr><th>{{ t.col_time }}</th><th>{{ t.row_status }}</th><th class="num">{{ t.col_avg_loss }}</th><th class="num">{{ t.col_peak_loss }}</th><th class="num">{{ t.col_latency }}</th>{% if cv.timeline.calls %}<th class="num">{{ t.col_calls }}</th>{% endif %}</tr></thead>
+    <tbody>{% for b in cv.rows %}<tr{% if b.group in ('isp', 'you') %} class="bad-row"{% endif %}><td class="num-l">{{ b.start|tm(b.end - b.start) }}–{{ b.end|tm(b.end - b.start) }}</td>
+      <td><i class="sw g-{{ b.group }}" aria-hidden="true"></i>{{ t.verdict.get(b.code, b.code) if b.group != 'none' else t.group.none }}</td>
+      <td class="num">{{ num(b.loss) }}%</td><td class="num">{{ num(b.loss_max) }}%</td><td class="num">{{ num(b.lat) }} ms</td>{% if cv.timeline.calls %}
+      <td class="num">{% if b.mos is not none %}{{ '%.1f'|format(b.mos) }}{% else %}—{% endif %}</td>{% endif %}</tr>{% endfor %}</tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+<script src="{{ url_for('static', filename='chart.js') }}?v={{ js_v }}" defer></script>
+{% endblock %}

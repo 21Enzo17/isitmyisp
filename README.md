@@ -17,7 +17,7 @@
   <a href="https://hub.docker.com/r/21enzo03/isitmyisp"><img alt="Docker: amd64 and arm64" src="https://img.shields.io/badge/docker-amd64%20%7C%20arm64-3987e5"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-2563eb"></a>
   <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-0ca30c">
-  <img alt="No JavaScript in the UI" src="https://img.shields.io/badge/UI-no%20JavaScript-0f192d">
+  <img alt="Works without JavaScript" src="https://img.shields.io/badge/works%20without-JavaScript-0f192d">
   <img alt="English and Spanish" src="https://img.shields.io/badge/i18n-EN%20%7C%20ES-0f192d">
 </p>
 
@@ -84,7 +84,7 @@ They work well together: Uptime Kuma for your services, isitmyisp for the connec
 - **Failover, calls and speed:** notices within about a minute when traffic moves to the backup link; an estimated call quality (ITU-T G.107 E-model, labelled as an estimate); an optional speed test against your plan, off by default, with a data budget.
 - **Tunnels:** did your IPsec/L2TP/WireGuard tunnel drop because of its configuration or because of the path? It measures outside and inside at once, and spots drops that repeat on a schedule (mismatched rekey timers).
 - **Alerts and reports:** Telegram, email or webhook, only for problems that last, each saying whose fault it is and what to do; held while you're closed if you want, with one summary at opening time. The evidence report in HTML or PDF, on demand or monthly by email.
-- **Multi-user and safe on your LAN:** admins and viewers, Argon2id passwords, CSRF protection, a strict CSP with no scripts at all, or single sign-on through Authelia, Authentik, oauth2-proxy or Tailscale. Prometheus `/metrics` and a JSON API.
+- **Multi-user and safe on your LAN:** admins and viewers, Argon2id passwords, CSRF protection, a strict CSP (no inline code; the only script is the chart's optional drag-to-zoom), or single sign-on through Authelia, Authentik, oauth2-proxy or Tailscale. Prometheus `/metrics` and a JSON API.
 
 <img src="docs/screenshots/report.png" alt="The evidence report: summary for you, timeline, where the problems were, incidents" width="70%">
 

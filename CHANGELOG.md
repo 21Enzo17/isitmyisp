@@ -3,6 +3,27 @@
 Versions follow [semantic versioning](https://semver.org). Each release has a Docker image
 (`21enzo03/isitmyisp:<version>` on Docker Hub, amd64 and arm64) and a git tag `v<version>`.
 
+## [0.3.0] - 2026-11-12
+
+### Added
+- **The chart, enlarged** (`/chart`, "Enlarge" on the dashboard): drag across it to zoom into that
+  stretch and double-click to zoom out, like in Grafana; a range picker with quick ranges (the last
+  15 minutes to the last 30 days) and an exact from/to; earlier, later, zoom in and out. Up to 90
+  minutes every column is one 30-second window with its exact loss, and a table lists them. The
+  dashboard's "Last 24 hours" button opens the same picker.
+- **Each monitored destination** (your router, the ISP's first hop, each internet destination, DNS)
+  opens its own enlarged chart.
+- The dashboard tooltip shows each column's **peak** loss next to its average: a few seconds at 40 %
+  no longer look like 0.3 %.
+- The public demo has every zoom of its day, and dragging there jumps to the closest one.
+
+### Changed
+- "Without outages" shows the last 24 hours as a strip (green, and the colour of whoever was at fault
+  in each outage) instead of a line of accumulated healthy hours, which said little and could run
+  over a long figure.
+- The UI still works with no JavaScript, but it's no longer script-free: the enlarged chart loads
+  `/static/chart.js` (drag-to-zoom), allowed by its CSP only on that page and never inline.
+
 ## [0.2.3] - 2026-11-12
 
 ### Fixed

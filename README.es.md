@@ -17,7 +17,7 @@
   <a href="https://hub.docker.com/r/21enzo03/isitmyisp"><img alt="Docker: amd64 y arm64" src="https://img.shields.io/badge/docker-amd64%20%7C%20arm64-3987e5"></a>
   <a href="LICENSE"><img alt="Licencia MIT" src="https://img.shields.io/badge/licencia-MIT-2563eb"></a>
   <img alt="Sin telemetría" src="https://img.shields.io/badge/telemetr%C3%ADa-ninguna-0ca30c">
-  <img alt="Sin JavaScript" src="https://img.shields.io/badge/UI-sin%20JavaScript-0f192d">
+  <img alt="Funciona sin JavaScript" src="https://img.shields.io/badge/funciona%20sin-JavaScript-0f192d">
 </p>
 
 <p align="center">
@@ -83,7 +83,7 @@ Se complementan bien: Uptime Kuma para tus servicios, isitmyisp para la conexió
 - **Respaldo, llamadas y velocidad:** detecta en un minuto cuando el tráfico pasa al enlace de respaldo; estima la calidad de las llamadas (modelo E de la ITU-T G.107, aclarando que es una estimación); un test de velocidad opcional contra tu plan, apagado por defecto, con presupuesto de datos.
 - **Túneles:** ¿se cayó tu túnel IPsec/L2TP/WireGuard por su configuración o por el camino? Mide afuera y adentro a la vez, y detecta los cortes que se repiten con horario fijo (timers de rekey distintos).
 - **Alertas e informes:** Telegram, email o webhook, solo para problemas que duran, diciendo de quién es la culpa y qué hacer; retenidas con el local cerrado si querés, con un resumen al abrir. El informe de evidencia en HTML o PDF, cuando lo pidas o por mail cada mes.
-- **Varios usuarios y seguro en tu red:** administradores y lectores, contraseñas con Argon2id, protección CSRF, una CSP estricta sin ningún script, o inicio de sesión único con Authelia, Authentik, oauth2-proxy o Tailscale. `/metrics` para Prometheus y una API JSON.
+- **Varios usuarios y seguro en tu red:** administradores y lectores, contraseñas con Argon2id, protección CSRF, una CSP estricta (sin código inline; el único script es el zoom arrastrando del gráfico, opcional), o inicio de sesión único con Authelia, Authentik, oauth2-proxy o Tailscale. `/metrics` para Prometheus y una API JSON.
 
 <img src="docs/screenshots/es/report.png" alt="El informe de evidencia: resumen para vos, línea de tiempo, dónde estuvieron los problemas, incidentes" width="70%">
 

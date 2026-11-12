@@ -31,7 +31,7 @@ Los colores siempre van acompañados de texto o de un ícono, así se entiende a
 A la izquierda está el veredicto en una frase ("Falla la red de tu ISP", "Internet anda bien"), con un ícono grande del color del responsable. Al lado hay tres indicadores, cada uno con un minigráfico de las últimas 24 horas:
 
 - **Disponibilidad, 24 h:** qué parte del tiempo medido la conexión anduvo bien. La flecha compara con las 24 horas anteriores.
-- **Sin cortes:** cuánto pasó desde el último problema en tu conexión. Si hay uno en curso, la tarjeta pasa a **"Con problemas hace"** y muestra su duración en rojo.
+- **Sin cortes:** cuánto pasó desde el último problema en tu conexión. Si hay uno en curso, la tarjeta pasa a **"Con problemas hace"** y muestra su duración en rojo. Debajo, una franja de las últimas 24 horas: verde mientras anduvo bien y del color del responsable en cada corte. Tocala para ver ese día en grande.
 - **Latencia a internet:** la mediana de lo que tardan los destinos de internet en responder. Si bajó respecto del día anterior, la flecha es verde.
 
 ## Últimas 24 horas
@@ -43,11 +43,23 @@ Una línea de tiempo con varias filas que comparten el mismo eje:
 - **Llamadas:** la calidad estimada, si las tenés configuradas.
 - **Respaldo:** cuándo estuvo la oficina en el enlace secundario, si pasó.
 
-Pasá el mouse por encima para ver los valores exactos de cada momento. Debajo hay una vista en tabla con los mismos datos.
+Pasá el mouse por encima para ver cada momento: cada columna son 15 minutos, con la pérdida promedio y, si hubo un pico más alto en una ventana, el **pico**. Debajo hay una vista en tabla con los mismos datos.
+
+### Ampliar y hacer zoom
+
+**Ampliar** (arriba a la derecha del gráfico) lo abre en grande:
+
+- **Arrastrá sobre el gráfico** para acercarte a ese tramo, como en Grafana. **Doble clic** para alejar.
+- **Elegí el rango** con el botón de arriba: rangos rápidos (de los últimos 15 minutos a los últimos 30 días) o un **rango exacto**, con fecha y hora de inicio y de fin. El botón **Últimas 24 horas** del panel abre el mismo selector.
+- **← y →** te mueven hacia antes y después con el mismo largo; **Acercar** y **Alejar** cambian el zoom; **Ahora** vuelve al presente.
+
+Hasta una hora y media, cada columna es una ventana de medición de 30 segundos, con su pérdida exacta. Así un corte de unos segundos deja de ser una rayita: la tabla de abajo dice cuándo fue, cuánto se perdió y cuánto tardó cada destino en responder.
+
+Funciona también sin JavaScript: el zoom y el movimiento son links, y un clic en una columna te acerca a ella. El único script es el del arrastre, y solo arma el link del tramo que seleccionaste.
 
 ## Destinos monitoreados
 
-Cada destino que se mide, con su latencia actual y su minigráfico de las últimas 6 horas: tu router, el primer salto del ISP, los destinos de internet y tus servidores DNS. El punto de color dice cómo está. Si un destino pierde paquetes, el porcentaje aparece en rojo debajo de la latencia.
+Cada destino que se mide, con su latencia actual y su minigráfico de las últimas 6 horas: tu router, el primer salto del ISP, los destinos de internet y tus servidores DNS. Hacé clic en uno para ver su pérdida y su latencia en grande, con el mismo zoom. El punto de color dice cómo está. Si un destino pierde paquetes, el porcentaje aparece en rojo debajo de la latencia.
 
 ## Últimos eventos
 
