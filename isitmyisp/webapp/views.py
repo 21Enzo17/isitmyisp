@@ -127,6 +127,7 @@ class Dashboard:
     active: object = None
     active_for: str = ""
     healthy_pct: str = "—"
+    kpi: dict = field(default_factory=dict)   # availability, time without outages, latency: value, delta, spark
     incidents_24h: int = 0
     worst_24h: str = "0.0%"
     timeline: object = None
@@ -196,6 +197,7 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
         d.timeline = charts.timeline(windows, series, start, end, backup=backup,
                                      calls=d.calls["series"] if d.calls else None)
         d.brief = list(reversed(store.brief_events(start, end)))[:12]
+        d.kpi = kpis(store, windows, series, start, now)
 
     # the latest measurement of every target (they make up the path in the hero), with 6 h of history
     h_start = now - 6 * 3600
@@ -362,6 +364,52 @@ def service_cards(store: Store, settings: Settings, now: float | None = None) ->
         else:
             cards.append(ServiceCard(sv.name, sv.kind, sv.target, "no_data", "muted", None))
     return cards
+
+
+def _healthy(windows) -> float | None:
+    measured = sum(w[1] for w in windows if w[2] != "speedtest")
+    return 100 * sum(w[1] for w in windows if w[2] == "ok") / measured if measured else None
+
+
+def kpis(store: Store, windows, series, start: float, now: float) -> dict:
+    """The three figures next to the verdict, each with the last 24 h as a small line and the change
+    against the 24 h before (None when there's nothing to compare with)."""
+    out: dict = {}
+    # availability: share of measured time that was healthy, hour by hour
+    hourly = []
+    for h in range(24):
+        a, b = now - 86400 + h * 3600, now - 86400 + (h + 1) * 3600
+        v = _healthy([w for w in windows if a <= w[0] < b])
+        if v is not None:
+            hourly.append(((a + b) / 2, v))
+    pct = _healthy(windows)
+    prev = _healthy(store.windows_between(now - 2 * 86400, now - 86400))
+    out["avail"] = {"value": pct, "delta": (pct - prev) if pct is not None and prev is not None else None,
+                    # scaled to the day's own range, so a good day still shows its dips
+                    "spark": charts.plot(hourly, now - 86400, now, unit="%", ymax=100, floor=10,
+                                         ymin=max(0.0, 10 * (min((v for _, v in hourly), default=90) // 10) - 10))}
+    # time without outages: since the last internet incident ended (or since measuring started)
+    incs = store.incidents_between(now - 400 * 86400, now)
+    ongoing = any(i.closed is None for i in incs)
+    last_end = max((i.closed for i in incs if i.closed is not None), default=None)
+    first = store.first_and_last_window()[0] or start
+    healthy_s, acc = 0.0, []
+    for w in sorted(windows):                    # healthy hours piling up over the day
+        if w[2] == "ok":
+            healthy_s += w[1]
+        acc.append((w[0], healthy_s / 3600))
+    out["uptime"] = {"ongoing": ongoing, "since": None if ongoing else (last_end or first),
+                     "value": None if ongoing else fmt_duration(now - (last_end or first)),
+                     "spark": charts.plot(acc[::10], start, now, unit=" h", floor=1)}
+    # latency: median to the internet destinations, now vs the day before
+    lats = [v for _, _, v in series if v is not None]
+    lat = statistics.median(lats) if lats else None
+    prev_s = [r["rtt_median"] for r in store.samples_between(now - 2 * 86400, now - 86400, role="anchor")
+              if r["rtt_median"] is not None]
+    plat = statistics.median(prev_s) if prev_s else None
+    out["lat"] = {"value": lat, "delta": (lat - plat) if lat is not None and plat is not None else None,
+                  "spark": charts.plot([(ts, v) for ts, _, v in series if v is not None], start, now, unit=" ms", floor=5)}
+    return out
 
 
 @dataclass

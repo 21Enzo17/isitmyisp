@@ -35,7 +35,7 @@ from ..api import metrics_text, status_json
 from .strings import S
 
 PUBLIC_ENDPOINTS = {"static", "healthz", "favicon", "tv"}   # tv checks its own token
-AUTH_ENDPOINTS = {"login", "setup", "invite"}
+AUTH_ENDPOINTS = {"login", "setup", "invite", "theme"}
 VIEWER_WRITES = {"logout", "settings_password"}   # the only POSTs a read-only user may make
 INVITE_TTL = 48 * 3600
 
@@ -158,6 +158,12 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     def _dt_filter(ts):
         return time.strftime("%Y-%m-%d %H:%M", time.localtime(ts)) if ts else ""
 
+    @app.template_filter("ago")
+    def _ago(ts):
+        """'2 h ago' / 'hace 2 h', for the latest events."""
+        from ..report import fmt_duration
+        return g.t["ago_ev"].format(dur=fmt_duration(max(0, time.time() - ts))) if ts else ""
+
     @app.template_filter("tm")
     def _tm_filter(ts):
         return time.strftime("%H:%M", time.localtime(ts)) if ts else ""
@@ -200,7 +206,30 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         return {"t": g.get("t", S["en"]), "lang": g.get("lang", "en"), "user": g.get("user"),
                 "readonly": g.get("readonly", False), "version": __version__, "demo": app.config["DEMO"],
                 "demo_static": app.config.get("DEMO_STATIC"),
-                "auth_mode": g.settings.auth_mode if g.get("settings") else "local"}
+                "auth_mode": g.settings.auth_mode if g.get("settings") else "local",
+                "theme": request.cookies.get("theme") if request.cookies.get("theme") in ("light", "dark") else None,
+                "live": _live()}
+
+    def _live():
+        """The sidebar's "system running" note: when the last measurement window finished."""
+        last = store.last_window()
+        if not last:
+            return None
+        from ..api import is_stale
+        return {"ts": last[0], "stale": is_stale(last, time.time()) and not app.config["DEMO"]}
+
+    @app.get("/theme")
+    def theme():
+        """Light or dark, remembered in a cookie (no JavaScript); the system's choice until then."""
+        to = request.args.get("to")
+        nxt = request.args.get("next") or "/"
+        safe = nxt.startswith("/") and not nxt.startswith("//") and "\\" not in nxt
+        resp = redirect(nxt if safe else url_for("dashboard"))
+        if to in ("light", "dark"):
+            resp.set_cookie("theme", to, max_age=365 * 86400, samesite="Lax", httponly=True)
+        else:
+            resp.delete_cookie("theme")
+        return resp
 
     # ---------------------------------------------------------------- pages
 

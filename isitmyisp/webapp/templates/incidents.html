@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ t.nav.incidents }}{% endblock %}
 {% block content %}
-<div class="topbar"><h1>{{ t.incidents_title }}</h1></div>
+<div class="topbar"><h1>{{ t.incidents_title }}</h1><div class="right">{% include "_theme.html" %}</div></div>
 <div class="card">
 {% if not rows %}<p class="muted">{{ t.no_incidents }}</p>{% else %}
 <table>

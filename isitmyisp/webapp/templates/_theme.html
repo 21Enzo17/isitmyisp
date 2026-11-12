@@ -1,0 +1,5 @@
+{# Light / dark, without JavaScript: one link per theme, CSS shows the one that switches away from what's on screen. #}
+{% if not demo_static %}
+<a class="theme-btn to-dark" href="{{ url_for('theme', to='dark', next=request.full_path.rstrip('?')) }}" aria-label="{{ t.theme_dark }}" title="{{ t.theme_dark }}"><svg class="ico" aria-hidden="true"><use href="#i-moon"/></svg></a>
+<a class="theme-btn to-light" href="{{ url_for('theme', to='light', next=request.full_path.rstrip('?')) }}" aria-label="{{ t.theme_light }}" title="{{ t.theme_light }}"><svg class="ico" aria-hidden="true"><use href="#i-sun"/></svg></a>
+{% endif %}

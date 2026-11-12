@@ -122,7 +122,7 @@ def page(lang: str, slug: str, meta: dict, body: str, toc, titles: dict, order: 
 <body>
 <a class="skip" href="#content">{t["skip"]}</a>
 <header class="top">
-  <a class="brand" href="{url(lang, 'index')}"><img src="/static/favicon.svg" alt="" width="28" height="28"><span>isitmyisp</span><span class="brand-docs">{t["docs"]}</span></a>
+  <a class="brand" href="{url(lang, 'index')}"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M17 32H24.5M39.5 32H47" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none" opacity=".55"/><circle cx="32" cy="32" r="12" fill="#3b82f6" opacity=".22"/><circle cx="11" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="53" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="32" cy="32" r="7.5" fill="#3b82f6"/></svg><span>isitmyisp</span><span class="brand-docs">{t["docs"]}</span></a>
   <nav class="top-links">
     <a class="btn" href="{DEMO[lang]}">{t["demo"]}</a>
     <a href="{REPO}">GitHub</a>
