@@ -521,6 +521,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("status", help="measure for a while and give a verdict")
     s.add_argument("-s", "--seconds", type=int, default=30)
     s.add_argument("-i", "--interval", type=float, default=0.5)
+    s.add_argument("--db", help="SQLite path for your settings (default: ~/.local/share/isitmyisp/data.db, if it exists)")
 
     m = sub.add_parser("mtr", help="run mtr and separate real loss from ICMP noise")
     m.add_argument("target")

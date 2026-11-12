@@ -3,6 +3,17 @@
 Versions follow [semantic versioning](https://semver.org). Each release has a Docker image
 (`21enzo03/isitmyisp:<version>` on Docker Hub, amd64 and arm64) and a git tag `v<version>`.
 
+## [0.2.2] - 2026-11-12
+
+### Fixed
+- `isitmyisp status` crashed (`AttributeError: no attribute 'db'`): it read `--db` without declaring
+  it. A test now checks that every command only reads arguments its parser declares.
+
+### Changed
+- Removed the old TV board's stylesheet rules (unused since the redesign; nothing looks different).
+- `scripts/dockerhub-readme.sh` puts the README on the Docker Hub page; `docs/brand/social-preview.png`
+  is the card for links to the repository.
+
 ## [0.2.1] - 2026-11-12
 
 Fixes found before announcing it: the verdict missed intermittent outages, and the demo was cut off

@@ -1,0 +1,24 @@
+<!doctype html><meta charset="utf-8">
+<!-- GitHub social preview (Settings → Social preview), 1280x640. Re-render: headless Chrome, --window-size=1280,640 --screenshot -->
+<style>
+@font-face{font-family:Plex;font-weight:400;src:url(../../isitmyisp/webapp/static/fonts/ibm-plex-sans-400.woff2)}
+@font-face{font-family:Plex;font-weight:600;src:url(../../isitmyisp/webapp/static/fonts/ibm-plex-sans-600.woff2)}
+html,body{margin:0;width:1280px;height:640px;overflow:hidden;background:#0a1121;font-family:Plex,sans-serif;color:#e8eefc}
+.wrap{position:relative;width:1280px;height:640px;overflow:hidden}
+.text{position:absolute;left:72px;top:92px;width:520px}
+.logo{width:300px;display:block;margin-bottom:44px}
+h1{font-size:50px;line-height:1.1;margin:0 0 22px;font-weight:600;letter-spacing:-.5px}
+p{font-size:23px;line-height:1.45;color:#9fb0cf;margin:0 0 34px}
+.tags{display:flex;gap:10px;flex-wrap:wrap}
+.tags span{font-size:17px;padding:8px 14px;border-radius:999px;background:#15213a;color:#c9d6f0;border:1px solid #23314f}
+.shot{position:absolute;left:650px;top:70px;width:820px;border-radius:16px;border:1px solid #23314f;box-shadow:0 30px 80px rgb(0 0 0/.55)}
+.glow{position:absolute;right:-200px;top:-200px;width:700px;height:700px;border-radius:50%;background:radial-gradient(#2563eb33,transparent 65%)}
+</style>
+<div class="wrap"><div class="glow"></div>
+<img class="shot" src="../screenshots/incident.png">
+<div class="text">
+<img class="logo" src="logo-dark.svg">
+<h1>Is it your Wi-Fi, your router or your ISP?</h1>
+<p>A self-hosted monitor that tells you whose fault an outage is, and builds the evidence your ISP needs.</p>
+<div class="tags"><span>Self-hosted</span><span>Raspberry Pi</span><span>No telemetry</span><span>EN · ES</span></div>
+</div></div>
