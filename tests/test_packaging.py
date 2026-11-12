@@ -41,7 +41,7 @@ class Installer(unittest.TestCase):
     def test_runs_with_the_documented_flags_and_nothing_more(self):
         line = self.run_line(self.dry())
         for flag in ("--net=host", "--cap-add=NET_RAW", "--restart unless-stopped", "-v isitmyisp:/data",
-                     "ghcr.io/21enzo17/isitmyisp:latest", "monitor --web 0.0.0.0:8080"):
+                     "docker.io/21enzo03/isitmyisp:latest", "monitor --web 0.0.0.0:8080"):
             self.assertIn(flag, line)
         for never in ("--privileged", "--cap-add=ALL", "--pid=host", "/var/run/docker.sock"):
             self.assertNotIn(never, line)

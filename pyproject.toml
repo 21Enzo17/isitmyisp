@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "isitmyisp"
-version = "0.1.0"
+version = "0.2.0"
 description = "Is it your Wi-Fi, your router or your ISP? Self-hosted connection monitor that finds where the problem is and builds the evidence report your ISP needs."
 readme = "README.md"
 license = { text = "MIT" }

@@ -46,7 +46,7 @@ curl -fsSL https://isitmyisp.enzo-meneghini.com/install.sh | sh
 Before doing anything, the installer shows every command and asks you. This is what it does:
 
 - If Docker is missing, it installs it with the official installer (`get.docker.com`).
-- It downloads the image. While there's no published image for your version, it builds it on the Pi, which takes a few minutes more.
+- It downloads the image already built for Raspberry Pi (arm64) from Docker Hub: nothing is built on the Pi.
 - It starts the monitor: the host's network, permission to ping, data in a Docker volume and the dashboard on port 8080 of your LAN.
 
 If you'd rather read it first, open the link in a browser: it's short, plain text.

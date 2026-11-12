@@ -15,7 +15,7 @@ curl -fsSL https://isitmyisp.enzo-meneghini.com/install.sh | sh
 El instalador es corto y podés [leerlo antes](https://isitmyisp.enzo-meneghini.com/install.sh). Muestra cada comando y te pregunta antes de ejecutarlo:
 
 1. Si falta Docker, ofrece instalarlo con el instalador oficial (`get.docker.com`).
-2. Descarga la imagen de isitmyisp. Si todavía no hay una publicada para tu versión, la construye desde el código, lo que tarda unos minutos más.
+2. Descarga la imagen ya armada de Docker Hub (`21enzo03/isitmyisp`, para PC y para Raspberry Pi). Solo si no pudiera bajarla, la construye desde el código.
 3. Arranca el monitor y espera a que esté sano.
 4. Te muestra el link para crear la cuenta de administrador.
 
@@ -45,14 +45,13 @@ Volvé a correr el mismo comando. Reemplaza el contenedor y conserva los datos, 
 
 Si preferís escribir el comando vos:
 
-> Hasta que se publique la imagen en GHCR, construila primero con `docker build -t ghcr.io/21enzo17/isitmyisp:latest https://github.com/21Enzo17/isitmyisp.git` (tarda unos minutos) y después corré el comando de abajo.
 
 ```bash
 docker run -d --name isitmyisp --restart unless-stopped \
   --net=host --cap-add=NET_RAW \
   -e TZ=America/Argentina/Jujuy -v isitmyisp:/data \
   -v /run/systemd/resolve:/run/systemd/resolve:ro \
-  ghcr.io/21enzo17/isitmyisp:latest --lang es monitor --web 0.0.0.0:8080
+  21enzo03/isitmyisp:latest --lang es monitor --web 0.0.0.0:8080
 ```
 
 | Parte | Por qué |
@@ -89,6 +88,6 @@ isitmyisp report --since 7d # el informe en HTML
 La [demo](/es/isp/) muestra el panel completo con un día de datos de ejemplo. También podés correrla en tu equipo, sin medir nada (con la imagen ya construida o descargada):
 
 ```bash
-docker run --rm -p 127.0.0.1:8090:8080 ghcr.io/21enzo17/isitmyisp:latest \
+docker run --rm -p 127.0.0.1:8090:8080 21enzo03/isitmyisp:latest \
   --lang es demo --scenario isp --bind 0.0.0.0:8080
 ```

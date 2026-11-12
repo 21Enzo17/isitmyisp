@@ -1,41 +1,44 @@
 # Changelog
 
 Versions follow [semantic versioning](https://semver.org). Each release has a Docker image
-(`ghcr.io/21enzo17/isitmyisp:<version>`, amd64 and arm64) and a git tag `v<version>`.
+(`21enzo03/isitmyisp:<version>` on Docker Hub, amd64 and arm64) and a git tag `v<version>`.
 
-## [Unreleased]
+## [0.2.0] - 2026-11-12
 
-### Added
-- TV mode at the short address /tv: the TV shows a code, an admin types it in Settings, and the screen
-  stays paired with its own device cookie (codes expire in 10 minutes and work once; screens can be
-  unpaired one by one). The direct secret link remains as an alternative.
-
-### Fixed
-- The docs builder used an f-string form that needs Python 3.12; it now runs on 3.10 and 3.11 too.
-
-### Changed
-- The evidence report reads in two parts: a summary for the owner first (worked fine, outages, problems
-  while open, speed against the plan, comparison with the period before, the outages that hit most,
-  devices and services in one line each, and what to do), then the technical annex for the ISP, which
-  opens with the ready message. Call quality lists the five longest stretches, not all of them.
-- The evidence report (HTML and PDF) follows the new design: the dashboard's palette, the new mark,
-  the verdict with its colour dot, rounded figure tiles, drawn icons for what the evidence rules
-  out, and a neutral note for demo data. Tints are resolved in Python, so the PDF engine needs no
-  newer CSS. Screenshots regenerated.
+Ready to sell: what a small business sees in the first meeting, and the image published for amd64 and
+arm64 so nobody has to build it.
 
 ### Added
-- Devices on your network (#10): card terminals, printers, camera recorders, phone systems, access
-  points, checked by ping or a TCP port every 30 s. When one stops answering while the router still
-  does, the dashboard, TV board, alerts and report say it's the device, not the internet. Private
-  addresses are accepted only for these. The demo has three, and its card terminal drops once.
-- Monthly report by email (#36): on a chosen day and hour, last month's evidence report goes out with a
-  plain-language summary in the message and the report attached (PDF in the Docker image, HTML
-  otherwise). Uses the alerts' SMTP server, sent once per month across restarts, retried on failure,
-  with a "send now" preview.
 - Opening hours (#34): per weekday with up to two shifts. The dashboard, the TV board and the report
   count the downtime that happened while the business was open, each incident in the report says
   whether it was in or out of hours, and alerts can be held while closed with one summary at
   opening time. A step in the first-run wizard; the public demo has a shop's hours.
+- Monthly report by email (#36): on a chosen day and hour, last month's evidence report goes out with a
+  plain-language summary in the message and the report attached (PDF in the Docker image, HTML
+  otherwise). Uses the alerts' SMTP server, sent once per month across restarts, retried on failure,
+  with a "send now" preview.
+- Devices on your network (#10): card terminals, printers, camera recorders, phone systems, access
+  points, checked by ping or a TCP port every 30 s. When one stops answering while the router still
+  does, the dashboard, TV board, alerts and report say it's the device, not the internet. Private
+  addresses are accepted only for these. The demo has three, and its card terminal drops once.
+- TV mode at the short address /tv: the TV shows a code, an admin types it in Settings, and the screen
+  stays paired with its own device cookie (codes expire in 10 minutes and work once; screens can be
+  unpaired one by one). The direct secret link remains as an alternative.
+- A light/dark button that works without JavaScript, and a documentation site at /docs (es/en).
+
+### Changed
+- A new design for the dashboard and every page: a sidebar, the verdict beside three figures with
+  sparklines and change against the day before, and cards of equal height for the chart, destinations
+  and events.
+- The evidence report reads in two parts: a summary for the owner first (worked fine, outages, problems
+  while open, speed against the plan, comparison with the period before, the outages that hit most,
+  devices and services in one line each, and what to do), then the technical annex for the ISP, which
+  opens with the ready message. It follows the new design, in HTML and PDF.
+
+### Fixed
+- Old closed incidents and their mtr captures are now deleted after about 13 months, as documented.
+- The docs builder used an f-string form that needs Python 3.12; it now runs on 3.10 and 3.11 too.
+- Stylesheet URLs carry a fingerprint, so a new design is never stuck in a browser cache.
 
 ## [0.1.0] - 2026-11-11
 
@@ -65,4 +68,5 @@ and to prove it.
 ### Install
 - One-line installer (`install.sh`) that shows every Docker command before running it, and a Raspberry Pi guide.
 
+[0.2.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.2.0
 [0.1.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.1.0

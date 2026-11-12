@@ -20,7 +20,7 @@
 set -eu
 
 REPO="https://github.com/21Enzo17/isitmyisp.git"
-IMAGE_REPO="ghcr.io/21enzo17/isitmyisp"
+IMAGE_REPO="docker.io/21enzo03/isitmyisp"
 NAME=isitmyisp VOLUME=isitmyisp PORT=8080 LAN=1 YES=0 DRY=0 BUILD=0 UNINSTALL=0 VERSION=latest
 LANG_UI="" TZ_UI=""
 

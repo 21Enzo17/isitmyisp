@@ -1,18 +1,18 @@
 #!/bin/sh
-# Cut a release from main: checks, multi-arch image on GHCR, git tag, GitHub release.
+# Cut a release from main, from this machine: checks, the multi-arch image on Docker Hub, the git tag,
+# and (when GitHub allows it) a GitHub release.
 #
 #   scripts/release.sh            # the version in pyproject.toml
 #   scripts/release.sh --dry-run  # checks only, prints what it would publish
 #
 # Done by hand on purpose (CI is off, see #2). Once per machine:
-#   gh auth refresh -s write:packages                       # permission to push images
-#   gh auth token | docker login ghcr.io -u 21Enzo17 --password-stdin
+#   docker login                                                     # your Docker Hub account
 #   docker run --privileged --rm tonistiigi/binfmt --install arm64   # build arm64 (Raspberry Pi) on amd64
 #   docker buildx create --name iim --use
 set -eu
 cd "$(dirname "$0")/.."
 
-IMAGE=ghcr.io/21enzo17/isitmyisp
+IMAGE=${IMAGE:-docker.io/21enzo03/isitmyisp}   # the one place the image name lives (install.sh reads the same)
 DRY=0; [ "${1-}" = --dry-run ] && DRY=1
 
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)
@@ -39,13 +39,16 @@ if [ "$DRY" = 1 ]; then
   exit 0
 fi
 
-printf 'Publish v%s (image, tag, GitHub release)? [y/N] ' "$VERSION"
+printf 'Publish v%s (image on Docker Hub, git tag)? [y/N] ' "$VERSION"
 read -r ok; case "$ok" in [yY]*) ;; *) exit 1 ;; esac
+docker buildx inspect iim >/dev/null 2>&1 || docker buildx create --name iim --use >/dev/null
+docker buildx use iim
 
 docker buildx build --platform linux/amd64,linux/arm64 --build-arg "VERSION=$VERSION" \
   -t "$IMAGE:$VERSION" -t "$IMAGE:latest" --push .
 git tag -a "v$VERSION" -m "isitmyisp $VERSION"
 git push origin "v$VERSION"
 printf '%s\n\nInstall: `curl -fsSL https://isitmyisp.enzo-meneghini.com/install.sh | sh`\nImage: `%s:%s`\n' \
-  "$NOTES" "$IMAGE" "$VERSION" | gh release create "v$VERSION" --title "isitmyisp $VERSION" --notes-file -
-echo "✓ released v$VERSION. Make the package public once: github.com/users/21Enzo17/packages/container/isitmyisp/settings"
+  "$NOTES" "$IMAGE" "$VERSION" | gh release create "v$VERSION" --title "isitmyisp $VERSION" --notes-file - \
+  || echo "(GitHub didn't take the release; the image and the tag are published, that's what matters)"
+echo "✓ released v$VERSION: $IMAGE:$VERSION"
