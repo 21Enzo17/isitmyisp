@@ -58,117 +58,111 @@
 
 {% else %}
 {# ------------------------------------------------------------ board: for a technician's wall #}
-<main class="noc g-{{ group }}">
-  <header class="noc-head">
-    <div class="noc-verdict">
-      <h1>{{ headline }}</h1>
-      {% if b.alarms %}<p class="noc-alarm" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-cross"/></svg>{{ t.tv_alarm }} {% for c in b.alarms[:3] %}<b>{{ c.name }}</b>{% if c.since %} ({{ c.since }}){% endif %}{{ ', ' if not loop.last }}{% endfor %}{% if b.alarms|length > 3 %} {{ t.tv_alarm_more.format(n=b.alarms|length - 3) }}{% endif %}</p>{% endif %}
-      <p>{{ sub }}{% if fo %} {{ t.backup_note.format(backup=fo.backup, since=fo.since|tm, dur=fo['for'], primary=fo.primary or t.isp_primary.lower()) }}{% endif %}</p>
-    </div>
-    <dl class="noc-kpis">
-      <div><dt>{{ t.tv_healthy }}</dt><dd>{{ d.healthy_pct }}</dd></div>
-      <div><dt>{{ t.tv_incidents }}</dt><dd>{{ d.day.n if d.has_data else 0 }}{% if d.day.dur %} <small>{{ d.day.dur }}</small>{% endif %}</dd></div>
-      {% if d.day.hours %}<div><dt>{{ t.tv_open }}</dt><dd>{{ d.day.open_dur if d.day.open_s >= 60 else '0' }}</dd></div>{% endif %}
-      <div><dt>{{ t.tv_updated }}</dt><dd><span class="live{{ ' stale' if d.code == 'stale' }}" aria-hidden="true"></span>{{ d.updated|tm if d.updated else '—' }}</dd></div>
-    </dl>
+<main class="tvb g-{{ group }}{{ ' has-alarm' if b.alarms }}">
+  <header class="tvb-head">
+    <span class="tvb-brand"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M17 32H24.5M39.5 32H47" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none" opacity=".55"/><circle cx="32" cy="32" r="12" fill="#3b82f6" opacity=".22"/><circle cx="11" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="53" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="32" cy="32" r="7.5" fill="#3b82f6"/></svg>isitmyisp</span>
+    <span class="tvb-sub">{{ t.tv_subtitle }}</span>
+    <span class="tvb-clock"><span class="live{{ ' stale' if d.code == 'stale' }}" aria-hidden="true"></span>{{ now|tvdate }} · {{ now|tm }}</span>
   </header>
 
-  {% if d.has_data %}
-  <section class="noc-row top">
-    <div class="panel noc-path">{{ path() }}</div>
-    <div class="panel noc-calls b-{{ d.calls.now.band if d.calls and d.calls.now else 'none' }}">
-      <h2>{{ t.calls_title }}</h2>
-      {% if d.calls and d.calls.now %}
-      <p class="noc-big"><span class="mos-dot" aria-hidden="true"></span>MOS <b>{{ '%.1f'|format(d.calls.now.mos) }}</b> <span class="muted">{{ t.band[d.calls.now.band] }}</span></p>
-      <p class="muted">{{ t.calls_fit.format(pct=d.calls.fit_pct) }}</p>
-      {% else %}<p class="muted">—</p>{% endif %}
-    </div>
-    <div class="panel noc-link">
-      <h2>{{ t.link_title }}</h2>
-      {% if d.link %}
-      {% for label, mbps, pct in [(t.link_down, d.link.down, d.link.down_pct), (t.link_up, d.link.up, d.link.up_pct)] %}
-      <div class="meter{{ ' full' if pct is not none and pct >= 85 }}">
-        <span class="m-label">{{ label }}</span><span class="m-val"><b>{{ '%.0f'|format(mbps) }}</b> Mbps</span>
-        {% if pct is not none %}<svg class="bar" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true">
-          <rect class="bar-track" x="0" y="2" width="100" height="6"/><rect class="bar-fill" x="0" y="2" width="{{ [pct, 100]|min }}" height="6"/>
-          <rect class="bar-mark" x="84.6" y="0" width="0.8" height="10"/></svg>
-        <span class="m-pct">{{ '%.0f'|format(pct) }}%</span>{% endif %}
+  {% if b.alarms %}<p class="tvb-alarm" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-cross"/></svg><span>{{ t.tv_alarm }} {% for c in b.alarms[:3] %}<b>{{ c.name }}</b>{% if c.since %} ({{ c.since }}){% endif %}{{ ', ' if not loop.last }}{% endfor %}{% if b.alarms|length > 3 %} {{ t.tv_alarm_more.format(n=b.alarms|length - 3) }}{% endif %}</span></p>{% endif %}
+
+  <section class="tvb-row first">
+    <div class="tvb-card tvb-verdict g-{{ group }}">
+      <span class="verdict-ico" aria-hidden="true"><svg class="ico"><use href="#i-{{ 'check' if group == 'good' else ('wait' if group == 'none' else 'alert') }}"/></svg></span>
+      <div>
+        <h1>{{ headline }}</h1>
+        <p>{% if d.has_data %}{{ t.tv_checked.format(ago=d.updated_ago) }}{% else %}{{ sub }}{% endif %}{% if fo %} · {{ t.isp_backup_badge }}{% endif %}</p>
       </div>
-      {% endfor %}
-      {% else %}<p class="muted">{{ t.link_off if not d.link_enabled else t.link_err }}</p>{% endif %}
-      {% if d.speed and d.speed.last and not d.speed.last.error %}
-      <p class="muted small">{{ t.tv_speed.format(down='%.0f'|format(d.speed.last.down_mbps or 0), up='%.0f'|format(d.speed.last.up_mbps or 0), when=d.speed.last.ts|dt) }}</p>
+    </div>
+    {% if d.kpi %}{% set k = d.kpi %}
+    {% macro delta(v, fmt, unit, good_if_up=True) %}{% if v is not none %}{% set up = v >= 0 %}{% set ok = up if good_if_up else not up %}
+      <p class="kpi-delta {{ 'up' if ok else 'down' }}"><svg class="ico" aria-hidden="true"><use href="#i-{{ 'up' if up else 'down' }}"/></svg>{{ fmt|format(v) }}{{ unit }}</p>{% endif %}{% endmacro %}
+    <div class="tvb-card kpi">
+      <p class="kpi-name"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-bars"/></svg>{{ t.kpi_avail }}</p>
+      <p class="kpi-val">{{ '%.1f'|format(k.avail.value) if k.avail.value is not none else '—' }}%</p>
+      {{ delta(k.avail.delta, '%+.1f', '%') }}
+      {% if not k.avail.spark.empty %}<div class="kpi-spark s-good" aria-hidden="true"><svg viewBox="0 0 1000 100" preserveAspectRatio="none"><path class="area" d="{{ k.avail.spark.area }}"/><path class="ln" d="{{ k.avail.spark.line }}"/></svg></div>{% endif %}
+    </div>
+    <div class="tvb-card kpi">
+      <p class="kpi-name"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-clock"/></svg>{{ t.kpi_down_for if k.uptime.ongoing else t.kpi_uptime }}</p>
+      {% if k.uptime.ongoing %}<p class="kpi-val bad">{{ d.active_for or '—' }}</p><p class="kpi-delta down">{{ t.kpi_now_down }}</p>
+      {% else %}<p class="kpi-val">{{ k.uptime.value }}</p><p class="kpi-delta"><span>{{ t.kpi_since_at.format(when=k.uptime.since|tm) }}</span></p>{% endif %}
+    </div>
+    <div class="tvb-card kpi">
+      <p class="kpi-name"><svg class="ico hi-violet" aria-hidden="true"><use href="#i-bolt"/></svg>{{ t.kpi_lat }}</p>
+      <p class="kpi-val">{{ '%.0f'|format(k.lat.value) if k.lat.value is not none else '—' }} ms</p>
+      {{ delta(k.lat.delta, '%+.0f', ' ms', good_if_up=False) }}
+      {% if not k.lat.spark.empty %}<div class="kpi-spark s-violet" aria-hidden="true"><svg viewBox="0 0 1000 100" preserveAspectRatio="none"><path class="area" d="{{ k.lat.spark.area }}"/><path class="ln" d="{{ k.lat.spark.line }}"/></svg></div>{% endif %}
+    </div>
+    {% endif %}
+  </section>
+
+  {% if d.has_data %}
+  <section class="tvb-row mid">
+    <div class="tvb-card tvb-chart">
+      <div class="tvb-card-head"><h2><svg class="ico hi-blue" aria-hidden="true"><use href="#i-bars"/></svg>{{ t.last24 }}</h2>
+        {% if d.day.hours %}<dl class="tvb-open"><dt>{{ t.tv_open }}</dt><dd>{{ d.day.open_dur if d.day.open_s >= 60 else '0' }}</dd></dl>{% endif %}
+        <span class="status-pill g-{{ 'good' if not d.day.n else ('isp' if d.day.by.get('isp') else 'you') }}"><span class="dot" aria-hidden="true"></span>{{ t.tv_no_incidents if not d.day.n else t.tv_n_incidents.format(n=d.day.n, dur=d.day.dur) }}</span></div>
+      {% if d.timeline %}{% set tl = d.timeline %}{% set o = 1 if tl.backup_runs else 0 %}
+      <figure class="tl tvb-tl{{ ' fo' if tl.backup_runs }}">
+        {% if tl.backup_runs %}
+        <span class="tl-name row-1">{{ t.row_backup }}</span>
+        <div class="tl-plot strip row-1"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
+          <rect class="track" x="0" y="0" width="1000" height="100"/>{% for x, w in tl.backup_runs %}<rect class="backup" x="{{ x }}" y="0" width="{{ w }}" height="100"/>{% endfor %}</svg></div>
+        {% endif %}
+        <span class="tl-name row-{{ 1 + o }}">{{ t.row_status }}</span>
+        <div class="tl-plot strip row-{{ 1 + o }}"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
+          <rect class="track" x="0" y="0" width="1000" height="100"/>
+          {% for x, w, g, code in tl.strip %}<rect class="g-{{ g }}" x="{{ x }}" y="{{ 72 if g == 'good' else 0 }}" width="{{ w }}" height="{{ 28 if g == 'good' else 100 }}"/>{% endfor %}</svg></div>
+        <span class="tl-name row-{{ 2 + o }}">{{ t.row_loss }}</span>{{ line_plot(tl.loss, 'row-%d' % (2 + o)) }}
+        <span class="tl-name row-{{ 3 + o }}">{{ t.row_latency }}</span>{{ line_plot(tl.latency, 'row-%d' % (3 + o)) }}
+        {{ xaxis(tl.xticks, 'row-%d' % (4 + o)) }}
+      </figure>
       {% endif %}
+    </div>
+    <div class="tvb-card tvb-events">
+      <div class="tvb-card-head"><h2><svg class="ico hi-amber" aria-hidden="true"><use href="#i-bell"/></svg>{{ t.card_events }}</h2></div>
+      {% if not b.recent %}<p class="muted">{{ t.recent_none }}</p>{% else %}
+      <ol class="ev-list">
+        {% for r in b.recent %}
+        <li class="g-{{ r.group }}{{ ' now' if r.ongoing }}">
+          <span class="ev-dot" aria-hidden="true"></span>
+          <p class="ev-t">{{ t.verdict.get(r.code, r.code) }}{% if r.name %} · {{ r.name }}{% endif %}{% if r.count > 1 %} <span class="muted">×{{ r.count }}</span>{% endif %}</p>
+          <p class="ev-w">{% if r.ongoing %}<b>{{ t.ongoing_now }}</b> · {% endif %}{{ r.opened|ago }} ({{ r.duration }})</p>
+        </li>
+        {% endfor %}
+      </ol>{% endif %}
     </div>
   </section>
 
-  {% if d.timeline %}{% set tl = d.timeline %}{% set o = 1 if tl.backup_runs else 0 %}{% set last = (4 if tl.calls else 3) + o %}
-  <section class="panel noc-timeline">
-    <div class="panel-head"><h2>{{ t.last24 }}</h2>
-      <ul class="key">{% for g in tl.groups %}<li><i class="sw g-{{ g }}" aria-hidden="true"></i>{{ t.group[g] }}</li>{% endfor %}</ul></div>
-    <figure class="tl{{ ' fo' if tl.backup_runs }}{{ ' calls' if tl.calls }}">
-      {% if tl.backup_runs %}
-      <span class="tl-name row-1">{{ t.row_backup }}</span>
-      <div class="tl-plot strip row-1"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
-        <rect class="track" x="0" y="0" width="1000" height="100"/>{% for x, w in tl.backup_runs %}<rect class="backup" x="{{ x }}" y="0" width="{{ w }}" height="100"/>{% endfor %}</svg></div>
-      {% endif %}
-      <span class="tl-name row-{{ 1 + o }}">{{ t.row_status }}</span>
-      <div class="tl-plot strip row-{{ 1 + o }}"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
-        <rect class="track" x="0" y="0" width="1000" height="100"/>
-        {% for x, w, g, code in tl.strip %}<rect class="g-{{ g }}" x="{{ x }}" y="{{ 72 if g == 'good' else 0 }}" width="{{ w }}" height="{{ 28 if g == 'good' else 100 }}"/>{% endfor %}</svg></div>
-      <span class="tl-name row-{{ 2 + o }}">{{ t.row_loss }}</span>{{ line_plot(tl.loss, 'row-%d' % (2 + o)) }}
-      <span class="tl-name row-{{ 3 + o }}">{{ t.row_latency }}</span>{{ line_plot(tl.latency, 'row-%d' % (3 + o)) }}
-      {% if tl.calls %}<span class="tl-name row-{{ 4 + o }}">{{ t.row_calls }}</span>{{ line_plot(tl.calls, 'row-%d' % (4 + o)) }}{% endif %}
-      {{ xaxis(tl.xticks, 'row-%d' % (last + 1)) }}
-    </figure>
-  </section>
-  {% endif %}
-
-  <section class="noc-row bottom">
-    <div class="panel noc-targets{{ ' alarm' if b.points_alarm }}">
-      <h2>{{ t.net_state }}</h2>
-      <table class="noc-points"><tbody>
+  <section class="tvb-row low">
+    <div class="tvb-card tvb-points{{ ' alarm' if b.points_alarm }}">
+      <div class="tvb-card-head"><h2><svg class="ico hi-blue" aria-hidden="true"><use href="#i-globe"/></svg>{{ t.card_targets }}</h2>
+        {% if b.points_rot %}<span class="tvb-rot">{{ b.points_rot.page }}/{{ b.points_rot.pages }}</span>{% endif %}</div>
+      <div class="tvb-tiles">
         {% for p in b.points %}
         {% set st = 'good' if p.status == 'ok' else ('warn' if p.status == 'warn' else 'bad') %}
-        <tr class="s-{{ st }}">
-          <td class="pt-name"><i class="pt" aria-hidden="true"></i>{{ t.point_label[p.kind] }}{% if p.kind == 'dns' and p.count > 1 %} <span class="muted">({{ p.count }})</span>{% endif %}</td>
-          <td class="ip">{{ p.target }}</td>
-          <td class="pt-spark">{% if p.history and not p.history.empty %}<div class="spark" aria-hidden="true"><svg viewBox="0 0 1000 100" preserveAspectRatio="none">
-            <path class="area" d="{{ p.history.area }}"/><path class="ln" d="{{ p.history.line }}"/></svg></div>{% endif %}</td>
-          <td class="num"><b>{{ num(p.median) }}</b> ms{% if p.tcp_ms is not none %}<span class="pt-tcp">TCP {{ num(p.tcp_ms) }}</span>{% endif %}</td>
-          <td class="num pt-loss">{{ '%.0f'|format(p.loss) }}%</td>
-        </tr>
+        <div class="tvb-tile s-{{ st }}">
+          <p class="tvb-tile-name"><span class="ring" aria-hidden="true"></span>{{ t.point_label[p.kind] }}{% if p.kind == 'dns' and p.count > 1 %} ({{ p.count }}){% endif %}</p>
+          <p class="tvb-tile-ip">{{ p.target }}{% if p.loss %} · <b>{{ '%.0f'|format(p.loss) }}% {{ t.loss_word }}</b>{% endif %}</p>
+          <p class="tvb-tile-ms">{{ num(p.median, '%.0f') if p.median is not none and p.median >= 1 else ('< 1' if p.median is not none else '—') }} ms</p>
+          {% if p.history and not p.history.empty %}<div class="tvb-tile-spark" aria-hidden="true"><svg viewBox="0 0 1000 100" preserveAspectRatio="none"><path class="ln" d="{{ p.history.line }}"/></svg></div>{% endif %}
+        </div>
         {% endfor %}
-        {% set h = b.points_hidden %}
-        {% if b.points_rot %}<tr class="more"><td colspan="5">{{ more(h, b.points_rot) }}</td></tr>{% endif %}
-      </tbody></table>
+      </div>
     </div>
-    <div class="panel noc-services{{ ' alarm' if b.alarms }}">
-      <h2>{{ t.conn_title }}</h2>
+    <div class="tvb-card tvb-conns{{ ' alarm' if b.alarms }}">
+      <div class="tvb-card-head"><h2><svg class="ico hi-blue" aria-hidden="true"><use href="#i-tunnels"/></svg>{{ t.conn_title }}</h2></div>
       {% if not b.conns %}<p class="muted">{{ t.no_services }}</p>{% else %}
-      <ul class="rows">
+      <ul class="tvb-conn-list">
         {% for c in b.conns %}
-        <li class="row s-{{ c.st }}"><svg class="ico st" aria-hidden="true"><use href="#i-{{ 'check' if c.st == 'good' else ('cross' if c.st == 'bad' else 'wait') }}"/></svg>
-          <span class="r-main"><span class="r-name">{{ c.name }}</span>{% if c.sub %}<span class="r-sub">{% if c.kind == 'tunnel' %}{{ t.tunnel_word }} {{ c.sub }}{% else %}{{ t.device_kind[c.sub] }}{% endif %}</span>{% endif %}</span>
-          <span class="r-val">{% if c.ms is not none %}{{ '%.0f'|format(c.ms) }} ms{% endif %}</span>
-          <span class="r-state">{{ (t.tun if c.kind == 'tunnel' else t.svc)[c.state] }}{% if c.since %}, {{ c.since }}{% endif %}</span></li>
+        <li class="s-{{ c.st }}"><span class="ring" aria-hidden="true"></span>
+          <span class="tvb-conn-name">{{ c.name }}</span>
+          <span class="tvb-conn-state">{% if c.st == 'bad' %}<b>{{ (t.tun if c.kind == 'tunnel' else t.svc)[c.state] }}</b>{% if c.since %} · {{ c.since }}{% endif %}{% elif c.ms is not none %}{{ '%.0f'|format(c.ms) if c.ms >= 1 else '< 1' }} ms{% else %}{{ (t.tun if c.kind == 'tunnel' else t.svc)[c.state] }}{% endif %}</span></li>
         {% endfor %}
-        {% set h = b.conns_hidden %}
-        {% if b.conns_rot %}<li class="row more">{{ more(h, b.conns_rot) }}</li>{% endif %}
-      </ul>{% endif %}
-    </div>
-    <div class="panel noc-recent">
-      <h2>{{ t.recent_title }}</h2>
-      {% if not b.recent %}<p class="muted">{{ t.recent_none }}</p>{% else %}
-      <table class="recent"><tbody>
-        {% for r in b.recent %}
-        <tr{% if r.ongoing %} class="now"{% endif %}>
-          <td class="num-l">{{ r.opened|tm }}</td>
-          <td><i class="sw g-{{ r.group }}" aria-hidden="true"></i>{{ t.verdict.get(r.code, r.code) }}{% if r.name %} <span class="muted">{{ r.name }}</span>{% endif %}{% if r.count > 1 %} <span class="muted">×{{ r.count }}</span>{% endif %}</td>
-          <td class="num">{% if r.ongoing %}<b>{{ t.ongoing_now }}</b> {% endif %}{{ r.duration }}</td>
-        </tr>
-        {% endfor %}
-      </tbody></table>{% endif %}
+      </ul>
+      {% if b.conns_rot %}<p class="tvb-rot">{{ t.board_rot.format(shown=b.conns_rot.shown, total=b.conns_rot.total, page=b.conns_rot.page, pages=b.conns_rot.pages) }}</p>{% endif %}{% endif %}
     </div>
   </section>
   {% endif %}
@@ -177,6 +171,15 @@
   <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
   <symbol id="i-cross" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11m0-11-11 11"/></symbol>
   <symbol id="i-wait" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.5l3 2"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5.5M12 16.2v.2"/></symbol>
+  <symbol id="i-bars" viewBox="0 0 24 24"><path d="M6 19v-6M12 19V9M18 19V5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3 5.5 13.5H12L11 21l7.5-10.5H12Z"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.6 5.2 3.6 8.5s-1.2 6.1-3.6 8.5c-2.4-2.4-3.6-5.2-3.6-8.5s1.2-6.1 3.6-8.5Z"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5Z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></symbol>
+  <symbol id="i-tunnels" viewBox="0 0 24 24"><path d="M4 8.5h15m-3.5-3.5L19 8.5 15.5 12M20 15.5H5m3.5 3.5L5 15.5 8.5 12"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 6 5 17h14Z"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v13m-5-5 5 5 5-5"/></symbol>
 </svg>
 {% endif %}
 </body>

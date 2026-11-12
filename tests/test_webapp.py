@@ -517,14 +517,14 @@ class RolesAndTV(WebAppBase):
         html = r.get_data(as_text=True)
         self.assertIn("Internet is working", html)
         self.assertNotIn('class="nav"', html)                                  # no navigation, nothing to click
-        for part in ('class="noc ', 'class="tl', 'class="noc-points"', "Last 24 hours", "Call quality"):
+        for part in ('class="tvb ', 'class="tl', 'class="tvb-tiles"', "Last 24 hours", "Availability"):
             self.assertIn(part, html)                                           # the board, for a technician
         simple = anon.get(f"/tv/{token}?lang=en&layout=simple").get_data(as_text=True)
         self.assertIn('class="tv-headline"', simple)                           # the minimal view, for a counter
         self.assertIn('class="tv tv-board"', html)                             # the board sizes itself to the window
         self.assertNotIn("tv-board", simple)
-        self.assertNotIn("noc-alarm", html)                                    # nothing down, no alarm
-        self.assertNotIn('class="noc ', simple)
+        self.assertNotIn("tvb-alarm", html)                                    # nothing down, no alarm
+        self.assertNotIn('class="tvb ', simple)
         self.assertEqual(anon.get(f"/tv/{token}x").status_code, 404)
         self.client.post("/settings/tv", data={"csrf_token": csrf(page), "action": "revoke"})
         self.assertEqual(anon.get(f"/tv/{token}").status_code, 404)
@@ -834,19 +834,19 @@ class TvPairing(WebAppBase):
         self.assertEqual(r.status_code, 302)
         self.assertIn("tv_device=", r.headers.get("Set-Cookie", ""))
         board = tv.get("/tv?lang=en").get_data(as_text=True)
-        self.assertIn('class="noc ', board)
+        self.assertIn('class="tvb ', board)
         self.assertIn("Counter", self.client.get("/settings").get_data(as_text=True))
         again = self.client.post("/settings/tv/pair", data={"csrf_token": csrf(page), "code": code, "name": "y"})
         self.assertEqual(again.status_code, 400)          # a code works once
         dev = tvpair.listing(self.store)[0]
         self.client.post("/settings/tv/unpair", data={"csrf_token": csrf(page), "id": dev["id"]})
-        self.assertNotIn('class="noc ', tv.get("/tv?lang=en").get_data(as_text=True))   # back to a code
+        self.assertNotIn('class="tvb ', tv.get("/tv?lang=en").get_data(as_text=True))   # back to a code
 
     def test_signed_in_users_see_the_board_and_codes_expire(self):
         import time as _t
         from isitmyisp import tvpair
         self.create_admin()
-        self.assertIn('class="noc ', self.client.get("/tv?lang=en").get_data(as_text=True))
+        self.assertIn('class="tvb ', self.client.get("/tv?lang=en").get_data(as_text=True))
         code, secret = tvpair.start(self.store, now=_t.time() - tvpair.TTL - 1)
         self.assertFalse(tvpair.approve(self.store, code, "late"))
         self.assertEqual(tvpair.status(self.store, secret), (None, None))
