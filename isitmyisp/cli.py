@@ -264,6 +264,8 @@ def cmd_monitor(args, t) -> int:
     mon.resume()
     from .alerts import Alerter
     alerter = Alerter(store, lambda: _settings(args, store).lang)
+    from .monthly import Reporter
+    monthly = Reporter(store, lambda: _settings(args, store).lang)   # off unless enabled in Settings
     server = _start_web(store, args, t) if args.web and args.web != "off" else None
     if cfg.tunnels_from_file:
         print(f"⚙️  {cfg.tunnels_from_file}: {len(cfg.tunnels)} tunnel(s)")
@@ -318,6 +320,7 @@ def cmd_monitor(args, t) -> int:
                         speed_seen = r["ts"]
                         print(f"\n{t['speed_done'].format(down=r.get('down_mbps') or 0, up=r.get('up_mbps') or 0, err=r.get('error') or '')}")
                     alerter.tick()
+                    monthly.tick()
                     stamp = time.strftime("%Y-%m-%d %H:%M:%S")
                     if res.transition.closed:
                         print(f"\n[{stamp}] {t['closed']}: {res.transition.closed}")

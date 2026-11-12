@@ -6,6 +6,10 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 ## [Unreleased]
 
 ### Added
+- Monthly report by email (#36): on a chosen day and hour, last month's evidence report goes out with a
+  plain-language summary in the message and the report attached (PDF in the Docker image, HTML
+  otherwise). Uses the alerts' SMTP server, sent once per month across restarts, retried on failure,
+  with a "send now" preview.
 - Opening hours (#34): per weekday with up to two shifts. The dashboard, the TV board and the report
   count the downtime that happened while the business was open, each incident in the report says
   whether it was in or out of hours, and alerts can be held while closed with one summary at

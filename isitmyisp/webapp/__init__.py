@@ -299,7 +299,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                                alerts_last=store.get_setting("_alerts_last"), test_results=results,
                                ifaces=ifaces, isp=views.isp_status(store, data_dir, ASN_JOB),
                                speed=views.speed_status(store, g.settings), invite=invite,
-                               presets=_presets_view(), hours=_hours_view(),
+                               presets=_presets_view(), hours=_hours_view(), monthly=_monthly_view(),
                                users=store.list_users() if is_admin else [],
                                invites=store.pending_invites() if is_admin else [],
                                tv_url=(url_for("tv", token=store.get_setting("tv_token"), _external=True)
@@ -370,6 +370,32 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         if not any(cfg["days"].values()):
             cfg = {**cfg, "days": {**cfg["days"], **hours.SUGGESTED}}
         return cfg
+
+    def _monthly_view():
+        from .. import alerts as alerts_mod, monthly
+        em = alerts_mod.load(store)["email"]
+        return {"cfg": monthly.load(store), "last": store.get_setting(monthly.LAST),
+                "error": store.get_setting(monthly.ERROR), "email_ready": bool(em.get("host") and em.get("sender")),
+                "default_to": em.get("to", ""), "month": monthly.month_name(monthly.previous_month(time.time())[2], g.lang)}
+
+    @app.post("/settings/monthly")
+    def settings_monthly():
+        """Save the monthly report settings, or send last month's report now (a preview: it isn't marked as sent)."""
+        from .. import alerts as alerts_mod, monthly
+        _guard_write()
+        f = request.form
+        try:
+            cfg = monthly.save(store, {"enabled": f.get("enabled"), "day": f.get("day"), "hour": f.get("hour"),
+                                       "to": f.get("to", "")})
+            if f.get("action") == "send":
+                month = monthly.send(store, cfg, g.lang, mark=False)
+                flash(g.t["monthly_sent"].format(month=monthly.month_name(month, g.lang),
+                                                 to=monthly.recipients(cfg, alerts_mod.load(store)["email"])))
+                return redirect(url_for("settings_page") + "#monthly")
+        except monthly.MonthlyError as exc:
+            return _settings_page(str(exc), 400)
+        flash(g.t["saved"])
+        return redirect(url_for("settings_page") + "#monthly")
 
     @app.post("/settings/hours")
     def settings_hours():
