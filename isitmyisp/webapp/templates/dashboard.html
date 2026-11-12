@@ -16,7 +16,7 @@
 <div class="dash-top">
   <p class="status-pill g-{{ grp }}"><span class="dot" aria-hidden="true"></span>{{ t.pill[grp] if d.has_data else t.pill.none }}</p>
   <div class="dash-tools">
-    {% if d.has_data %}<span class="range-chip" title="{% if demo_static %}{{ t.demo_generated.format(when=d.updated|dt) }}{% else %}{{ t.min_ago.format(ago=d.updated_ago) }}{% endif %}"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg>{{ t.range_24h }}</span>{% endif %}
+    {% if d.has_data %}{% with spans=(['1h', '6h', '24h'] if demo_static else ['15m', '1h', '3h', '6h', '12h', '24h', '2d', '7d', '30d']), span='24h', custom=false, start=d.updated - 86400, end=d.updated, first=none, now=d.updated, extra={}, uid='d' %}{% include "_rangepick.html" %}{% endwith %}{% endif %}
     {% include "_theme.html" %}
   </div>
 </div>
@@ -42,7 +42,10 @@
     <p class="kpi-name"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-clock"/></svg>{{ t.kpi_down_for if k.uptime.ongoing else t.kpi_uptime }}</p>
     {% if k.uptime.ongoing %}<p class="kpi-val bad">{{ d.active_for or '—' }}</p><p class="kpi-delta down">{{ t.kpi_now_down }}</p>
     {% else %}<p class="kpi-val">{{ k.uptime.value }}</p><p class="kpi-delta"><span>{{ t.kpi_since_at.format(when=k.uptime.since|tm) }}</span></p>{% endif %}
-    {% if not k.uptime.spark.empty %}<div class="kpi-spark s-blue" aria-hidden="true"><svg viewBox="0 0 1000 100" preserveAspectRatio="none"><path class="area" d="{{ k.uptime.spark.area }}"/><path class="ln" d="{{ k.uptime.spark.line }}"/></svg></div>{% endif %}
+    {% if k.uptime.strip %}<a class="kpi-strip strip" href="{{ url_for('chart', span='24h') }}" title="{{ t.chart_open }}">
+      <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true"><rect class="track" x="0" y="0" width="1000" height="100"/>
+        {% for x, w, g, code in k.uptime.strip %}<rect class="g-{{ g }}" x="{{ x }}" y="{{ 60 if g == 'good' else 0 }}" width="{{ w }}" height="{{ 40 if g == 'good' else 100 }}"/>{% endfor %}</svg>
+      <span class="kpi-strip-x"><span>−24 h</span><span>{{ t.now_word }}</span></span></a>{% endif %}
   </section>
   <section class="card kpi" aria-label="{{ t.kpi_lat }}">
     <p class="kpi-name"><svg class="ico hi-violet" aria-hidden="true"><use href="#i-bolt"/></svg>{{ t.kpi_lat }}</p>
@@ -62,45 +65,9 @@
     <ul class="key" aria-label="{{ t.row_status }}">
       {% for g in tl.groups %}<li><i class="sw g-{{ g }}" aria-hidden="true"></i>{{ t.group[g] }}</li>{% endfor %}
     </ul>
+    <a class="card-link" href="{{ url_for('chart', span='24h') }}">{{ t.chart_open }} <span aria-hidden="true">↗</span></a>
   </div>
-  {% set o = 1 if tl.backup_runs else 0 %}
-  {% set last = (4 if tl.calls else 3) + o %}
-  <figure class="tl{{ ' fo' if tl.backup_runs }}{{ ' calls' if tl.calls }}">
-    {% if tl.backup_runs %}
-    <span class="tl-name row-1">{{ t.row_backup }}</span>
-    <div class="tl-plot strip row-1">
-      <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
-        <rect class="track" x="0" y="0" width="1000" height="100"/>
-        {% for x, w in tl.backup_runs %}<rect class="backup" x="{{ x }}" y="0" width="{{ w }}" height="100"/>{% endfor %}
-      </svg>
-    </div>
-    {% endif %}
-    <span class="tl-name row-{{ 1 + o }}">{{ t.row_status }}</span>
-    <div class="tl-plot strip row-{{ 1 + o }}">
-      <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
-        <rect class="track" x="0" y="0" width="1000" height="100"/>
-        {% for x, w, g, code in tl.strip %}<rect class="g-{{ g }}" x="{{ x }}" y="{{ 72 if g == 'good' else 0 }}" width="{{ w }}" height="{{ 28 if g == 'good' else 100 }}"/>{% endfor %}
-      </svg>
-    </div>
-    <span class="tl-name row-{{ 2 + o }}">{{ t.row_loss }}</span>
-    {{ line_plot(tl.loss, 'row-%d' % (2 + o)) }}
-    <span class="tl-name row-{{ 3 + o }}">{{ t.row_latency }}</span>
-    {{ line_plot(tl.latency, 'row-%d' % (3 + o)) }}
-    {% if tl.calls %}
-    <span class="tl-name row-{{ 4 + o }}">{{ t.row_calls }}</span>
-    {{ line_plot(tl.calls, 'row-%d' % (4 + o)) }}
-    {% endif %}
-    <div class="hv upto-{{ last + 1 }}" aria-hidden="true">
-      {% for b in tl.buckets %}<div class="c{{ ' flip' if b.flip }}"><div class="tip">
-        <b>{{ b.start|tm }}–{{ b.end|tm }}</b>
-        <span><i class="sw g-{{ b.group }}"></i>{{ t.verdict.get(b.code, b.code) if b.group != 'none' else t.group.none }}</span>
-        <span>{{ t.row_loss }} {{ num(b.loss) }}%</span>
-        <span>{{ t.row_latency }} {{ num(b.lat) }} ms</span>{% if b.mos is not none %}
-        <span>{{ t.row_calls }} {{ '%.1f'|format(b.mos) }} ({{ t.band[band_of(b.mos)] }})</span>{% endif %}{% if b.backup %}
-        <span>{{ t.tip_backup }}</span>{% endif %}</div></div>{% endfor %}
-    </div>
-    {{ xaxis(tl.xticks, 'row-%d' % (last + 1)) }}
-  </figure>
+  {% set zoom = none %}{% include "_timeline.html" %}
   <details class="table-view">
     <summary>{{ t.table_view }}</summary>
     <table>
@@ -120,12 +87,12 @@
   <ul class="tlist">
     {% for c in d.points %}
     {% set st = 'good' if c.status == 'ok' else ('warn' if c.status == 'warn' else 'bad') %}
-    <li class="s-{{ st }}" title="{{ c.target }}">
+    <li class="s-{{ st }}" title="{{ c.target }}"><a class="tl-row" href="{{ url_for('chart', span='24h', who='dns' if c.kind == 'dns' else c.target) }}" aria-label="{{ t.chart_open }}: {{ t.point_label[c.kind] }} {{ c.target }}">
       <span class="ring" aria-hidden="true"></span>
       <span class="tl-n">{{ t.point_label[c.kind] }}{% if c.kind == 'dns' and c.count > 1 %} ({{ c.count }}){% else %} <span class="tl-t">({{ c.target }})</span>{% endif %}</span>
       <span class="tl-ms">{{ num(c.median, '%.0f') if c.median is not none and c.median >= 1 else ('< 1' if c.median is not none else '—') }} ms{% if c.loss %}<b>{{ '%.0f'|format(c.loss) }}% {{ t.loss_word }}</b>{% endif %}</span>
       {% if c.history and not c.history.empty %}<span class="tl-spark" aria-hidden="true"><svg viewBox="0 0 1000 100" preserveAspectRatio="none"><path class="ln" d="{{ c.history.line }}"/></svg></span>{% else %}<span></span>{% endif %}
-    </li>
+    </a></li>
     {% endfor %}
   </ul>
 </section>

@@ -112,7 +112,7 @@ class StaticSite(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             site = Path(d) / "site"
             pages = export(site, langs=("es",), scenarios=("isp", "healthy"), hours=1)
-            self.assertEqual(len(pages), 16)                       # 8 pages (6 + the two TV views) × 2 scenarios
+            self.assertEqual(len(pages), 134)    # (6 + 2 TV + 29 chart zooms + 6 destinations × 5 zooms) × 2 scenarios
             for f in site.rglob("*.html"):
                 for url in re.findall(r'(?:href|src|action)="(/[^"#?]*)', f.read_text()):
                     if url.startswith("/docs/"):          # the docs are built by scripts/build_docs.py (tests/test_docs.py)

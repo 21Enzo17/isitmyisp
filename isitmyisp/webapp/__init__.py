@@ -136,8 +136,11 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     def security_headers(resp: Response) -> Response:
         # Reports are standalone documents with an inline <style>; everything else uses /static.
         style = "'self' 'unsafe-inline'" if request.endpoint in ("report",) else "'self'"
+        # one page runs a script, the enlarged chart's drag-to-zoom (/static/chart.js, never inline);
+        # every other page allows none at all
+        script = " script-src 'self';" if request.endpoint == "chart" else ""
         resp.headers.setdefault("Content-Security-Policy",
-                                f"default-src 'none'; style-src {style}; img-src 'self' data:; font-src 'self'; manifest-src 'self'; "
+                                f"default-src 'none';{script} style-src {style}; img-src 'self' data:; font-src 'self'; manifest-src 'self'; "
                                 "form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
         resp.headers["X-Content-Type-Options"] = "nosniff"
         resp.headers["X-Frame-Options"] = "DENY"
@@ -172,9 +175,20 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         from ..report import fmt_duration
         return g.t["ago_ev"].format(dur=fmt_duration(max(0, time.time() - ts))) if ts else ""
 
+    @app.template_filter("dtlocal")
+    def _dtlocal(ts):
+        """For <input type="datetime-local">: local time, to the minute."""
+        return time.strftime("%Y-%m-%dT%H:%M", time.localtime(ts)) if ts else ""
+
+    @app.template_filter("dur")
+    def _dur_filter(seconds):
+        from ..report import fmt_duration
+        return fmt_duration(seconds)
+
     @app.template_filter("tm")
-    def _tm_filter(ts):
-        return time.strftime("%H:%M", time.localtime(ts)) if ts else ""
+    def _tm_filter(ts, step: float = 60):
+        """A time of day; with seconds when the thing it labels is shorter than a minute."""
+        return time.strftime("%H:%M:%S" if step < 60 else "%H:%M", time.localtime(ts)) if ts else ""
 
     @app.template_filter("ev")
     def _ev_filter(line):
@@ -212,13 +226,14 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     # the stylesheet's URL carries a fingerprint of its content, so a new design is never stuck in a cache
     import hashlib
     css_v = hashlib.sha256((Path(__file__).parent / "static" / "style.css").read_bytes()).hexdigest()[:10]
+    js_v = hashlib.sha256((Path(__file__).parent / "static" / "chart.js").read_bytes()).hexdigest()[:10]
 
     @app.context_processor
     def inject():
         return {"t": g.get("t", S["en"]), "lang": g.get("lang", "en"), "user": g.get("user"),
                 "readonly": g.get("readonly", False), "version": __version__, "demo": app.config["DEMO"],
                 "demo_static": app.config.get("DEMO_STATIC"),
-                "auth_mode": g.settings.auth_mode if g.get("settings") else "local", "css_v": css_v,
+                "auth_mode": g.settings.auth_mode if g.get("settings") else "local", "css_v": css_v, "js_v": js_v,
                 "theme": request.cookies.get("theme") if request.cookies.get("theme") in ("light", "dark") else None,
                 "live": _live()}
 
@@ -250,6 +265,20 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         return render_template("dashboard.html", active="dashboard",
                                d=views.dashboard_data(store, g.settings),
                                wizard_pending=not g.readonly and not store.get_setting("wizard_done"))
+
+    @app.get("/chart")
+    def chart():
+        """The 24-hour chart, enlarged: any span from 1 hour (one column per 30 s window) to 30 days."""
+        try:
+            k = int(request.args.get("k", 0))
+        except ValueError:
+            k = 0
+        demo = app.config.get("DEMO_STATIC")
+        frm, to = (None, None) if demo else (views.parse_when(request.args.get("from")), views.parse_when(request.args.get("to")))
+        cv = views.chart_view(store, g.settings, request.args.get("span", "24h"), k,
+                              spans=(["6h", "24h"] if request.args.get("who") else ["1h", "6h", "24h"]) if demo else None,
+                              who=request.args.get("who") or None, frm=frm, to=to)
+        return render_template("chart.html", active="dashboard", cv=cv)
 
     @app.get("/incidents")
     def incidents():

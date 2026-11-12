@@ -1,0 +1,42 @@
+{#- The 24-hour chart (any span): status strip, loss, latency, calls, backup link, and a hover column per
+    bucket. Shared by the dashboard and the enlarged chart; `zoom` (optional) is one link per column. -#}
+{% from "_charts.html" import line_plot, xaxis %}
+  {% set o = 1 if tl.backup_runs else 0 %}
+  {% set last = (4 if tl.calls else 3) + o %}
+  <figure class="tl{{ ' fo' if tl.backup_runs }}{{ ' calls' if tl.calls }}">
+    {% if tl.backup_runs %}
+    <span class="tl-name row-1">{{ t.row_backup }}</span>
+    <div class="tl-plot strip row-1">
+      <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
+        <rect class="track" x="0" y="0" width="1000" height="100"/>
+        {% for x, w in tl.backup_runs %}<rect class="backup" x="{{ x }}" y="0" width="{{ w }}" height="100"/>{% endfor %}
+      </svg>
+    </div>
+    {% endif %}
+    <span class="tl-name row-{{ 1 + o }}">{{ t.row_status }}</span>
+    <div class="tl-plot strip row-{{ 1 + o }}">
+      <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
+        <rect class="track" x="0" y="0" width="1000" height="100"/>
+        {% for x, w, g, code in tl.strip %}<rect class="g-{{ g }}" x="{{ x }}" y="{{ 72 if g == 'good' else 0 }}" width="{{ w }}" height="{{ 28 if g == 'good' else 100 }}"/>{% endfor %}
+      </svg>
+    </div>
+    <span class="tl-name row-{{ 2 + o }}">{{ t.row_loss }}</span>
+    {{ line_plot(tl.loss, 'row-%d' % (2 + o)) }}
+    <span class="tl-name row-{{ 3 + o }}">{{ t.row_latency }}</span>
+    {{ line_plot(tl.latency, 'row-%d' % (3 + o)) }}
+    {% if tl.calls %}
+    <span class="tl-name row-{{ 4 + o }}">{{ t.row_calls }}</span>
+    {{ line_plot(tl.calls, 'row-%d' % (4 + o)) }}
+    {% endif %}
+    <div class="hv upto-{{ last + 1 }}" aria-hidden="true">
+      {% for b in tl.buckets %}{% set z = zoom[loop.index0] if zoom else none %}<{{ 'a' if z else 'div' }} class="c{{ ' flip' if b.flip }}"{% if z %} href="{{ url_for('chart', **z) }}" tabindex="-1"{% endif %}><div class="tip">
+        <b>{{ b.start|tm(b.end - b.start) }}–{{ b.end|tm(b.end - b.start) }}</b>
+        <span><i class="sw g-{{ b.group }}"></i>{{ t.verdict.get(b.code, b.code) if b.group != 'none' else t.group.none }}</span>
+        <span>{{ t.row_loss }} {{ num(b.loss) }}%{% if b.loss_max is not none and b.loss_max - (b.loss or 0) >= 0.1 %} · {{ t.peak_word }} {{ num(b.loss_max) }}%{% endif %}</span>
+        <span>{{ t.row_latency }} {{ num(b.lat) }} ms</span>{% if b.mos is not none %}
+        <span>{{ t.row_calls }} {{ '%.1f'|format(b.mos) }} ({{ t.band[band_of(b.mos)] }})</span>{% endif %}{% if b.backup %}
+        <span>{{ t.tip_backup }}</span>{% endif %}{% if z %}
+        <span class="tip-zoom">{{ t.chart_click_zoom }}</span>{% endif %}</div></{{ 'a' if z else 'div' }}>{% endfor %}
+    </div>
+    {{ xaxis(tl.xticks, 'row-%d' % (last + 1)) }}
+  </figure>

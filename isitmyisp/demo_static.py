@@ -27,6 +27,16 @@ LANGS = ("es", "en")
 PAGES = [("", "/"), ("incidents/", "/incidents"), ("tunnels/", "/tunnels"), ("reports/", "/reports"),
          ("settings/", "/settings"), ("report/", "/report?since=1d"),
          ("tv/", "/tv/demo"), ("tv/simple/", "/tv/demo?layout=simple")]   # the wall screen, both layouts
+# the enlarged chart at every zoom the demo's day has: 24 h, its four 6 h, its twenty-four hours
+CHARTS = [("24h", 0)] + [("6h", k) for k in range(4)] + [("1h", k) for k in range(24)]
+PAGES += [(f"chart/{span}-{k}/", f"/chart?span={span}&k={k}") for span, k in CHARTS]
+# and each destination's own chart, at 24 h and its four 6 h (the destinations depend on the scenario)
+WHO_CHARTS = [("24h", 0)] + [("6h", k) for k in range(4)]
+
+
+def who_pages(store) -> list[tuple[str, str]]:
+    whos = sorted({s["target"] for s in store.latest_samples() if s["role"] in ("home", "isp", "anchor")}) + ["dns"]
+    return [(f"chart/{w}/{span}-{k}/", f"/chart?span={span}&k={k}&who={w}") for w in whos for span, k in WHO_CHARTS]
 ROUTES = {"/": "", "/incidents": "incidents/", "/tunnels": "tunnels/", "/reports": "reports/",
           "/settings": "settings/", "/report": "report/", "/report.pdf": "report/"}
 DEFAULT = ("es", "isp")
@@ -34,6 +44,7 @@ DEFAULT = ("es", "isp")
 APP_CSP = ("default-src 'none'; style-src 'self'; img-src 'self' data:; font-src 'self'; manifest-src 'self'; "
            "form-action 'none'; frame-ancestors 'none'; base-uri 'none'")
 REPORT_CSP = APP_CSP.replace("style-src 'self'", "style-src 'unsafe-inline'")
+CHART_CSP = APP_CSP.replace("default-src 'none';", "default-src 'none'; script-src 'self';")   # drag-to-zoom
 COMMON = ["X-Content-Type-Options: nosniff", "X-Frame-Options: DENY", "Referrer-Policy: no-referrer"]
 
 _HREF = re.compile(r'(href|action)="([^"]*)"')
@@ -51,6 +62,10 @@ def rewrite(html: str, lang: str, scenario: str, page: str, langs=LANGS) -> str:
             other = url.split("=", 1)[1].split("&")[0]
             return f'{attr}="/{other if other in langs else lang}/{scenario}/{page}"'
         path, _, frag = url.partition("#")
+        if path.startswith("/chart"):                         # /chart?span=6h&k=2 -> chart/6h-2/
+            q = dict(p.split("=", 1) for p in path.partition("?")[2].replace("&amp;", "&").split("&") if "=" in p)
+            who = f'{q["who"]}/' if q.get("who") else ""
+            return f'{attr}="{base}chart/{who}{q.get("span", "24h")}-{q.get("k", "0")}/"'
         path = path.split("?", 1)[0]
         if path == "/favicon.ico":
             return f'{attr}="/static/favicon-32.png"'
@@ -80,7 +95,7 @@ def export(out: Path, langs=LANGS, scenarios=SCENARIOS, hours: float = 24.0) -> 
                 sim.store.set_settings({"tv_token": "demo"}, bump=False)     # a fixed link for the TV pages
                 app.config["DEMO_STATIC"] = {"scenario": scenario, "scenarios": list(scenarios)}
                 client = app.test_client()
-                for page, url in PAGES:
+                for page, url in PAGES + who_pages(sim.store):
                     resp = client.get(url + ("&" if "?" in url else "?") + f"lang={lang}")
                     if resp.status_code != 200:
                         raise RuntimeError(f"{lang}/{scenario}{url}: HTTP {resp.status_code}")
@@ -107,7 +122,7 @@ def headers(pages: list[str]) -> str:
     """Netlify _headers: one block per page, so each gets exactly one CSP."""
     lines = []
     for path in ["/", "/404.html"] + pages:
-        csp = REPORT_CSP if path.endswith("/report/") else APP_CSP
+        csp = REPORT_CSP if path.endswith("/report/") else CHART_CSP if "/chart/" in path else APP_CSP
         lines += [path, f"  Content-Security-Policy: {csp}"] + [f"  {h}" for h in COMMON] + [""]
     lines += ["/static/*", "  Cache-Control: public, max-age=86400"] + [f"  {h}" for h in COMMON] + [""]
     return "\n".join(lines)

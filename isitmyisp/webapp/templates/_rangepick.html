@@ -1,0 +1,22 @@
+{#- The time range picker (like Grafana's): quick ranges and an exact from/to, in a <details> so it
+    opens with no JavaScript. Expects: spans, span (the current quick range or none), custom, start,
+    end, first, now, extra (e.g. {"who": …}). The static demo has only quick ranges. -#}
+<details class="range-menu">
+  <summary class="range-chip"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg>
+    {%- if custom %}{{ start|dt }} → {{ end|dt }}{% else %}{{ t.range_last[span] }}{% endif %}<span class="caret" aria-hidden="true">▾</span></summary>
+  <div class="rp">
+    {% if not demo_static %}<form class="rp-abs" method="get" action="{{ url_for('chart') }}">
+      <p class="rp-h">{{ t.rp_abs }}</p>
+      {% for k, v in extra.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+      <label for="rp-from{{ uid }}">{{ t.rp_from }}</label>
+      <input type="datetime-local" id="rp-from{{ uid }}" name="from" value="{{ start|dtlocal }}" min="{{ first|dtlocal }}" max="{{ now|dtlocal }}" required>
+      <label for="rp-to{{ uid }}">{{ t.rp_to }}</label>
+      <input type="datetime-local" id="rp-to{{ uid }}" name="to" value="{{ end|dtlocal }}" min="{{ first|dtlocal }}" max="{{ now|dtlocal }}" required>
+      <button class="btn primary" type="submit">{{ t.rp_apply }}</button>
+    </form>{% endif %}
+    <div class="rp-quick">
+      <p class="rp-h">{{ t.rp_quick }}</p>
+      <ul>{% for s in spans %}<li><a href="{{ url_for('chart', span=s, **extra) }}"{% if s == span and not custom %} aria-current="true"{% endif %}>{{ t.range_last[s] }}</a></li>{% endfor %}</ul>
+    </div>
+  </div>
+</details>

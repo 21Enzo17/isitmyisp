@@ -1,6 +1,7 @@
 """Chart components for the web UI: plain data + resolution-independent SVG, hover done in CSS.
 
-Why this shape: the dashboard ships no JavaScript and a CSP without inline styles. So:
+Why this shape: the dashboard works with no JavaScript and a CSP without inline styles (the one
+script, the enlarged chart's drag-to-zoom, is optional and only builds a link). So:
 - plots are SVG in a 0..1000 x 0..100 box stretched to the container (preserveAspectRatio="none"),
   with non-scaling strokes, so lines stay 2px and nothing is shrunk with the viewBox;
 - every text (axis ticks, tooltips) is real HTML, so it is always legible and selectable;
@@ -37,6 +38,7 @@ class Bucket:
     flip: bool = False   # tooltip opens to the left (right third of the chart)
     backup: bool = False  # traffic was going out through the backup link
     mos: float | None = None  # estimated call quality (1..5), mean of the bucket
+    loss_max: float | None = None  # the worst single window in the bucket (%): a short spike the mean hides
 
 
 @dataclass
@@ -162,6 +164,7 @@ def _buckets(windows, series, start: float, end: float, n: int) -> list[Bucket]:
     for b, values, ls in zip(out, lats, losses):
         b.lat = statistics.median(values) if values else None
         b.loss = statistics.fmean(ls) if ls else None
+        b.loss_max = max(ls) if ls else None
     return out
 
 
@@ -175,7 +178,8 @@ def _merge(buckets: list[Bucket], k: int) -> list[Bucket]:
         out.append(Bucket(chunk[0].start, chunk[-1].end, worst.code, worst.group,
                           statistics.fmean(losses) if losses else None,
                           statistics.median(lats) if lats else None, backup=any(b.backup for b in chunk),
-                          mos=min((b.mos for b in chunk if b.mos is not None), default=None)))
+                          mos=min((b.mos for b in chunk if b.mos is not None), default=None),
+                          loss_max=max((b.loss_max for b in chunk if b.loss_max is not None), default=None)))
     return out
 
 

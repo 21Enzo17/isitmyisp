@@ -680,6 +680,11 @@ label.check input { width: 17px; height: 17px; accent-color: var(--accent); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .kpi-delta.up { color: var(--good); } } .kpi-delta.down { color: var(--isp); }
 .kpi-delta span { color: var(--ink-3); font-weight: 400; }
 .kpi-spark { grid-column: 2; grid-row: 2; position: relative; min-height: 52px; align-self: end; }
+/* "without outages": the last 24 h as a strip under the figure, full width (a long figure never meets it) */
+.kpi-strip { grid-column: 1 / -1; display: block; margin-top: 14px; text-decoration: none; }
+.kpi-strip svg { display: block; width: 100%; height: 14px; border-radius: 4px; }
+.kpi-strip-x { display: flex; justify-content: space-between; margin-top: 4px; font-size: 11.5px; color: var(--ink-3); }
+.kpi-strip:hover .kpi-strip-x { color: var(--ink-2); }
 .kpi-spark svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .kpi-spark .ln { fill: none; stroke: var(--sc); stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .kpi-spark .area { fill: var(--sc); opacity: .16; }
@@ -877,3 +882,72 @@ input[type=text], input[type=password], input[type=number], input[type=datetime-
 .tv-demo a { background: #2563eb; color: #fff; text-decoration: none; font: 600 13px/1 "Plex", system-ui, sans-serif;
              padding: 8px 13px; border-radius: 999px; box-shadow: 0 4px 14px rgb(0 0 0 / .35); }
 .tv-demo a + a { background: #1e293b; }
+
+/* ---------- the chart, enlarged (/chart): zoom and move with plain links */
+.card-head .card-link { margin-left: auto; font-size: 13.5px; font-weight: 500; color: var(--accent); text-decoration: none; white-space: nowrap; }
+.card-head .card-link:hover { text-decoration: underline; }
+.chart-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; }
+.seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: var(--r-sm); overflow: hidden; }
+.seg a { padding: 8px 14px; font-size: 14px; font-weight: 500; color: var(--ink-2); text-decoration: none; }
+.seg a + a { border-left: 1px solid var(--line-2); }
+.seg a:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.seg a[aria-current] { background: var(--accent); color: #fff; }
+.chart-nav { display: flex; flex-wrap: wrap; gap: 8px; }
+.chart-nav .btn { padding: 7px 13px; font-size: 14px; text-decoration: none; }
+.btn.off { opacity: .4; cursor: default; }
+.chart.big .tl { grid-template-rows: 34px 150px 150px 26px; }
+.chart.big .tl.fo { grid-template-rows: 20px 34px 150px 150px 26px; }
+.chart.big .tl.calls { grid-template-rows: 34px 150px 150px 100px 26px; }
+.chart.big .tl.fo.calls { grid-template-rows: 20px 34px 150px 150px 100px 26px; }
+.hv a.c { display: block; cursor: zoom-in; }
+.tip .tip-zoom { margin-top: 4px; color: var(--accent); font-weight: 500; }
+.chart-hint { margin: 14px 0 0; }
+tr.bad-row td { background: color-mix(in srgb, var(--isp) 7%, transparent); }
+@media (max-width: 760px) { .chart.big .tl { grid-template-rows: 30px 110px 110px 22px; } }
+
+/* destinations: each row opens that destination's chart */
+.tlist li { display: block; padding: 0; }
+.tlist .tl-row { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto 56px; gap: 12px; align-items: center;
+                 padding: 10px 8px; margin: 0 -8px; border-radius: 8px; color: inherit; text-decoration: none; }
+.tlist .tl-row:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.h1-sub { font-weight: 500; color: var(--ink-3); font-size: .7em; }
+/* the range menu: a <details>, so it opens with no JavaScript */
+.range-menu { position: relative; }
+.range-menu > summary { list-style: none; cursor: pointer; }
+.range-menu > summary::-webkit-details-marker { display: none; }
+.range-menu .caret { font-size: 11px; color: var(--ink-3); margin-left: -2px; }
+.range-menu[open] > summary { border-color: var(--accent); }
+
+/* drag to zoom (chart.js; without it, the links do the same) */
+.zoomable { position: relative; }
+.drag-sel { position: absolute; z-index: 4; pointer-events: none; border-radius: 4px;
+            background: color-mix(in srgb, var(--accent) 22%, transparent);
+            border-left: 1px solid var(--accent); border-right: 1px solid var(--accent); }
+.js-only { display: none; }
+.js .js-only { display: inline; }
+.js .zoomable .hv { cursor: crosshair; touch-action: pan-y; }
+.js .zoomable .hv a.c { cursor: crosshair; }
+.js .zoomable .tip-zoom { display: none; }
+.zoomable.dragging { user-select: none; }
+.zoomable.dragging .tip { display: none !important; }
+/* the range picker */
+.range-menu .rp { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; display: grid;
+                  grid-template-columns: minmax(220px, auto) minmax(180px, auto); gap: 0; padding: 0;
+                  background: var(--surface); border: 1px solid var(--line-2); border-radius: 12px;
+                  box-shadow: 0 12px 30px rgb(0 0 0 / .25); }
+.range-menu .rp-h { margin: 0 0 8px; font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-3); }
+.range-menu .rp-abs { display: flex; flex-direction: column; gap: 6px; padding: 14px; border-right: 1px solid var(--line); }
+.range-menu .rp-abs label { font-size: 13.5px; color: var(--ink-2); }
+.range-menu .rp-abs input { padding: 7px 10px; border-radius: var(--r-sm); border: 1px solid var(--line-2); background: var(--raised);
+                            color: var(--ink); font: inherit; font-size: 14px; color-scheme: light dark; }
+.range-menu .rp-abs .btn { margin-top: 8px; justify-content: center; }
+.range-menu .rp-quick { padding: 14px 8px 8px; }
+.range-menu .rp-quick .rp-h { padding: 0 8px; }
+.range-menu .rp-quick ul { list-style: none; margin: 0; padding: 0; }
+.range-menu .rp-quick a { display: block; padding: 7px 10px; border-radius: 8px; color: var(--ink); text-decoration: none; font-size: 14px; white-space: nowrap; }
+.range-menu .rp-quick a:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.range-menu .rp-quick a[aria-current] { color: var(--accent); font-weight: 600; }
+.chart-key { margin: -4px 0 12px; }
+@media (max-width: 640px) { .range-menu .rp { grid-template-columns: minmax(0, 1fr); right: auto; left: 0; }
+                            .range-menu .rp-abs { border-right: 0; border-bottom: 1px solid var(--line); } }
+.js .zoomable .hv a.c { -webkit-user-drag: none; user-select: none; }
