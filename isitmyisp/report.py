@@ -18,11 +18,20 @@ from .store import Capture, Incident, Store
 from .tunnels import periodic_interval
 
 ISP_CODES = ("access", "isp")
-TUNNEL_COLORS = {"path_local": "#d9534f", "path_remote": "#7b6fd0", "config": "#e0a526", "unknown": "#9aa0a6"}
-COLORS = {
-    "ok": "#3fa66b", "local": "#e0a526", "access": "#d9534f", "isp": "#b83a6e",
-    "remote": "#7b6fd0", "dns": "#3b8ad9", "no_data": "#c9ccd1", "saturation": "#e07b26",
+TUNNEL_COLORS = {"path_local": "#ef4444", "path_remote": "#64748b", "config": "#f59e0b", "unknown": "#94a3b8"}
+COLORS = {   # the dashboard's palette: green fine, orange your side, red the ISP, slate others
+    "ok": "#22c55e", "local": "#f59e0b", "access": "#ef4444", "isp": "#dc2626",
+    "remote": "#64748b", "dns": "#2563eb", "no_data": "#cbd5e1", "saturation": "#f97316",
 }
+MARK = ('<svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M17 32H24.5M39.5 32H47" stroke="#525d73" '
+        'stroke-width="4" stroke-linecap="round" fill="none"/><circle cx="32" cy="32" r="12" fill="#3b82f6" opacity=".22"/>'
+        '<circle cx="11" cy="32" r="6" fill="none" stroke="#525d73" stroke-width="4"/><circle cx="53" cy="32" r="6" '
+        'fill="none" stroke="#525d73" stroke-width="4"/><circle cx="32" cy="32" r="7.5" fill="#3b82f6"/></svg>')
+ICON_OK = ('<svg class="ri" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" '
+           'stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>')
+ICON_Q = ('<svg class="ri" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" '
+          'stroke="currentColor" stroke-width="2"/><path d="M12 7.5v5.5M12 16.2v.2" stroke="currentColor" '
+          'stroke-width="2.2" stroke-linecap="round"/></svg>')
 
 R = {
     "en": {
@@ -207,6 +216,17 @@ R = {
 
 # ------------------------------------------------------------------ helpers
 
+def _tint(hex_color: str, amount: float) -> str:
+    """hex_color mixed with white (amount = share of the colour), resolved here so the PDF engine needs no color-mix()."""
+    r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+    return "#" + "".join(f"{round(255 - (255 - c) * amount):02x}" for c in (r, g, b))
+
+
+def _hero(color: str, text: str) -> str:
+    return (f'<div class="hero" style="--c:{color};--ct:{_tint(color, .09)};--cb:{_tint(color, .3)}">'
+            f'{_e(text)}</div>')
+
+
 def _e(s: object) -> str:
     return html.escape(str(s))
 
@@ -380,9 +400,9 @@ def ruled_out_html(inc: Incident, lang: str) -> str:
     no = [NOT_RULED[lang][c] for c in d.get("not_ruled_out", []) if c in NOT_RULED[lang]]
     out = ""
     if ok:
-        out += '<div class="ruled">' + "".join(f"<div>✓ {_e(x)}</div>" for x in ok) + "</div>"
+        out += '<div class="ruled">' + "".join(f"<div>{ICON_OK}{_e(x)}</div>" for x in ok) + "</div>"
     if no:
-        out += '<div class="notruled">' + "".join(f"<div>? {_e(x)}</div>" for x in no) + "</div>"
+        out += '<div class="notruled">' + "".join(f"<div>{ICON_Q}{_e(x)}</div>" for x in no) + "</div>"
     return out
 
 
@@ -491,45 +511,64 @@ def isp_message(incidents: list[Incident], captures: dict[int, list[Capture]], t
 
 
 CSS = """
-:root { --ink:#1d2330; --muted:#6b7280; --line:#e5e7eb; --bg:#ffffff; --soft:#f6f7f9; }
+:root { --ink:#0f172a; --ink2:#525d73; --muted:#6b7489; --line:#e4e8f0; --bg:#f5f7fb; --card:#ffffff; --soft:#f5f7fb;
+        --blue:#2563eb; --good:#15803d; --warn:#b45309; }
 * { box-sizing: border-box; }
-body { margin:0; background:var(--bg); color:var(--ink); font: 14px/1.5 -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-main { max-width: 960px; margin: 0 auto; padding: 32px 24px 48px; }
-header .brand { font-weight:700; letter-spacing:.02em; color:var(--muted); font-size:12px; text-transform:uppercase; }
-h1 { font-size: 26px; margin: 4px 0 12px; }
-h2 { font-size: 17px; margin: 32px 0 10px; padding-bottom:6px; border-bottom:1px solid var(--line); }
-h3 { font-size: 14px; margin: 22px 0 6px; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font: 14px/1.55 "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+main { max-width: 1000px; margin: 28px auto; padding: 34px 38px 40px; background:var(--card); border:1px solid var(--line);
+       border-radius:18px; box-shadow: 0 1px 2px rgba(16,24,40,.05), 0 2px 8px rgba(16,24,40,.05); }
+header .brand { display:flex; align-items:center; gap:9px; font-weight:700; font-size:16px; letter-spacing:-.01em; color:var(--ink); }
+header .mark { width:30px; height:30px; }
+h1 { font-size: 27px; margin: 14px 0 10px; letter-spacing:-.02em; }
+h2 { font-size: 18px; margin: 34px 0 12px; letter-spacing:-.01em; }
+h3 { font-size: 14.5px; margin: 22px 0 6px; }
 .meta { display:flex; flex-wrap:wrap; gap:6px 22px; color:var(--muted); font-size:13px; }
 .meta b { color:var(--ink); font-weight:600; }
-.hero { margin:20px 0 6px; padding:16px 18px; border-radius:10px; background:var(--soft); border-left:5px solid var(--c); font-size:16px; font-weight:600; }
-.tiles { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
-.tile { flex:1 1 140px; border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
-.tile .k { color:var(--muted); font-size:12px; }
-.tile .v { font-size:20px; font-weight:700; font-variant-numeric: tabular-nums; }
+/* the verdict, with its colour as a dot, like the dashboard */
+.hero { position:relative; margin:22px 0 8px; padding:16px 18px 16px 56px; border-radius:14px; font-size:16.5px; font-weight:600;
+        background: var(--ct); border:1px solid var(--cb); }
+.hero::before { content:""; position:absolute; left:18px; top:50%; width:22px; height:22px; margin-top:-11px; border-radius:50%;
+                background:var(--c); border:5px solid var(--cb); box-sizing:content-box; margin-left:-5px; margin-top:-16px; }
+.tiles { display:flex; flex-wrap:wrap; gap:12px; margin-top:16px; }
+.tile { flex:1 1 140px; background:var(--soft); border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
+.tile .k { color:var(--ink2); font-size:12.5px; font-weight:500; }
+.tile .v { font-size:22px; font-weight:700; letter-spacing:-.02em; font-variant-numeric: tabular-nums; margin-top:2px; }
 table { width:100%; border-collapse:collapse; font-size:13px; }
-th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
-th { color:var(--muted); font-weight:600; font-size:12px; }
+th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+th { color:var(--ink2); font-weight:600; font-size:12px; background:var(--soft); }
+thead th:first-child { border-top-left-radius:8px; } thead th:last-child { border-top-right-radius:8px; }
 td.num, th.num { text-align:right; font-variant-numeric: tabular-nums; }
 td.num { white-space:nowrap; }
 td.dt { text-align:right; font-variant-numeric: tabular-nums; line-height:1.3; }
 td.dt small { color:var(--muted); }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12.5px; }
-.dot { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px; }
+.dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:7px; vertical-align:-1px; }
 .chart { width:100%; height:auto; display:block; margin:4px 0 2px; }
 .chart .axis { font-size:10.5px; fill:var(--muted); }
 .chart .grid { stroke:var(--line); stroke-width:1; }
-.legend { display:flex; flex-wrap:wrap; gap:4px 16px; font-size:12px; color:var(--muted); margin:2px 0 10px; }
-.label { font-size:12px; color:var(--muted); margin-top:12px; }
-pre.message { white-space:pre-wrap; background:var(--soft); border:1px solid var(--line); border-radius:8px; padding:14px; font: 13px/1.55 ui-monospace, Menlo, Consolas, monospace; }
-tr.bad td { color:#b42318; font-weight:600; }
+.legend { display:flex; flex-wrap:wrap; gap:4px 16px; font-size:12px; color:var(--ink2); margin:4px 0 10px; }
+.label { font-size:12px; color:var(--ink2); margin-top:14px; font-weight:500; }
+pre.message { white-space:pre-wrap; background:var(--soft); border:1px solid var(--line); border-radius:12px; padding:16px;
+              font: 13px/1.55 ui-monospace, Menlo, Consolas, monospace; }
+tr.bad td { color:#b91c1c; font-weight:600; }
 table.incidents { table-layout:fixed; }
 table.incidents td.ev { font-size:12px; overflow-wrap:anywhere; }
 tr.muted td, .muted { color:var(--muted); }
 .verdict-line { font-weight:600; margin:6px 0 0; }
 ul.method li { margin:4px 0; }
-.ruled { margin-top:6px; color:#1f7a4d; } .notruled { margin-top:4px; color:#8a5a00; }
-footer { margin-top:36px; color:var(--muted); font-size:12px; border-top:1px solid var(--line); padding-top:10px; }
-@media print { main { padding: 0; } h2 { break-after: avoid; } table, svg, .tile { break-inside: avoid; } }
+.ruled, .notruled { margin-top:6px; }
+.ruled div, .notruled div { display:flex; gap:6px; align-items:flex-start; }
+.ruled { color:var(--good); } .notruled { color:var(--warn); }
+.ri { width:14px; height:14px; flex:none; margin-top:2px; }
+a { color:var(--blue); }
+footer { margin-top:38px; color:var(--muted); font-size:12px; border-top:1px solid var(--line); padding-top:12px; }
+@media print {
+  body { background:#ffffff; }
+  main { margin:0; padding:0; border:0; border-radius:0; box-shadow:none; max-width:none; }
+  h2 { break-after: avoid; } table, svg, .tile, .hero { break-inside: avoid; }
+}
+@media (max-width: 720px) { main { margin:0; border-radius:0; border:0; padding:22px 16px 30px; } }
 """
 
 
@@ -590,18 +629,18 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
         meta.append(f'<span>{t["cgnat"]}: <b>{t["yes"] if net.get("cgnat") else t["no"]}</b></span>')
 
     demo = bool(store.get_setting("_demo"))  # synthetic data: say so on screen and on every printed page
-    demo_css = (f'\n.demo {{ margin:0 0 16px; padding:10px 14px; border-radius:8px; background:#fff4d6; '
-                f'border:1px solid #e0b04a; font-weight:600; }}\n@page {{ @top-center {{ content: "{t["demo_page"]}"; '
-                f'font: 600 10px sans-serif; color: #8a5a00; }} }}') if demo else ""
+    demo_css = (f'\n.demo {{ margin:0 0 18px; padding:11px 14px; border-radius:10px; background:#e4ecfe; '
+                f'color:#1e3a8a; font-weight:600; }}\n@page {{ @top-center {{ content: "{t["demo_page"]}"; '
+                f'font: 600 10px sans-serif; color: #1d4ed8; }} }}') if demo else ""
     out = [f'<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
            f'<meta name="viewport" content="width=device-width, initial-scale=1">'
            f'<title>{_e(t["title"])}</title><style>{CSS}{demo_css}</style></head><body><main>',
            (f'<div class="demo">{_e(t["demo_banner"])}</div>' if demo else "")
-           + f'<header><div class="brand">isitmyisp</div><h1>{_e(t["title"])}</h1>'
+           + f'<header><div class="brand">{MARK}<span>isitmyisp</span></div><h1>{_e(t["title"])}</h1>'
            f'<div class="meta">{"".join(meta)}</div></header>']
 
     if not windows:
-        out.append(f'<div class="hero" style="--c:{COLORS["no_data"]}">{_e(t["no_data"])}</div>')
+        out.append(_hero(COLORS["no_data"], t["no_data"]))
         out.append(f'<footer>{_e(t["footer"].format(v=__version__, tz=tz))}</footer></main></body></html>')
         return "".join(out)
 
@@ -617,7 +656,7 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
         hero = t["hero_some"].format(n=n, dur=fmt_duration(total_bad), k=k_isp, incidents=t["plural"](n)["incidents"],
                                      were=t["plural"](k_isp)["were"])
         color = COLORS["isp"] if k_isp else COLORS["remote"]
-    out.append(f'<div class="hero" style="--c:{color}">{_e(hero)}</div>')
+    out.append(_hero(color, hero))
     tiles = [(t["measured"], fmt_duration(measured)), (t["healthy"], pct), (t["incidents"], str(n)),
              (t["degraded"], fmt_duration(total_bad)), (t["peak"], f"{peak:.1f}%")]
     if bh_on:
