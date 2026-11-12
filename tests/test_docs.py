@@ -43,7 +43,7 @@ class DocsSite(unittest.TestCase):
             for href in re.findall(r'(?:href|src)="(/[^"]*)"', page):
                 path, _, frag = href.partition("#")
                 path = path.split("?", 1)[0]
-                if re.match(r"/(es|en)/[a-z]+/$", path):          # demo pages, exported separately
+                if re.match(r"/(es|en)/[a-z]+/(tv/(simple/)?)?$", path):          # demo pages, exported separately
                     continue
                 target = self.out / path.lstrip("/")
                 target = target / "index.html" if path.endswith("/") else target

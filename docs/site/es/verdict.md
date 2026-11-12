@@ -26,8 +26,9 @@ Los routers le dan baja prioridad a los pings dirigidos a ellos mismos. Por eso 
 ## No grita "¡lobo!"
 
 - **Significancia estadística.** Un paquete perdido de 50 no es "2 % de pérdida". La pérdida tiene que ser significativa según un intervalo de Wilson al 95 %, con al menos 2 paquetes perdidos.
-- **Línea de base propia.** La latencia se juzga contra lo normal de cada destino, no contra un número fijo.
-- **Histéresis.** Un incidente se abre con 2 ventanas malas seguidas y se cierra con 2 buenas seguidas.
+- **Línea de base propia.** La latencia se juzga contra lo normal de cada destino, no contra un número fijo: es anormal cuando es el doble de lo normal y al menos 30 ms más. Lo normal se aprende solo de las ventanas sanas y se conserva al reiniciar, así un problema en curso nunca pasa a ser "lo normal".
+- **Histéresis.** Cada ventana dura 30 segundos. Un incidente se abre con 2 ventanas malas seguidas y se cierra con 2 buenas seguidas. Si el primer salto del ISP aparece afectado en una ventana y en la siguiente no, sigue siendo el mismo corte del ISP, no dos.
+- **Cortes intermitentes.** Una conexión que se corta y vuelve (mala, buena, mala, buena…) nunca junta 2 ventanas malas seguidas, y es justo lo que el ISP tiene que saber. Por eso **3 ventanas malas dentro de los últimos 5 minutos** también abren un incidente, marcado como **intermitente** en el panel, las alertas y el informe, con cuántas veces se cortó ("se cortó y volvió 6 veces"). Se cierra recién después de 3 minutos seguidos sin cortes.
 
 ## De quién es la culpa
 

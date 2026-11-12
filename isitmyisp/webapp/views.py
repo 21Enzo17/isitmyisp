@@ -323,6 +323,7 @@ class IncidentRow:
     closed: float | None
     duration: str
     evidence: list[str]
+    drops: int = 0      # an intermittent one: how many times it dropped and came back
 
 
 def incident_rows(store: Store, t: dict, days: int = 30, now: float | None = None) -> list[IncidentRow]:
@@ -332,7 +333,9 @@ def incident_rows(store: Store, t: dict, days: int = 30, now: float | None = Non
         scope = t["scope_internet"] if i.scope == "internet" else (i.tunnel or i.scope.split(":", 1)[-1])
         rows.append(IncidentRow(i.id, i.details if i.code in ("access", "isp") else None, scope, i.code,
                                 CAUSE_CLASS.get(i.code, "muted"), i.opened, i.closed,
-                                fmt_duration(i.duration(now)), i.evidence[:3]))
+                                fmt_duration(i.duration(now)), i.evidence[:3],
+                                store.drops(i.opened, i.closed or now)
+                                if (i.details or {}).get("intermittent") and i.scope == "internet" else 0))
     return rows
 
 
@@ -445,6 +448,7 @@ class RecentIncident:
     duration: str
     ongoing: bool
     count: int = 1    # identical incidents (same place, same cause) folded into this row
+    drops: int = 0    # for an intermittent one: how many times it dropped and came back
 
 
 def recent_incidents(store: Store, now: float | None = None, limit: int = 6, days: int = 30) -> list[RecentIncident]:
@@ -454,7 +458,7 @@ def recent_incidents(store: Store, now: float | None = None, limit: int = 6, day
     out: list[RecentIncident] = []
     seen: dict[tuple, RecentIncident] = {}
     for i in reversed(store.incidents_between(now - days * 86400, now, scope=None)):
-        key = (i.scope, i.code)
+        key = (i.scope, i.code, bool((i.details or {}).get("intermittent")))   # steady and intermittent apart
         if key in seen:
             seen[key].count += 1
             continue
@@ -463,6 +467,8 @@ def recent_incidents(store: Store, now: float | None = None, limit: int = 6, day
         kind, _, name = i.scope.partition(":")
         row = RecentIncident(i.code, charts.GROUP.get(i.code, "other"), kind, name, i.opened,
                              fmt_duration(i.duration(now)), i.closed is None)
+        if (i.details or {}).get("intermittent") and kind == "internet":
+            row.drops = store.drops(i.opened, i.closed or now)
         seen[key] = row
         out.append(row)
     return out

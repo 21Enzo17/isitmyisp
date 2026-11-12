@@ -72,37 +72,83 @@ class Baseline:
 class Transition:
     opened: str | None = None  # code of an incident that just opened
     closed: str | None = None  # code of an incident that just closed
+    since: int = 0             # the opened incident started this many windows ago (this one included)
+    clean: int = 0             # the closed incident ended this many windows ago (the good ones after it)
+    intermittent: bool = False # opened because the problem comes and goes, not because it's steady
+
+
+# Verdicts that are the same problem as far as an incident goes: whether the ISP's first hop also
+# looks bad can change from one window to the next while the outage is one and the same.
+SAME_PROBLEM = {"access": "isp"}
 
 
 class Hysteresis:
-    """Open an incident after `open_after` consecutive bad windows, close after `close_after` good ones."""
+    """When a run of windows becomes an incident, and when it's over.
 
-    def __init__(self, open_after: int = 2, close_after: int = 2):
+    Opens on `open_after` consecutive bad windows of the same problem (a steady outage), or on
+    `intermittent_after` bad windows within the last `lookback` (a link that drops and comes back:
+    bad, ok, bad, ok… never makes two in a row, and is exactly what an ISP has to hear about).
+    Closes after `close_after` good windows in a row; an intermittent incident needs
+    `intermittent_close` of them, or every quiet minute would close it and the next drop reopen it.
+    """
+
+    def __init__(self, open_after: int = 2, close_after: int = 2, lookback: int = 10,
+                 intermittent_after: int = 3, intermittent_close: int = 6, same: dict | None = None):
         self.open_after, self.close_after = open_after, close_after
+        self.intermittent_after, self.intermittent_close = intermittent_after, intermittent_close
+        self.same = SAME_PROBLEM if same is None else same
+        self.history: deque[str] = deque(maxlen=lookback)
         self.active: str | None = None
-        self._candidate: str | None = None
-        self._streak = 0
+        self.intermittent = False
         self._good = 0
+
+    def group(self, code: str) -> str:
+        return self.same.get(code, code)
+
+    def _steady(self) -> str | None:
+        """The problem of the last `open_after` windows, when they're all bad and all the same one."""
+        tail = list(self.history)[-self.open_after:]
+        if len(tail) < self.open_after or "ok" in tail or len({self.group(c) for c in tail}) != 1:
+            return None
+        return tail[-1]
 
     def update(self, code: str) -> Transition:
         t = Transition()
+        self.history.append(code)
         if code == "ok":
-            self._candidate, self._streak = None, 0
             if self.active:
                 self._good += 1
-                if self._good >= self.close_after:
-                    t.closed, self.active, self._good = self.active, None, 0
+                if self._good >= (self.intermittent_close if self.intermittent else self.close_after):
+                    t.closed, t.clean = self.active, self._good
+                    self._reset()
             return t
         self._good = 0
-        if self.active == code:
+        if self.active:
+            if self.group(code) == self.group(self.active):
+                return t                                      # the same outage goes on
+            steady = self._steady()
+            if steady is None:
+                return t                                      # one odd window inside an incident
+            t.closed, t.clean = self.active, 0                # the cause changed: one ends, the next starts
+            self._open(t, steady, self.open_after, False)
             return t
-        if code == self._candidate:
-            self._streak += 1
-        else:
-            self._candidate, self._streak = code, 1
-        if self._streak >= self.open_after:
-            if self.active:
-                t.closed = self.active
-            t.opened, self.active = code, code
-            self._candidate, self._streak = None, 0
+        steady = self._steady()
+        if steady is not None:
+            self._open(t, steady, self.open_after, False)
+            return t
+        bad = [(i, c) for i, c in enumerate(self.history) if c != "ok"]
+        if len(bad) >= self.intermittent_after:
+            groups = [self.group(c) for _, c in bad]
+            top = max(set(groups), key=lambda g: (groups.count(g), max(i for i, (_, c) in enumerate(bad) if self.group(c) == g)))
+            latest = next(c for _, c in reversed(bad) if self.group(c) == top)
+            self._open(t, latest, len(self.history) - bad[0][0], True)
         return t
+
+    def _open(self, t: Transition, code: str, since: int, intermittent: bool) -> None:
+        t.opened, t.since, t.intermittent = code, since, intermittent
+        self.active, self.intermittent, self._good = code, intermittent, 0
+
+    def _reset(self) -> None:
+        # what's left in the lookback belonged to the incident that just closed: it can't count again
+        self.active, self.intermittent, self._good = None, False, 0
+        self.history.clear()

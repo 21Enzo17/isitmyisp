@@ -14,7 +14,7 @@ One command on a Raspberry Pi or any Linux machine. [Install](install.md)
 </div>
 <div markdown>
 ### Try it first
-The whole UI on sample data, in your browser. [Live demo](/en/isp/)
+The whole UI on sample data, in your browser, [TV mode](/en/isp/tv/) included. [Live demo](/en/isp/)
 </div>
 <div markdown>
 ### Read the dashboard
@@ -49,5 +49,9 @@ The evidence report and how to use it. [The report](report.md)
 - **It doesn't send your data anywhere.** No cloud, no telemetry: everything stays on your machine. Every external connection is [listed](privacy.md).
 - **It isn't a server monitor.** "Your services" exists to tell "my internet" from "the service", not to compete with tools like Uptime Kuma.
 - **It doesn't guess.** When the evidence isn't enough, the verdict says so.
+- **It can't see inside your ISP.** It measures from your network outwards: it says which segment the problem is in (your network, the ISP's access network, its backbone, or one destination), not which of the ISP's devices failed.
+- **It judges on IPv4.** It detects whether you have IPv6, but the verdict is based on IPv4.
+- **It doesn't flag small latency rises.** Latency counts as abnormal when it's twice the usual and at least 30 ms more; 30 to 55 ms isn't enough. That's how it avoids crying wolf at every spike.
+- **It runs on Linux.** On Docker Desktop (Mac or Windows) it can't see the machine's real network.
 
 isitmyisp is free software ([MIT licence](https://github.com/21Enzo17/isitmyisp/blob/main/LICENSE)), built by someone who worked in an ISP's NOC.

@@ -9,80 +9,111 @@
 
 <p align="center">
   A self-hosted connection monitor for homes and small offices, built by someone who worked in an ISP's NOC.<br>
-  It finds <b>where</b> a problem is, says it in plain words, and builds the evidence your ISP needs to escalate the ticket.
+  It tells you <b>whose fault</b> an outage is, in one sentence, and builds the evidence your ISP needs to escalate the ticket.
 </p>
 
 <p align="center">
+  <a href="https://github.com/21Enzo17/isitmyisp/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/21Enzo17/isitmyisp?color=2563eb"></a>
+  <a href="https://hub.docker.com/r/21enzo03/isitmyisp"><img alt="Docker: amd64 and arm64" src="https://img.shields.io/badge/docker-amd64%20%7C%20arm64-3987e5"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-2563eb"></a>
-  <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-3987e5">
-  <img alt="Docker: amd64 and arm64" src="https://img.shields.io/badge/docker-amd64%20%7C%20arm64-3987e5">
-  <img alt="Self-hosted" src="https://img.shields.io/badge/self--hosted-no%20cloud-0ca30c">
   <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-0ca30c">
   <img alt="No JavaScript in the UI" src="https://img.shields.io/badge/UI-no%20JavaScript-0f192d">
   <img alt="English and Spanish" src="https://img.shields.io/badge/i18n-EN%20%7C%20ES-0f192d">
 </p>
 
 <p align="center">
-  <a href="https://isitmyisp.enzo-meneghini.com"><b>Live demo</b></a> ·
-  <a href="https://isitmyisp.enzo-meneghini.com/docs/en/"><b>Docs</b></a> ([español](https://isitmyisp.enzo-meneghini.com/docs/es/)) ·
-  <a href="#try-it-in-a-minute">Run the demo</a> ·
-  <a href="#quick-start-docker-recommended">Quick start</a> ·
-  <a href="#what-it-answers">What it answers</a> ·
-  <a href="#privacy-every-external-connection-listed">Privacy</a> ·
-  <a href="#the-evidence-report">Evidence report</a> ·
-  <a href="#roadmap">Roadmap</a>
+  <a href="https://isitmyisp.enzo-meneghini.com/en/isp/"><b>Live demo</b></a> ·
+  <a href="https://isitmyisp.enzo-meneghini.com/docs/en/"><b>Docs</b></a> ·
+  <a href="#install-one-line">Install</a> ·
+  <a href="README.es.md">En español</a>
 </p>
 
-![Dashboard during an ISP incident: the path from your network to the internet with the ISP marked, what to do, and the last 24 hours](docs/screenshots/incident.png)
+![Dashboard during an ISP incident: the verdict, three figures, the last 24 hours, latest events and every destination](docs/screenshots/incident.png)
 
-> 🚧 Early development: monitoring, incidents, the evidence report (HTML/PDF), the dashboard, alerts, failover, call quality and the speed test all work. Not yet battle-tested on many networks. Screenshots use synthetic data.
+## Why
+
+When the internet fails, everybody blames somebody: the ISP says "restart the modem", the IT person says "it's the ISP", and a ping graph doesn't settle it. isitmyisp measures from your side all day and answers the question directly:
+
+- **A verdict, not a graph.** "Your ISP's network is failing", "the problem is on your side (Wi-Fi or router)", "only your bank is down", "your DNS". It separates real loss from ICMP noise (middle hops that "lose" pings while traffic through them is fine), requires ICMP and TCP to agree, and only counts loss that is statistically significant.
+- **It catches what support tickets get lost in.** Steady outages, and links that **drop and come back** every minute or two (marked *intermittent*, with the number of drops). Moving to the backup link. And, with your router connected over SNMP, whether *you* filled your own link, the ISP's favourite objection.
+- **Evidence the ISP can't wave away.** A report with a plain-language summary for you and a technical annex for their NOC: a ready-to-paste message with only the incidents inside their network, the hop and AS where loss starts, every mtr capture, and what the evidence rules out and what it can't.
+- **Made for a small business.** A TV board for the wall, your card terminal and fiscal printer checked too ("did the terminal drop, or the internet?"), your opening hours, alerts by Telegram, email or webhook, and last month's report in your inbox on its own.
+
+Everything runs on one small box on your network (a Raspberry Pi is enough). No cloud, no account, no telemetry.
 
 ## Try it in a minute
-**Online:** [isitmyisp.enzo-meneghini.com](https://isitmyisp.enzo-meneghini.com) (Spanish; [English](https://isitmyisp.enzo-meneghini.com/en/isp/)). Switch between "your ISP is failing", "on the backup link", "problem on your side" and "all fine" from the banner. It's synthetic data, regenerated on every deploy.
 
-**On your machine:** the whole UI on a synthetic day, live and read-only: no network access, no root, nothing measured, nothing stored.
+**Online:** the [live demo](https://isitmyisp.enzo-meneghini.com/en/isp/) ([español](https://isitmyisp.enzo-meneghini.com/es/isp/)). Switch between "your ISP is failing", "on the backup link", "problem on your side" and "all fine" from the banner, and open the [TV board](https://isitmyisp.enzo-meneghini.com/en/isp/tv/) or the [report](https://isitmyisp.enzo-meneghini.com/en/isp/report/). It's synthetic data, and says so on every page.
+
+**On your machine,** the same demo, live and read-only (it measures nothing and stores nothing):
 ```bash
-docker build -t isitmyisp .
-docker run --rm -p 127.0.0.1:8090:8080 isitmyisp --lang en demo --scenario isp --bind 0.0.0.0:8080
+docker run --rm -p 127.0.0.1:8090:8080 21enzo03/isitmyisp --lang en demo --scenario isp --bind 0.0.0.0:8080
 ```
-Open **http://127.0.0.1:8090**. `--scenario` picks what the network is doing right now: `healthy`, `isp` (an incident in the ISP's network), `failover` (running on the backup link) or `wifi` (the problem is on your side). Every page says it's demo data, and reports generated from it are marked as synthetic on every page. Without Docker: `pip install -e '.[web]' && isitmyisp demo`.
+Then open **http://127.0.0.1:8090**. Scenarios: `healthy`, `isp`, `failover`, `wifi`.
 
-The UI has no JavaScript, so the demo also works as a plain static site: `isitmyisp demo --static site` renders every page of every scenario in Spanish and English (about 10 seconds) with a scenario switcher and the same strict CSP in a Netlify `_headers` file. `netlify.toml` builds it on every deploy.
+## Install (one line)
 
-## Who it's for
-- **Homes** that are tired of "restart the modem" and want proof.
-- **Small offices and shops** where the internet *is* the till, the phones and the invoicing: one small box (a Raspberry Pi is enough) tells you whose fault an outage was and gives you the report to claim.
-- **IT providers** who look after those offices: a verdict you can show the client, failover and call quality at a glance, and an evidence report the ISP can't wave away.
+On a Linux machine that stays on (a Raspberry Pi, a mini PC, a server), wired to the router:
+```bash
+curl -fsSL https://isitmyisp.enzo-meneghini.com/install.sh | sh
+```
+The [installer](install.sh) is short and shows every command before running it. It installs Docker if it's missing, starts the published image (amd64 or arm64) and prints the link to create the admin account; a first-run wizard does the rest. Run it again to update; your data is kept. Options and the manual `docker run` are in the [install guide](https://isitmyisp.enzo-meneghini.com/docs/en/install/), and the [Raspberry Pi guide](https://isitmyisp.enzo-meneghini.com/docs/en/raspberry-pi/) goes from flashing the card to the setup page in about 15 minutes.
 
-## What it answers
+> It needs Linux: on Docker Desktop (Mac or Windows) the container can't see your real network.
 
-**Whose fault is it?**
-- **The path, not a ping graph.** Your network → your ISP → the internet, with the segment the evidence points to marked, using address types and AS numbers rather than hop positions (your router, a second router behind it, the ISP's access network, its backbone, or a single remote destination).
-- **Real loss vs ICMP noise.** Routers deprioritize replies to themselves, so `mtr` shows "loss" on a middle hop while traffic through it is fine. Only loss that persists to the destination counts, and ICMP and TCP (handshakes to port 443) must agree.
-- **It doesn't cry wolf.** "1 packet lost out of 50" is noise, not 2 % loss: loss must be statistically significant (95 % Wilson interval), latency is judged against each target's own baseline, and incidents need consecutive bad windows.
-- **It doesn't over-claim.** Every ISP-side incident lists **what the evidence rules out** (your LAN, ICMP noise, a single website, a full link) and **what it can't**. Connected to your router (SNMP, read-only), it rules out the ISP's favourite objection, "you saturated your own link", or tells you that you did.
-- **Your services:** "is it my internet, or is my bank / my ERP / the tax agency down?" Any HTTP(S) or TCP service; when it fails while your connection is healthy, the verdict says so. For Argentina there are one-click presets (ARCA's Clave Fiscal, e-invoicing and WSAA, Rentas Jujuy, the main banks, Mercado Pago, Payway, Google Workspace, Microsoft 365, WhatsApp Web, Zoom), each saying exactly what it checks; they live in an editable JSON file (`isitmyisp/presets/services_ar.json`) and `ISITMYISP_NETWORK_TESTS=1 python -m unittest tests.test_presets` verifies every one still answers.
+## How it compares
 
-**Is the office running as it should?**
-- **Failover:** with a dual-WAN router, it notices within about a minute when the traffic moves to the backup link and when it comes back, and the report says from when to when the main ISP wasn't carrying it.
+| | What it tells you |
+|---|---|
+| **Uptime Kuma** | Whether a site or service answers. Not whether the fault is your network, your ISP or the service. |
+| **SmokePing, PingPlotter** | Latency and loss graphs per destination. Reading them, and telling ICMP noise from real loss, is up to you. |
+| **isitmyisp** | Whose fault it is, in one sentence, with the evidence to back it and a report for the ISP. |
 
-  ![Dashboard while the office runs on the backup link](docs/screenshots/failover.png)
-- **Call quality:** would a call sound good right now? An estimated MOS (ITU-T G.107 E-model) from the latency, jitter and loss it already measures, against your SIP provider if you set one. It says plainly that it's an estimate, not a measured call.
-- **Speed against your plan, off by default:** it fills your link for a few seconds and uses data, so it ships disabled, explains why, and asks you to accept the risks first. Monthly data budget, never on the backup link, never during an incident; it also measures the latency with the link full (bufferbloat) and warns when the result is your Wi-Fi rather than your ISP.
+They work well together: Uptime Kuma for your services, isitmyisp for the connection they depend on.
 
-  ![Speed test settings: what it does and why it can be a problem](docs/screenshots/speed-test-settings.png)
-- **Tunnels:** did your IPsec/L2TP/WireGuard tunnel drop because of its configuration or because of the path? It measures outside and inside the tunnel at once, and spots drops that repeat on a schedule (mismatched rekey lifetimes).
-
-**What do I send my ISP, and who tells me?**
-- **The evidence report** (HTML/PDF): a plain-language summary for you, a ready-to-paste message for the ISP's NOC with only the incidents inside their network, every mtr capture, call quality and measured speed.
-- **Alerts** by Telegram, email or webhook (Discord, Slack, Home Assistant…), only for problems that last, each one saying whose fault it is and what to do.
-- **Devices on your network:** "did the card terminal drop, or the internet?" Card terminals, printers, cameras and phone systems, checked by ping or a port; when one stops answering while your router still does, it says it's that device.
-- **The monthly report by email:** on the day you choose, last month's report arrives on its own, with a plain-language summary and the full report attached, ready to forward.
+## What you get
 
 <p>
-  <img src="docs/screenshots/dashboard-dark.png" alt="Full dashboard, dark theme" width="62%">
-  <img src="docs/screenshots/mobile.png" alt="Dashboard on a phone" width="22%">
+  <img src="docs/screenshots/tv.png" alt="The TV board: verdict, figures, last 24 hours, events, destinations and services" width="62%">
+  <img src="docs/screenshots/mobile.png" alt="The dashboard on a phone" width="22%">
 </p>
+
+- **Dashboard:** the verdict beside availability, time without outages and latency; the last 24 hours (who was at fault, loss, latency, call quality, backup link) with hover readouts and a table view; every destination; latest events; where on the path the problem is and what to do. Light and dark. Everything works without JavaScript.
+- **TV mode:** open `/tv` on the TV, type the short code it shows in Settings, and it stays paired. A board that fits any screen from 720p to 4K, or a simple view for a shop counter.
+- **Your services and devices:** your bank, your ERP or the tax agency (with one-click presets for Argentina), and devices on your network (card terminals, printers, cameras, phone systems), so "is it my internet or is it them?" has an answer.
+- **Failover, calls and speed:** notices within about a minute when traffic moves to the backup link; an estimated call quality (ITU-T G.107 E-model, labelled as an estimate); an optional speed test against your plan, off by default, with a data budget.
+- **Tunnels:** did your IPsec/L2TP/WireGuard tunnel drop because of its configuration or because of the path? It measures outside and inside at once, and spots drops that repeat on a schedule (mismatched rekey timers).
+- **Alerts and reports:** Telegram, email or webhook, only for problems that last, each saying whose fault it is and what to do; held while you're closed if you want, with one summary at opening time. The evidence report in HTML or PDF, on demand or monthly by email.
+- **Multi-user and safe on your LAN:** admins and viewers, Argon2id passwords, CSRF protection, a strict CSP with no scripts at all, or single sign-on through Authelia, Authentik, oauth2-proxy or Tailscale. Prometheus `/metrics` and a JSON API.
+
+<img src="docs/screenshots/report.png" alt="The evidence report: summary for you, timeline, where the problems were, incidents" width="70%">
+
+## How the verdict works
+
+Every 30 seconds it measures your router, your ISP's first hop, three independent internet destinations (ICMP and a TCP handshake to port 443) and your DNS:
+
+1. **Your side:** your router fails *and* the internet fails through it. A router that only "loses" pings while the internet works is just filtering ICMP, and nobody is blamed.
+2. **Your ISP:** every internet destination fails at once. If its first hop fails too, it's the access network; otherwise its backbone or upstream.
+3. **Not your ISP:** only some destinations fail, or only one of your services, or only DNS.
+
+Loss must be statistically significant (95 % Wilson interval, at least 2 lost packets); latency is judged against each destination's own baseline. A steady problem becomes an incident after two bad windows in a row; a link that keeps dropping (three bad windows within five minutes) becomes an *intermittent* incident. Every ISP-side incident records what the evidence rules out (your LAN, ICMP noise, a single website, a full link) and what it can't. Details: [how the verdict works](https://isitmyisp.enzo-meneghini.com/docs/en/verdict/).
+
+## Privacy
+
+isitmyisp is meant to run on your network for months, and by default it **never sends your data or your path's IPs to any third party**. It pings your router, your ISP's first hop and 1.1.1.1, 8.8.8.8 and 9.9.9.9, opens TCP handshakes to the same three, queries your own DNS servers, and runs `mtr` when there's an incident: about 1.3 GB a month. Everything else (ASN lookups, your public IP, the speed test, your services, alerts) is off until you turn it on. [Every connection, listed](https://isitmyisp.enzo-meneghini.com/docs/en/privacy/).
+
+## Command line
+
+The measuring core is plain Python with no dependencies; the web UI and the PDF are extras. Without Docker it needs Linux, `fping` (or iputils `ping`) and `mtr`, and no root:
+
+```bash
+pip install -e '.[web,pdf]'
+isitmyisp discover          # gateway, ISP, DNS, CGNAT, IPv6, path segments
+isitmyisp status -s 30      # measure 30 s and get a verdict
+isitmyisp mtr 8.8.8.8       # mtr with real loss vs ICMP noise
+isitmyisp monitor           # measure continuously, with the web UI on 127.0.0.1:8080
+isitmyisp report --since 7d # self-contained HTML evidence report (--pdf for PDF)
+```
 
 ```
 $ isitmyisp discover
@@ -97,161 +128,24 @@ $ isitmyisp discover
   Destination reached with 0.0% loss: the path is fine. Loss on intermediate hops is ICMP handling, not real loss.
 ```
 
-## Install (one line)
-On a Linux machine that stays on (a Raspberry Pi, a mini PC, a server), wired to the router:
-```bash
-curl -fsSL https://isitmyisp.enzo-meneghini.com/install.sh | sh
-```
-The [installer](install.sh) is short and shows every command before running it. It installs Docker if it's missing, starts the monitor with the flags below and prints the link to create the admin account; a first-run wizard does the rest. Run it again to update (data is kept). Options: `--local` (dashboard on this machine only), `--port`, `--lang`, `--tz`, `--version`, `--uninstall`, `--dry-run`.
+## Status and roadmap
 
-New Raspberry Pi? Follow the [Raspberry Pi guide](https://isitmyisp.enzo-meneghini.com/docs/en/raspberry-pi/) ([español](https://isitmyisp.enzo-meneghini.com/docs/es/raspberry-pi/)): about 15 minutes from flashing the card to the setup page. Releases are listed in the [changelog](CHANGELOG.md).
+Version 0.2 is the first published release ([changelog](CHANGELOG.md)). It runs every day on the author's networks but hasn't been tested on many others yet: if the verdict is wrong for yours, an [issue](https://github.com/21Enzo17/isitmyisp/issues) with a dashboard screenshot and the output of `isitmyisp discover` helps a lot. Screenshots use synthetic data.
 
-## Manual install (Docker)
-```bash
-docker build -t isitmyisp .
-docker run --rm --net=host --cap-add=NET_RAW -v isitmyisp:/data isitmyisp update-asn   # once, optional
-docker run --rm --net=host --cap-add=NET_RAW -v isitmyisp:/data \
-  -v /run/systemd/resolve:/run/systemd/resolve:ro isitmyisp status
-
-# keep it running, then build the report for your ISP
-docker run -d --name isitmyisp --restart unless-stopped --net=host --cap-add=NET_RAW \
-  -e TZ=America/Argentina/Buenos_Aires -v isitmyisp:/data \
-  -v /run/systemd/resolve:/run/systemd/resolve:ro isitmyisp monitor
-docker exec isitmyisp isitmyisp report --since 7d -o /data/report.html
-```
-Set `TZ` to your time zone so the report shows local times. While `monitor` runs, the web UI is on **http://127.0.0.1:8080** (local only by default; `--web 0.0.0.0:8080` exposes it on your LAN, `--web off` disables it). On first start the logs print a **one-time setup token**: open the link, create your admin account, and configure everything from the browser.
-
-The image is ~330 MB, mostly because of the PDF engine (WeasyPrint + Pango).
-`--net=host` is required to see your real gateway and path. The `/run/systemd/resolve` mount is optional: it lets the container see your real DNS servers on systemd-resolved hosts. Without it, your router is assumed to be your resolver.
-
-## Without Docker
-Needs Linux, `fping` (recommended) or iputils `ping`, and `mtr`. No root. The measuring core has no Python dependencies; the web UI and PDF are extras.
-```bash
-pip install -e .            # CLI only
-pip install -e '.[web,pdf]' # + web UI and PDF
-isitmyisp discover          # gateway, ISP, DNS, CGNAT, IPv6, path segments
-isitmyisp status -s 30      # measure 30 s and get a verdict
-isitmyisp mtr 8.8.8.8       # mtr with real loss vs ICMP noise
-isitmyisp monitor           # measure continuously, open/close incidents, capture mtr evidence
-isitmyisp report --since 7d # self-contained HTML evidence report
-isitmyisp report --pdf      # PDF (pip install 'isitmyisp[pdf]')
-isitmyisp web               # dashboard + /metrics from an existing database
-isitmyisp demo --scenario isp  # the UI on synthetic data, live and read-only
-isitmyisp --lang es status  # Spanish output
-```
-
-## Privacy: every external connection, listed
-isitmyisp is meant to run on your network for months. By default it **never sends your data or your path's IPs to any third party.**
-
-| Connection | When | What it sends | Default |
-|---|---|---|---|
-| ICMP to your gateway, your ISP's first hop, 1.1.1.1, 8.8.8.8, 9.9.9.9 | always | ICMP echo (64 bytes) | on |
-| One TTL-limited ping towards 1.1.1.1 | once per window | ICMP echo that expires at your ISP's first router (failover check) | on |
-| TCP handshake to 1.1.1.1, 8.8.8.8, 9.9.9.9 port 443 | always | SYN, then closes (no data, no TLS) | on |
-| DNS queries to your own resolvers | always | A queries for www.google.com, www.cloudflare.com, www.wikipedia.org | on |
-| `mtr` to 1.1.1.1 | on discovery and incidents | ICMP probes | on |
-| iptoasn.com | only when you run `update-asn` or press the button in Settings | one HTTPS download of the public dataset (no per-IP queries) | manual |
-| Team Cymru whois | only with `--asn-online` | the public IPs of your path | **off** |
-| api.ipify.org | only with `--public-ip` | an HTTPS request (reveals your public IP to them) | **off** |
-| Your services | only the ones you add | an HTTP GET (or TCP connect) every 30 s | **off** |
-| speed.cloudflare.com (speed test) | only if you turn it on and accept the risks: weekly by default, or when you press "test now" | downloads and uploads for ~15 s (up to its share of a monthly data budget); Cloudflare sees your public IP | **off** |
-| Your router (SNMP v2c, read-only) | only if you connect it | GET of the WAN interface counters and CPU, once per window | **off** |
-| api.telegram.org / your SMTP server / your webhook | only if you enable alerts | the alert text | **off** |
-
-Bandwidth: about 1.3 GB/month at the default `monitor` settings (one ping every 2 s to 5–6 targets).
-
-## Web UI and security
-Dashboard, incidents, tunnels, reports and **settings** (anchors, intervals, language, tunnels, access) are all in the browser and applied live: no restart, no config files to edit. Everything works without JavaScript.
-
-Authentication is built on audited libraries, not hand-rolled crypto:
-
-| | |
-|---|---|
-| **Accounts** | Flask-Login sessions, **Argon2id** password hashes (argon2-cffi), login rate limit (Flask-Limiter) |
-| **First admin** | Created with a one-time setup token printed in the logs, so nobody on your LAN can claim the instance first |
-| **CSRF** | Token on every form (Flask-WTF) plus a same-origin `Origin` check |
-| **Headers** | Strict CSP (no scripts at all), `X-Frame-Options: DENY`, `HttpOnly` + `SameSite` cookies (`ISITMYISP_SECURE_COOKIES=1` behind HTTPS) |
-| **Server** | Waitress (production WSGI), untrusted `X-Forwarded-*` headers stripped |
-
-Three authentication modes, chosen in Settings → Access:
-- **local** (default): accounts with passwords, each one an **admin** (changes settings, users and alerts) or a **viewer** (sees the dashboard, incidents and reports, changes nothing but their own password). Admins invite people and reset passwords with one-time links that expire in 48 hours, and can disable an account, which ends its open sessions at once. The role is enforced for every request, not route by route.
-- **TV mode:** a read-only wall screen for the office (large type, refreshes by itself, no menus, no login). Open `/tv` on the TV, type the short code it shows in Settings, and it stays paired; screens can be unpaired one by one. A revocable direct link is still there for screens where you can paste it.
-- **proxy**: trust a user header (`Remote-User`) from **Authelia, Authentik, oauth2-proxy or Tailscale**, only from the proxy addresses you list. You get SSO, 2FA and passkeys from your proxy. The UI refuses to switch to this mode unless your current request really comes through the proxy, so you can't lock yourself out.
-- **none**: only allowed while the UI listens on localhost, and settings become read-only.
-
-Locked out anyway? Recover from the console:
-```bash
-docker exec -it isitmyisp isitmyisp admin auth-mode local
-docker exec -it isitmyisp isitmyisp admin reset-password <user>
-docker exec -it isitmyisp isitmyisp admin setup-token
-```
-Prometheus scrapes `/metrics` with a bearer token shown in Settings (`authorization: { credentials: <token> }`). `/healthz` is public and only returns `{"ok": true|false}`.
-
-## Dashboard, metrics and API
-| Path | What |
-|---|---|
-| `/` | Status pill, the verdict beside three figures (availability, time without outages, latency) with 24 h sparklines and change vs the day before; last 24 h (who, loss, latency, calls, backup link) with hover readouts and a table view; monitored destinations with 6 h of history; latest events; where the problem is (the path, what to do, what the evidence rules out); your link and speed, calls, services and tunnels. Refreshes every 30 s; no JavaScript (hover is pure CSS); light and dark with a theme button |
-| `/report?since=7d&lang=es` | Evidence report (HTML) |
-| `/report.pdf?since=7d` | Evidence report (PDF) |
-| `/metrics` | Prometheus: `isitmyisp_loss_ratio`, `isitmyisp_rtt_median_ms`, `isitmyisp_verdict`, `isitmyisp_incident_active`, `isitmyisp_incidents_total` |
-| `/api/status` | Current state as JSON (login or proxy auth) |
-| `/healthz` | Public liveness check, no details |
-
-## Tunnel mode
-Add tunnels in **Settings → Tunnels**. If you prefer configuration as code, a `config.toml` in the data directory (`/data` in Docker) or `--config` takes precedence, and the UI shows those tunnels read-only:
-```toml
-[[tunnel]]
-name = "branch-office"
-underlay = "203.0.113.10"   # the far end's PUBLIC address (outside the tunnel)
-overlay = "10.10.0.1"       # an address on the far side reached THROUGH the tunnel
-type = "ipsec-l2tp"         # ipsec-l2tp | ipsec | wireguard | openvpn | other
-```
-| Through the tunnel | Outside the tunnel | Verdict |
-|---|---|---|
-| fine | — | up |
-| failing | clean | **tunnel configuration**: DPD, IKE/IPsec lifetimes and rekey, NAT-T, MTU/MSS |
-| failing | losing too, your internet fine | **the far site or the path to it** |
-| failing | losing too, your internet bad | **your connection** |
-| failing | the far end never answers ping | can't tell (it filters ICMP) |
-
-If configuration drops repeat at a regular interval, the report says so: that's almost always mismatched lifetimes or rekey timers between both ends.
-
-## The evidence report
-`isitmyisp report` writes one self-contained HTML file: no JavaScript and no external assets. It has two readers in mind:
-
-<img src="docs/screenshots/report.png" alt="Evidence report: summary, where the problems were, timeline, call quality, incidents" width="70%">
-
-- **You:** a plain-language summary ("3 incidents, 1 h 6 min in total; 2 were inside your ISP's network"), a timeline and where each problem was.
-- **Your ISP's support and NOC:** a ready-to-paste message listing only the incidents inside their network, with the hop and AS where loss starts, plus every mtr capture and the methodology.
-
-To try it without waiting for real problems, `isitmyisp demo` serves it on a synthetic day (the report link works there), or generate a database with `python3 scripts/demo_data.py /tmp/demo.db && isitmyisp report --db /tmp/demo.db --since 1d`. Reports built from demo data say so on every page.
-
-## Retention
-Per-target samples are kept 35 days (enough for a monthly report); window verdicts, incidents and their mtr evidence about 13 months. Old data is deleted automatically every hour.
-
-## How the verdict works
-1. **Home:** loss or abnormal latency to your own router(s) **that also shows up on the internet** means the problem is on your side. If only the router "loses" pings while the internet works through it, the router just filters ICMP (common on business firewalls) and nobody is blamed.
-2. **Every destination affected:** the problem is in your ISP. If its first hop is also affected, it's the access network; otherwise it's the backbone or its upstream.
-3. **Only some destinations:** it's not your ISP.
-4. **Everything fine except DNS:** your resolver.
-
-ICMP and TCP must agree before blaming anyone, and nothing is blamed on a handful of lost packets.
-
-## Roadmap
-Planned work lives in the [issues](https://github.com/21Enzo17/isitmyisp/issues), grouped in two milestones:
-- [**v0.2 Ready to sell**](https://github.com/21Enzo17/isitmyisp/milestone/1): demo mode, first-run wizard, business hours and the cost of downtime, monthly report by email, roles and a TV mode, WhatsApp alerts, local devices (card terminals, printers, cameras), easy install.
-- [**v0.3 Managed service**](https://github.com/21Enzo17/isitmyisp/milestone/2): multi-site hub, multi-client console with white-label reports, assisted ISP claims, top talkers, power vs internet outages, Wi-Fi quality, out-of-band alerts.
-
-Already done: probes and discovery (fping/ping, TCP, DNS, CGNAT, double NAT, IPv6, offline ASN), statistical verdicts with baselines and hysteresis, incidents with mtr evidence, the evidence report (EN/ES, HTML/PDF), tunnel mode, the web UI with live settings and local/proxy auth, Prometheus metrics, alerts, your own services, SNMP link usage, "what the evidence rules out", failover detection, call quality and the speed test.
+Next, in the [issues](https://github.com/21Enzo17/isitmyisp/issues): the cost of downtime for a business, WhatsApp alerts, a hub for several sites, telling a power cut from an internet outage, Wi-Fi quality around the probe, and which devices are filling the link.
 
 ## Development
+
 ```bash
 pip install -e '.[web,pdf]'
-pip install markdown && python3 scripts/build_docs.py site   # the docs site (docs/site/*.md) into site/docs
 python -m unittest discover -s tests       # also runs without the extras (web tests are skipped)
+isitmyisp demo --static site               # the demo as a static site (what the live demo is)
+pip install markdown && python3 scripts/build_docs.py site   # the docs site into site/docs
 python3 scripts/screenshots.py             # regenerate docs/screenshots from synthetic data (needs Docker)
+scripts/release.sh                         # tests, the multi-arch image on Docker Hub, the tag
 ```
 Work happens in branches (`feat/…`, `fix/…`, `docs/…`) with a pull request that closes its issue.
 
 ## License
+
 MIT

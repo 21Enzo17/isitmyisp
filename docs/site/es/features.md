@@ -24,6 +24,8 @@ Cada uno dice qué chequea exactamente. Algunos se chequean por TCP porque su HT
 - Aparecen en la tarjeta **Servicios, dispositivos y túneles** del panel y en el modo TV.
 - Acá, y solo acá, se aceptan direcciones privadas (192.168…, 10…, 172.16…) o nombres locales (`impresora.local`). Las direcciones de internet van en **Tus servicios**.
 
+![Configuración → Dispositivos del local, con un posnet, una impresora fiscal y el grabador de las cámaras](/docs/img/es/devices-settings.png)
+
 ## Horario de atención
 
 Para un comercio, 20 minutos sin internet a las 3 de la mañana no son lo mismo que a las 11. Cargá tu horario en **Configuración → Horario de atención** (o en el asistente): por día de la semana, con hasta dos turnos, como el horario cortado con siesta.
@@ -33,6 +35,8 @@ Con el horario cargado:
 - **El panel** suma "Con el local abierto: 14 min" al resumen de las últimas 24 horas, y el modo TV muestra el indicador **En horario**.
 - **El informe** agrega cuántas horas estuvo abierto el local en el período, cuánto de ese tiempo hubo problemas, y marca cada incidente como "en horario" o "fuera de horario".
 - **Alertas retenidas** (opcional): con el local cerrado no te llega nada. Al abrir, recibís un solo resumen de lo que pasó, por ejemplo "Con el local cerrado: 2 problemas". Si un problema sigue cuando abrís, se avisa como siempre.
+
+![Configuración → Horario de atención: dos turnos de lunes a viernes y el sábado a la mañana](/docs/img/es/hours-settings.png)
 
 Si un turno pasa la medianoche, cargalo en dos partes: hasta 24:00, y desde 00:00 el día siguiente. Los horarios usan la zona horaria del equipo donde corre isitmyisp.
 
@@ -84,7 +88,9 @@ La objeción favorita de cualquier ISP es "saturaste tu propio enlace". Si conec
 
 ## Modo TV
 
-Un tablero para una pantalla en la pared de la oficina: letras grandes, se actualiza solo, sin menús ni inicio de sesión.
+Un tablero para una pantalla en la pared de la oficina: letras grandes, se actualiza solo, sin menús ni inicio de sesión. Lo podés ver en la [demo](/es/isp/tv/).
+
+![El tablero del modo TV durante un problema en la red del ISP](/docs/img/es/tv.png)
 
 **Para ponerlo en una tele**, sin escribir nada largo con el control remoto:
 
@@ -93,12 +99,20 @@ Un tablero para una pantalla en la pared de la oficina: letras grandes, se actua
 3. Desde tu celular o tu PC, en **Configuración → Modo TV**, escribí ese código y ponele un nombre a la pantalla ("Tele del mostrador").
 4. En unos segundos la tele muestra el tablero, y queda vinculada: si se apaga o se reinicia, vuelve sola al tablero.
 
+![Lo que muestra la tele antes de vincularla: un código corto y los pasos](/docs/img/es/tv-code.png)
+
+![Configuración → Modo TV: donde se escribe el código](/docs/img/es/tv-settings.png)
+
+Para que la tele llegue al panel, el panel tiene que verse desde tu red, que es lo que hace el instalador por defecto. Si lo instalaste con `--local`, volvé a correrlo sin esa opción (ver [Instalar](install.md)); tus datos se conservan.
+
 El código vence a los 10 minutos y sirve una sola vez. En **Configuración → Modo TV** ves las pantallas vinculadas y podés desvincular cualquiera. Si preferís pegar un link, hay también un **link directo** secreto que se puede revocar.
 
 Tiene dos vistas:
 
-- **Tablero** (por defecto): el camino, las llamadas, el enlace, la línea de 24 horas, cada destino, servicios, túneles e incidentes recientes. Lo que falla se nombra arriba en rojo, y las listas largas rotan en cada actualización.
-- **Simple** (`?layout=simple`): solo el veredicto, para el mostrador.
+- **Tablero** (por defecto): el veredicto y tres indicadores (disponibilidad, tiempo sin cortes o con problemas, latencia), las últimas 24 horas junto a los últimos eventos, cada destino medido y tus servicios, dispositivos y túneles. Lo que falla se nombra arriba en rojo, los destinos con pérdida se marcan en rojo y las listas largas rotan en cada actualización. Se acomoda a cualquier pantalla, de 720p a 4K, sin barras de desplazamiento.
+- **Simple** (`?layout=simple`): solo el veredicto, para el mostrador. [Verla en la demo](/es/isp/tv/simple/).
+
+![La vista simple del modo TV](/docs/img/es/tv-simple.png)
 
 ## Usuarios
 

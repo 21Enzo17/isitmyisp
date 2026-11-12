@@ -261,7 +261,7 @@ b, strong { font-weight: 600; }
 .tl.small .hv.rows-1 { grid-row: 2; }
 .thr-key i { display: inline-block; width: 16px; height: 0; border-top: 2px dashed var(--you); margin-right: 7px; vertical-align: 3px; }
 
-.table-view { margin-top: 16px; }
+.table-view { margin-top: 16px; max-width: 100%; overflow-x: auto; }   /* a narrow card scrolls the table, never spills it */
 .table-view summary, .measures summary { cursor: pointer; color: var(--ink-2); font-size: 14px; width: fit-content; padding: 4px 0; }
 .table-view summary:hover, .measures summary:hover { color: var(--ink); }
 .table-view table { margin-top: 10px; }
@@ -824,12 +824,17 @@ label.check input { width: 17px; height: 17px; accent-color: var(--accent); }
           box-shadow: 0 0 0 3px var(--surface); }
 .ev-t { font-weight: 500; font-size: 14.5px; }
 .ev-w { font-size: 13px; color: var(--ink-3); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.ev-int { color: var(--ink-2); font-weight: 500; }
 .ev-list li.now .ev-t { color: var(--ink); font-weight: 600; }
 
-@media (max-width: 1360px) {
+/* three columns only when the 24-hour chart (and its table) gets real width: on a 1366 or 1440 laptop
+   the chart takes the whole row and destinations + events share the next one */
+@media (max-width: 1800px) {
   .dash-row.mid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .dash-row.mid > .chart { grid-column: 1 / -1; }
-
+}
+@media (max-width: 1100px) {   /* sidebar + two columns leaves each card too narrow for its meters */
+  .dash-row.mid, .dash-row.low { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 1400px) {
   .dash-row.first { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -970,3 +975,9 @@ input[type=text], input[type=password], input[type=number], input[type=datetime-
 .tvb-open { display: flex; gap: .4rem; margin: 0 0 0 auto; font-size: .95rem; color: var(--ink-3); }
 .tvb-open dt { margin: 0; } .tvb-open dd { margin: 0; color: var(--ink); font-weight: 600; }
 .tvb-open + .status-pill { margin-left: .8rem; }
+
+/* the public demo's way out of the wall screen (only on the static demo) */
+.tv-demo { position: fixed; top: .85rem; left: 50%; transform: translateX(-50%); z-index: 5; display: flex; gap: .5rem; }
+.tv-demo a { background: #2563eb; color: #fff; text-decoration: none; font: 600 13px/1 "Plex", system-ui, sans-serif;
+             padding: 8px 13px; border-radius: 999px; box-shadow: 0 4px 14px rgb(0 0 0 / .35); }
+.tv-demo a + a { background: #1e293b; }

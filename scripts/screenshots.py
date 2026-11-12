@@ -75,11 +75,13 @@ def render(db: Path, work: Path, path: str, lang: str = "en", css: str = "") -> 
     app = create_app(store, data_dir=db.parent, bind="127.0.0.1:8080", default_lang=lang)
     app.config["WTF_CSRF_ENABLED"] = False
     client = app.test_client()
-    client.post("/login", data={"username": "admin", "password": PASSWORD})
-    html = client.get(f"{path}{'&' if '?' in path else '?'}lang={lang}").get_data(as_text=True)
+    if path != "/tv":                       # the bare /tv is what a TV sees before pairing: no session
+        client.post("/login", data={"username": "admin", "password": PASSWORD})
+    html = client.get(f"{path}{'&' if '?' in path else '?'}lang={lang}", follow_redirects=True).get_data(as_text=True)
     html = re.sub(r'<link rel="stylesheet" href="([^"]+)">',
                   lambda m: "<style>" + client.get(m.group(1)).get_data(as_text=True) + css + "</style>", html)
     html = html.replace('<meta http-equiv="refresh" content="30">', "")
+    html = html.replace('src="/static/', 'src="static/')     # images load from the copy next to the page
     store.close()
     page = work / f"page-{abs(hash((str(db), path, css)))}.html"
     page.write_text(html)
@@ -103,6 +105,7 @@ def main(lang: str = "en") -> None:
         (work / "fonts").mkdir()
         for f in (ROOT / "isitmyisp" / "webapp" / "static" / "fonts").glob("*.woff2"):
             shutil.copy(f, work / "fonts")
+        shutil.copytree(ROOT / "isitmyisp" / "webapp" / "static", work / "static")
         base = work / "demo.db"
         demo_data.main(str(base), lang=lang)
         states = {}
@@ -112,6 +115,10 @@ def main(lang: str = "en") -> None:
             freeze(base, d / "demo.db", fraction)
             states[name] = d / "demo.db"
         add_speed_result(states["healthy"])
+        for db in states.values():                              # a fixed link for the wall screen
+            s = Store(db)
+            s.set_settings({"tv_token": "demo"}, bump=False)
+            s.close()
 
         only = lambda sel: f"\n.card:not({sel}) {{ display: none; }}"  # noqa: E731
         shots = [
@@ -120,6 +127,12 @@ def main(lang: str = "en") -> None:
             (states["failover"], "/", "", "failover.png", "1440,720", False),
             (states["healthy"], "/settings", only("#speed"), "speed-test-settings.png", "1440,1000", True),
             (states["isp"], "/", "", "mobile.png", "390,1500", True),
+            (states["isp"], "/tv/demo", "", "tv.png", "1920,1080", True),
+            (states["isp"], "/tv/demo?layout=simple", "", "tv-simple.png", "1280,720", True),
+            (states["healthy"], "/tv", "", "tv-code.png", "1280,720", True),
+            (states["healthy"], "/settings", only("#tv"), "tv-settings.png", "1440,700", False),
+            (states["healthy"], "/settings", only("#devices"), "devices-settings.png", "1440,600", False),
+            (states["healthy"], "/settings", only("#hours"), "hours-settings.png", "1440,1000", False),
         ]
         for db, path, css, name, size, dark in shots:
             shoot(render(db, work, path, lang=lang, css=css), out / name, size, dark)

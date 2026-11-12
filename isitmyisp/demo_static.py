@@ -25,7 +25,8 @@ from .demo import SCENARIOS, build
 
 LANGS = ("es", "en")
 PAGES = [("", "/"), ("incidents/", "/incidents"), ("tunnels/", "/tunnels"), ("reports/", "/reports"),
-         ("settings/", "/settings"), ("report/", "/report?since=1d")]
+         ("settings/", "/settings"), ("report/", "/report?since=1d"),
+         ("tv/", "/tv/demo"), ("tv/simple/", "/tv/demo?layout=simple")]   # the wall screen, both layouts
 ROUTES = {"/": "", "/incidents": "incidents/", "/tunnels": "tunnels/", "/reports": "reports/",
           "/settings": "settings/", "/report": "report/", "/report.pdf": "report/"}
 DEFAULT = ("es", "isp")
@@ -76,6 +77,7 @@ def export(out: Path, langs=LANGS, scenarios=SCENARIOS, hours: float = 24.0) -> 
                 work.mkdir()
                 sim = build(work / "demo.db", hours=hours, scenario=scenario, lang=lang, speed=True)
                 app = create_app(sim.store, data_dir=work, default_lang=lang, demo=True)
+                sim.store.set_settings({"tv_token": "demo"}, bump=False)     # a fixed link for the TV pages
                 app.config["DEMO_STATIC"] = {"scenario": scenario, "scenarios": list(scenarios)}
                 client = app.test_client()
                 for page, url in PAGES:

@@ -12,6 +12,10 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=css_v) }}">
 </head>
 <body class="tv-page">
+{% if demo_static %}{% set base = '/' ~ lang ~ '/' ~ demo_static.scenario ~ '/' %}
+<nav class="tv-demo" aria-label="demo"><a href="{{ base }}">← {{ t.demo_tv_back }}</a>
+  {% if simple %}<a href="{{ base }}tv/">{{ t.demo_tv_board }}</a>{% else %}<a href="{{ base }}tv/simple/">{{ t.demo_tv_simple }}</a>{% endif %}</nav>
+{% endif %}
 {% macro more(h, rot) %}{% if h.bad %}{{ t.board_more.format(n=h.bad + h.none + h.good) }} {{ t.board_more_bad.format(n=h.bad) }} {% endif %}{% if rot %}{{ t.board_rot.format(shown=rot.shown, total=rot.total, page=rot.page, pages=rot.pages) }}{% endif %}{% endmacro %}
 {% macro num(v, fmt='%.1f') %}{{ fmt|format(v) if v is not none else '—' }}{% endmacro %}
 {% set fo = d.failover %}
@@ -128,7 +132,7 @@
         {% for r in b.recent %}
         <li class="g-{{ r.group }}{{ ' now' if r.ongoing }}">
           <span class="ev-dot" aria-hidden="true"></span>
-          <p class="ev-t">{{ t.verdict.get(r.code, r.code) }}{% if r.name %} · {{ r.name }}{% endif %}{% if r.count > 1 %} <span class="muted">×{{ r.count }}</span>{% endif %}</p>
+          <p class="ev-t">{{ t.verdict.get(r.code, r.code) }}{% if r.name %} · {{ r.name }}{% endif %}{% if r.drops %} · <span class="ev-int">{{ t.intermittent_n.format(n=r.drops) }}</span>{% endif %}{% if r.count > 1 %} <span class="muted">×{{ r.count }}</span>{% endif %}</p>
           <p class="ev-w">{% if r.ongoing %}<b>{{ t.ongoing_now }}</b> · {% endif %}{{ r.opened|ago }} ({{ r.duration }})</p>
         </li>
         {% endfor %}

@@ -3,6 +3,34 @@
 Versions follow [semantic versioning](https://semver.org). Each release has a Docker image
 (`21enzo03/isitmyisp:<version>` on Docker Hub, amd64 and arm64) and a git tag `v<version>`.
 
+## [0.2.1] - 2026-11-12
+
+Fixes found before announcing it: the verdict missed intermittent outages, and the demo was cut off
+on common laptop screens.
+
+### Fixed
+- A connection that drops and comes back (bad, good, bad, good…) never opened an incident, so it got
+  no alert and no line in the ISP report: it only showed as separate short blips. Three bad windows
+  within five minutes now open an **intermittent** incident, which says how many times it dropped
+  on the dashboard, the TV board, alerts and the report (and the ISP message), and closes after three
+  clean minutes. An outage whose ISP first hop looks affected only in some windows is no longer split
+  into separate "backbone" and "access network" incidents, nor kept from opening.
+- After a restart, what's normal for each destination's latency was learned again from scratch (and a
+  slow spell going on at that moment could be learned as normal). It's now loaded from the last day's
+  healthy windows.
+- On a 1366 or 1440 px laptop the dashboard's 24-hour card was too narrow and its data table spilled
+  over the next card. The chart now takes the whole row below 1800 px, cards stack below 1100 px, and
+  the table scrolls inside its card.
+- The report shown in the web app had no way back: it now has "Back to the dashboard" and, outside the
+  demo, "Download PDF" (neither is printed nor in the files that get attached or saved).
+
+### Added
+- The public demo has TV mode (the board and the simple view) and an intermittent outage in its day.
+- Docs: TV mode, devices and opening hours with screenshots; how it differs from Uptime Kuma,
+  SmokePing and PingPlotter; backing up and moving to another machine; when the monitor doesn't
+  start or doesn't see the network; what it doesn't do (IPv4 verdict, small latency rises, Linux only).
+- A README in Spanish, and a shorter README in English.
+
 ## [0.2.0] - 2026-11-12
 
 Ready to sell: what a small business sees in the first meeting, and the image published for amd64 and

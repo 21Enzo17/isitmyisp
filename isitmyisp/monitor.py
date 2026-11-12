@@ -72,7 +72,8 @@ class Monitor:
                                        + [c for c in old["ruled_out"] if c not in new["ruled_out"]]))
         links = [d for d in (old.get("link"), new.get("link")) if d]
         peak = max(links, key=lambda d: max(d.get("down_pct") or 0, d.get("up_pct") or 0)) if links else None
-        self._details = {"ruled_out": ruled, "not_ruled_out": not_ruled, "link": peak}
+        self._details = {"ruled_out": ruled, "not_ruled_out": not_ruled, "link": peak,
+                         **({"intermittent": True} if old.get("intermittent") else {})}
         self.store.set_incident_details(self.incident_id, self._details)
 
     def observe_network(self, snapshot: dict, now: float | None = None) -> Change:
@@ -102,6 +103,12 @@ class Monitor:
         """Close incidents left open by a previous run (crash, reboot, upgrade).
         A failover stays open: the first discovery after the restart decides whether it's still on."""
         self.store.close_dangling()
+        # what's normal for each target, from the last day's healthy windows: after a restart the
+        # latency is judged at once, and a slow spell going on right now isn't learned as normal
+        for target, values in self.store.healthy_rtts(time.time() - 86400).items():
+            b = self.baselines.setdefault(target, Baseline())
+            for v in values:
+                b.update(v, healthy=True)
 
     @staticmethod
     def evidence_target(m: Measurements) -> str:
@@ -147,21 +154,23 @@ class Monitor:
         tr = self.hyst.update(v.code)
         # Timestamps mark the END of each window. An incident started when the first of its bad
         # windows started, and ended when the first of the good windows started.
-        opened = now - self.window * self.hyst.open_after
+        opened = now - self.window * tr.since
         if tr.closed and self.incident_id is not None:
-            ended = opened if tr.opened else now - self.window * self.hyst.close_after
+            ended = opened if tr.opened else now - self.window * tr.clean
             self.store.close_incident(self.incident_id, ts=ended)
             self.incident_id = None
         if tr.opened:
             self.incident_id = self.store.open_incident(tr.opened, v.evidence, ts=opened)
             self._details = assess(m, v, self.baselines)
+            if tr.intermittent:
+                self._details["intermittent"] = True    # it came and went: the report and alerts say so
             self.store.set_incident_details(self.incident_id, self._details)
             self._capture(m, now, force=True)
         elif self.incident_id is not None:
             self._capture(m, now)
         if self.incident_id is not None:
             self.store.bump_peak_loss(self.incident_id, self.worst_loss(m, self.hyst.active or v.code))
-            if v.code == self.hyst.active:
+            if v.code != "ok" and self.hyst.group(v.code) == self.hyst.group(self.hyst.active or v.code):
                 self._merge_details(assess(m, v, self.baselines))
         tunnel_results = [self._step_tunnel(t, under, over, v.code in INTERNET_OK, now)
                           for t, under, over in tunnels]
@@ -231,9 +240,9 @@ class Monitor:
         tv = classify_tunnel(t, under, over, internet_ok, st.ever_answered)
         code = "ok" if tv.code in ("up", "no_data") else tv.code
         tr = st.hyst.update(code)
-        opened = now - self.window * st.hyst.open_after
+        opened = now - self.window * tr.since
         if tr.closed and st.incident_id is not None:
-            self.store.close_incident(st.incident_id, ts=opened if tr.opened else now - self.window * st.hyst.close_after)
+            self.store.close_incident(st.incident_id, ts=opened if tr.opened else now - self.window * tr.clean)
             st.incident_id = None
         if tr.opened:
             st.incident_id = self.store.open_incident(tr.opened, tv.evidence, ts=opened, scope=f"tunnel:{t.name}")

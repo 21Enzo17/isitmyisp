@@ -804,8 +804,28 @@ class LocalDevicesWeb(WebAppBase):
         self.store.close_incident(iid, ts=now - 60)
         report = self.client.get("/report?since=1d&lang=en").get_data(as_text=True)
         self.assertIn("Devices on your network", report)
+        self.assertIn('<nav class="bar"><a href="/">← Back to the dashboard</a>', report)   # a way back
+        self.assertIn('href="/report.pdf?since=1d', report)
+        from isitmyisp.report import build_report
+        self.assertNotIn('class="bar"', build_report(self.store, now - 86400, now, lang="en"))  # not in files
         self.client.post("/settings/devices/delete", data={"csrf_token": csrf(page), "name": "Posnet caja 1"})
         self.assertEqual(settings_mod.load(self.store).devices, [])
+
+
+@unittest.skipUnless(HAVE_WEB, "web extra not installed")
+class IntermittentOnDashboard(WebAppBase):
+    def test_an_intermittent_incident_says_so_with_its_drops(self):
+        import time as _t
+        self.create_admin()
+        now = _t.time()
+        for k, code in enumerate(["ok", "isp", "ok", "isp", "ok", "isp", "ok"]):
+            self.store.add_window_verdict(code, 30, ts=now - 600 + 30 * k)
+        iid = self.store.open_incident("isp", ["x"], ts=now - 600)          # from the first window on
+        self.store.set_incident_details(iid, {"ruled_out": [], "not_ruled_out": [], "intermittent": True})
+        self.store.close_incident(iid, ts=now - 420)
+        html = self.client.get("/?lang=en").get_data(as_text=True)
+        self.assertIn("comes and goes (3 drops)", html)
+        self.assertIn("comes and goes (3 drops)", self.client.get("/incidents?lang=en").get_data(as_text=True))
 
 
 class TvPairing(WebAppBase):

@@ -10,7 +10,7 @@
   {% for r in rows %}
   <tr><td class="num">{{ r.opened|dt }}</td><td class="num">{{ r.closed|dt if r.closed else t.ongoing }}</td>
       <td class="num">{{ r.duration }}</td>
-      <td><span class="dot {{ r.css }}"></span> {{ r.scope }} · {{ r.code|cause }}</td>
+      <td><span class="dot {{ r.css }}"></span> {{ r.scope }} · {{ r.code|cause }}{% if r.drops %}<br><span class="ev-int">{{ t.intermittent_n.format(n=r.drops) }}</span>{% endif %}</td>
       <td><span class="mono">{% for e in r.evidence %}{{ e|ev }}<br>{% endfor %}</span>
         {% with details = r.details %}{% include "_ruled.html" %}{% endwith %}</td></tr>
   {% endfor %}

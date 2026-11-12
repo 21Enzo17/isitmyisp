@@ -175,7 +175,8 @@ class Simulator:
             now = t0 + (i + 1) * WIN
             f = i / total
             minute = (i * WIN) / 60
-            st = State(isp_bad=0.58 <= f < 0.66 or 0.86 <= f < 0.94, wifi_bad=0.26 <= f < 0.285,
+            flaky = 0.12 <= f < 0.14 and i % 3 == 0     # half an hour of a link that drops and comes back
+            st = State(isp_bad=0.58 <= f < 0.66 or 0.86 <= f < 0.94 or flaky, wifi_bad=0.26 <= f < 0.285,
                        erp_down=0.72 <= f < 0.75, pos_down=0.79 <= f < 0.81, rekey_drop=minute % 120 < 2.5 and minute > 5,
                        path_drop=0.40 <= f < 0.42, backup=0.47 <= f < 0.55)
             if i >= total - tail:

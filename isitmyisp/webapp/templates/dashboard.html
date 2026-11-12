@@ -138,7 +138,7 @@
     {% for r in d.recent %}
     <li class="g-{{ r.group }}{{ ' now' if r.ongoing }}">
       <span class="ev-dot" aria-hidden="true"></span>
-      <p class="ev-t">{{ t.verdict.get(r.code, r.code) }}{% if r.name %} · {{ r.name }}{% endif %}{% if r.count > 1 %} <span class="muted">×{{ r.count }}</span>{% endif %}</p>
+      <p class="ev-t">{{ t.verdict.get(r.code, r.code) }}{% if r.name %} · {{ r.name }}{% endif %}{% if r.drops %} · <span class="ev-int">{{ t.intermittent_n.format(n=r.drops) }}</span>{% endif %}{% if r.count > 1 %} <span class="muted">×{{ r.count }}</span>{% endif %}</p>
       <p class="ev-w" title="{{ r.opened|dt }}">{% if r.ongoing %}<b>{{ t.ongoing_now }}</b> · {% endif %}{{ r.opened|ago }} ({{ r.duration }})</p>
     </li>
     {% endfor %}

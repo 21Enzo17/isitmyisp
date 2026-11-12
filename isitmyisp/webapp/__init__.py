@@ -275,7 +275,9 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     @app.get("/report")
     def report():
         start, end = _period()
-        return Response(build_report(store, start, end, lang=g.lang), mimetype="text/html")
+        pdf = None if app.config.get("DEMO_STATIC") else url_for("report_pdf", **request.args)
+        return Response(build_report(store, start, end, lang=g.lang, back=url_for("dashboard"), pdf=pdf),
+                        mimetype="text/html")
 
     @app.get("/report.pdf")
     def report_pdf():
