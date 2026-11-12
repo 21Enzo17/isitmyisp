@@ -319,7 +319,7 @@
   <section class="card svc" aria-labelledby="svc-h">
     <div class="card-head"><h2 id="svc-h">{{ t.conn_title }}</h2>
       <a class="icon-link" href="{{ url_for('settings_page') }}#services" aria-label="{{ t.svc_add }}"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></a></div>
-    {% if not d.services and not d.tunnels %}
+    {% if not d.services and not d.tunnels and not d.devices %}
     <p class="muted">{{ t.services_sub }}</p>
     <p><a href="{{ url_for('settings_page') }}#services">{{ t.svc_add }}</a></p>
     {% else %}
@@ -332,6 +332,16 @@
         <span class="r-val">{% if c.ms is not none %}{{ '%.0f'|format(c.ms) }} ms{% endif %}</span>
         <span class="r-state">{{ t.svc[c.state] }}{% if c.since %}, {{ c.since }}{% endif %}</span>
         {% if c.state == 'down' %}<p class="r-note">{% if c.detail %}{{ c.detail|ev }}. {% endif %}{{ t.advice.service_down }}</p>{% endif %}
+      </li>
+      {% endfor %}
+      {% for c in d.devices %}
+      {% set st = 'good' if c.state == 'up' else ('bad' if c.state == 'down' else 'none') %}
+      <li class="row s-{{ st }}">
+        <svg class="ico st" aria-hidden="true"><use href="#i-{{ 'check' if st == 'good' else ('cross' if st == 'bad' else 'wait') }}"/></svg>
+        <span class="r-main"><span class="r-name">{{ c.name }}</span><span class="r-sub">{{ t.device_kind[c.kind] }} · <span class="ip">{{ c.target }}</span></span></span>
+        <span class="r-val">{% if c.ms is not none %}{{ '%.0f'|format(c.ms) if c.ms >= 1 else '< 1' }} ms{% endif %}</span>
+        <span class="r-state">{{ t.svc[c.state] }}{% if c.since %}, {{ c.since }}{% endif %}</span>
+        {% if c.state == 'down' %}<p class="r-note">{{ t.advice.device_down }}</p>{% endif %}
       </li>
       {% endfor %}
       {% for c in d.tunnels %}

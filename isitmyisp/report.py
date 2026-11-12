@@ -104,6 +104,9 @@ R = {
         "services": "Your services: it wasn't your internet",
         "svc_intro": "These services were unreachable while your own connection was healthy: the problem was on their side.",
         "svc_col": "Service",
+        "devices": "Devices on your network",
+        "dev_intro": "These devices stopped answering while your router and your network were fine: the problem was the device itself (power, cable, Wi-Fi or the device). Not your ISP.",
+        "dev_col": "Device",
         "tun_periodic": ("{name}: drops repeat every {every} with a clean path. That is the fingerprint of "
                          "mismatched IKE/IPsec lifetimes or rekey timers between both ends: compare them."),
         "tun_config_hint": ("{name}: {k} drop(s) happened while the path outside the tunnel was clean. Check DPD "
@@ -189,6 +192,9 @@ R = {
         "services": "Tus servicios: no era tu internet",
         "svc_intro": "Estos servicios no respondían mientras tu propia conexión andaba bien: el problema era de ellos.",
         "svc_col": "Servicio",
+        "devices": "Dispositivos del local",
+        "dev_intro": "Estos aparatos dejaron de responder mientras tu router y tu red andaban bien: el problema era el propio aparato (corriente, cable, Wi-Fi o el equipo). No tu ISP.",
+        "dev_col": "Dispositivo",
         "tun_periodic": ("{name}: las caídas se repiten cada {every} con el camino limpio. Esa es la huella de "
                          "lifetimes o timers de rekey IKE/IPsec distintos en los dos extremos: comparalos."),
         "tun_config_hint": ("{name}: {k} caída(s) ocurrieron con el camino por fuera del túnel limpio. Revisá timeouts "
@@ -703,6 +709,19 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
             for i in svc_incidents)
         out.append(f'<h2>{_e(t["services"])}</h2><p class="muted">{_e(t["svc_intro"])}</p>'
                    f'<table class="incidents"><thead><tr><th>{t["svc_col"]}</th><th class="num">{t["start"]}</th>'
+                   f'<th class="num">{t["end"]}</th><th class="num">{t["duration"]}</th><th>{t["evidence"]}</th></tr>'
+                   f'</thead><tbody>{rows}</tbody></table>')
+
+    # ---- devices on your network (the card terminal, the printer…): not your internet either
+    dev_incidents = [i for i in store.incidents_between(start, end, scope=None) if i.scope.startswith("device:")]
+    if dev_incidents:
+        rows = "".join(
+            f'<tr><td>{_e(i.scope.split(":", 1)[1])}</td><td class="dt">{_dt_html(i.opened)}</td>'
+            f'<td class="dt">{_dt_html(i.closed) if i.closed else _e(t["ongoing"])}</td>'
+            f'<td class="num">{fmt_duration(i.duration(now))}</td><td class="ev">{_e(i.evidence[0] if i.evidence else "")}</td></tr>'
+            for i in dev_incidents)
+        out.append(f'<h2>{_e(t["devices"])}</h2><p class="muted">{_e(t["dev_intro"])}</p>'
+                   f'<table class="incidents"><thead><tr><th>{t["dev_col"]}</th><th class="num">{t["start"]}</th>'
                    f'<th class="num">{t["end"]}</th><th class="num">{t["duration"]}</th><th>{t["evidence"]}</th></tr>'
                    f'</thead><tbody>{rows}</tbody></table>')
 

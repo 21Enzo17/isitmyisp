@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .config import Config, ConfigError, Tunnel, load as load_toml, parse as parse_tunnels
+from .devices import Device
 from .services import Service
 from .store import Store
 
@@ -34,6 +35,7 @@ DEFAULTS: dict = {
     "speedtest": {},           # see speedtest.DEFAULTS: OFF until you turn it on and accept the risks
     "tunnels": [],             # list of {name, underlay, overlay, type}
     "services": [],            # list of {name, kind: http|tcp, target}
+    "devices": [],             # list of {name, kind, target, port|None}: card terminals, printers… on your LAN
     "link": {"enabled": False, "host": "", "community": "", "port": 161, "interface": "",
              "down_mbps": 0, "up_mbps": 0},  # WAN usage read from the router by SNMP
 }
@@ -57,6 +59,7 @@ class Settings:
     tunnels: list[Tunnel] = field(default_factory=list)
     tunnels_from_file: Path | None = None  # set when a TOML file provides the tunnels
     services: list = field(default_factory=list)  # list[services.Service]
+    devices: list = field(default_factory=list)   # list[devices.Device]
     link: dict = field(default_factory=lambda: dict(DEFAULTS["link"]))
     voip_target: str = ""
     speedtest: dict = field(default_factory=dict)
@@ -144,6 +147,12 @@ def validate(values: dict) -> dict:
         out["tunnels"] = [t.__dict__ for t in parsed]
     if "link" in values:
         out["link"] = _validate_link(values["link"])
+    if "devices" in values:
+        from .devices import DeviceError, validate as validate_devices
+        try:
+            out["devices"] = validate_devices(values["devices"])
+        except DeviceError as exc:
+            raise SettingsError(str(exc)) from exc
     if "services" in values:
         from .services import ServiceError, validate as validate_services
         try:
@@ -192,6 +201,7 @@ def load(store: Store, toml_path: str | None = None, data_dir: Path | None = Non
         trusted_proxies=list(raw["trusted_proxies"]),
         tunnels=[Tunnel(**t) for t in raw["tunnels"]], version=store.settings_version(),
         services=[Service(**sv) for sv in raw["services"]],
+        devices=[Device(**dv) for dv in raw.get("devices") or []],
         link={**DEFAULTS["link"], **(raw.get("link") or {})},
         voip_target=str(raw.get("voip_target") or ""),
         speedtest={**SPEED_DEFAULTS, **(raw.get("speedtest") or {})},

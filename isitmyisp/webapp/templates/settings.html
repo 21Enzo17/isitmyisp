@@ -176,6 +176,29 @@
     {% endif %}{% endif %}
   </div>
 
+  <div class="card" id="devices"><h3>{{ t.devices_title }}</h3><p class="muted">{{ t.devices_sub }}</p>
+    {% if s.devices %}
+    <table><thead><tr><th>{{ t.dev_name }}</th><th>{{ t.dev_kind }}</th><th>{{ t.dev_target }}</th><th>{{ t.dev_how }}</th><th></th></tr></thead><tbody>
+      {% for dv in s.devices %}
+      <tr><td>{{ dv.name }}</td><td>{{ t.device_kind[dv.kind] }}</td><td class="mono">{{ dv.target }}</td><td>{{ dv.how }}</td>
+        <td class="num">{% if not readonly %}<form class="inline" method="post" action="{{ url_for('device_delete') }}">{{ csrf() }}
+          <input type="hidden" name="name" value="{{ dv.name }}"><button class="btn small danger" type="submit">{{ t.delete }}</button></form>{% endif %}</td></tr>
+      {% endfor %}
+    </tbody></table>{% endif %}
+    {% if not readonly %}
+    <form method="post" action="{{ url_for('device_add') }}">{{ csrf() }}
+      <div class="form-row">
+        <div><label for="dn">{{ t.dev_name }}</label><input type="text" id="dn" name="name" required maxlength="40" placeholder="Posnet caja 1"></div>
+        <div><label for="dk">{{ t.dev_kind }}</label><select id="dk" name="kind">
+          {% for k in ['pos', 'printer', 'camera', 'pbx', 'ap', 'other'] %}<option value="{{ k }}">{{ t.device_kind[k] }}</option>{% endfor %}</select></div>
+        <div><label for="dt">{{ t.dev_target }}</label><input type="text" id="dt" name="target" required placeholder="192.168.1.50"></div>
+        <div><label for="dp">{{ t.dev_port }}</label><input type="number" id="dp" name="port" min="1" max="65535" placeholder="ping"></div>
+      </div>
+      <p class="muted small">{{ t.dev_port_help }}</p>
+      <div class="actions"><button class="btn primary" type="submit">{{ t.dev_add }}</button></div>
+    </form>{% endif %}
+  </div>
+
   <div class="card" id="alerts"><h3>{{ t.alerts_title }}</h3><p class="muted">{{ t.alerts_sub }}</p>
     {% if test_results %}<div class="flash {{ 'ok' if test_results.values()|select('equalto','ok')|list|length == test_results|length else 'err' }}">
       <b>{{ t.test_results }}:</b> {% for ch, r in test_results.items() %}{{ ch }}: {{ r }}{{ ' · ' if not loop.last }}{% endfor %}</div>{% endif %}

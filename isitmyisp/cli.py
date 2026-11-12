@@ -98,7 +98,8 @@ class Session:
 
     def __init__(self, net: Network, interval: float, socket_interval: float, engine: str | None = None,
                  anchors: list[str] | None = None, tunnels: list | None = None, services: list | None = None,
-                 link: dict | None = None, voip: str = ""):
+                 link: dict | None = None, voip: str = "", devices: list | None = None):
+        from .devices import check as check_device
         from .services import ServiceProber
         self.net = net
         self.link = None
@@ -108,6 +109,8 @@ class Session:
                                     link["interface"], link["down_mbps"], link["up_mbps"])
         self.services = ServiceProber(list(services or []))
         self.last_services: list = []
+        self.devices = ServiceProber(list(devices or []), checker=check_device)   # same rhythm, LAN checks
+        self.last_devices: list = []
         self.anchors = list(anchors or ANCHORS_V4)
         self.tunnels = list(tunnels or [])
         self.roles: list[tuple[str, str]] = [("home", r) for r in net.home_routers]
@@ -125,9 +128,11 @@ class Session:
         self.icmp.__enter__()
         self.sockets.__enter__()
         self.services.__enter__()
+        self.devices.__enter__()
         return self
 
     def __exit__(self, *exc) -> None:
+        self.devices.__exit__()
         self.services.__exit__()
         self.sockets.__exit__()
         self.icmp.__exit__()
@@ -149,6 +154,7 @@ class Session:
         rows += [("dns", d) for d in m.dns]
         self.last_tunnels = [(t, icmp.get(t.underlay), icmp.get(t.overlay)) for t in self.tunnels]
         self.last_services = [(sv, self.services.recent(sv.name)) for sv in self.services.services]
+        self.last_devices = [(dv, self.devices.recent(dv.name)) for dv in self.devices.services]
         return m, rows
 
 
@@ -299,14 +305,14 @@ def cmd_monitor(args, t) -> int:
                 watch = PathWatch(net.isp_hop, ttl, cfg.anchors, known=seen)
             route = default_route()
             with Session(net, interval, socket_interval=3.0, engine=args.engine,
-                         anchors=cfg.anchors, tunnels=cfg.tunnels, services=cfg.services, link=cfg.link,
+                         anchors=cfg.anchors, tunnels=cfg.tunnels, services=cfg.services, devices=cfg.devices, link=cfg.link,
                          voip=cfg.voip_target) as s:
                 print_network(net, t, engine=s.icmp.name)
                 started = time.time()
                 time.sleep(window + 1.5)
                 while True:
                     m, rows = s.measure(window)
-                    res = mon.step(m, rows, tunnels=s.last_tunnels, services=s.last_services,
+                    res = mon.step(m, rows, tunnels=s.last_tunnels, services=s.last_services, devices=s.last_devices,
                                    suppress=speed.suppress(time.time(), window))
                     cfg_now = _settings(args, store)
                     what = speed.tick(cfg_now.speedtest, time.time(), wireless=net.wireless,

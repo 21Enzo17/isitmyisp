@@ -140,6 +140,7 @@ class Dashboard:
     tunnels: list = field(default_factory=list)
     brief: list = field(default_factory=list)
     services: list = field(default_factory=list)
+    devices: list = field(default_factory=list)
     link: dict | None = None
     link_enabled: bool = False
     recent: list = field(default_factory=list)
@@ -229,6 +230,7 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
                       "backup": (det.get("backup") or {}).get("name") or d.isp_name}
     d.tunnels = tunnel_cards(store, settings, now)
     d.services = service_cards(store, settings, now)
+    d.devices = device_cards(store, settings, now)
     d.link_enabled = bool(settings.link.get("enabled"))
     rows = store.link_usage_between(now - 3 * 3600, now)
     if rows:
@@ -412,6 +414,27 @@ def kpis(store: Store, windows, series, start: float, now: float) -> dict:
     return out
 
 
+def device_cards(store: Store, settings: Settings, now: float | None = None) -> list[ServiceCard]:
+    """Devices on your network, in the same shape as the services (kind is the device kind)."""
+    now = now or time.time()
+    latest = {s["role"]: s for s in store.latest_samples() if s["role"].startswith("device:")}
+    active = {i.scope.split(":", 1)[1]: i for i in store.active_incidents() if i.scope.startswith("device:")}
+    cards = []
+    for dv in settings.devices:
+        sample = latest.get(f"device:{dv.name}")
+        inc = active.get(dv.name)
+        if inc:
+            cards.append(ServiceCard(dv.name, dv.kind, dv.endpoint, "down", "bad", None,
+                                     fmt_duration(now - inc.opened), inc.evidence[0] if inc.evidence else ""))
+        elif sample and sample["sent"] and now - sample["ts"] < 600:
+            ok = sample["received"] > 0
+            cards.append(ServiceCard(dv.name, dv.kind, dv.endpoint, "up" if ok else "down", "ok" if ok else "warn",
+                                     sample["rtt_median"]))
+        else:
+            cards.append(ServiceCard(dv.name, dv.kind, dv.endpoint, "no_data", "muted", None))
+    return cards
+
+
 @dataclass
 class RecentIncident:
     code: str
@@ -534,6 +557,8 @@ def board(d: Dashboard, now: float | None = None) -> dict:
     tick = int((now or time.time()) // 30)
     conns = [Conn("service", c.name, "", c.ms, c.state, c.since,
                   "good" if c.state == "up" else "bad" if c.state == "down" else "none") for c in d.services]
+    conns += [Conn("device", c.name, c.kind, c.ms, c.state, c.since,
+                   "good" if c.state == "up" else "bad" if c.state == "down" else "none") for c in d.devices]
     conns += [Conn("tunnel", c.name, c.type, None, c.state, c.since,
                    "good" if c.state == "up" else "bad" if c.state == "down" else "none") for c in d.tunnels]
     points, p_hidden, p_rot = fit(d.points, BOARD_POINTS, state=lambda p: "good" if p.status == "ok" else "bad", tick=tick)

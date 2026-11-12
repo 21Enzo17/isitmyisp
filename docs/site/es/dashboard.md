@@ -68,4 +68,4 @@ Debajo del camino están:
 
 - **Tu enlace (desde tu router):** cuánto de lo contratado se está usando ahora, si conectaste el router por SNMP. Por encima del 85 % se marca como lleno. Debajo, el último **test de velocidad** comparado con lo que contrataste.
 - **Calidad para llamadas:** el MOS estimado (de 1 a 5) y si una llamada se escucharía bien ahora.
-- **Tus servicios y túneles:** si cada uno responde, cuánto tarda y desde cuándo está así.
+- **Servicios, dispositivos y túneles:** si cada uno responde, cuánto tarda y desde cuándo está así. Los [dispositivos del local](features.md#dispositivos-del-local) (posnet, impresora, cámaras…) muestran su tipo y su dirección.

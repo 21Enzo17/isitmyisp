@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from . import settings as settings_mod
 from .classifier import Measurements
 from .config import Tunnel
+from .devices import Device
 from .monitor import Monitor
 from .probes.icmp import WindowStats
 from .services import Check, Service
@@ -28,6 +29,13 @@ ANCHORS = ["1.1.1.1", "8.8.8.8", "9.9.9.9"]
 WIN = 30.0
 SCENARIOS = ("healthy", "isp", "failover", "wifi")
 TAIL = {"isp": 40, "wifi": 24, "failover": 140}  # windows at the end of the history in that state
+
+DEVICES = {
+    "en": [("Card terminal, till 1", "pos", "192.168.1.60", None), ("Fiscal printer", "printer", "192.168.1.70", 9100),
+           ("Camera recorder", "camera", "192.168.1.80", 554)],
+    "es": [("Posnet caja 1", "pos", "192.168.1.60", None), ("Impresora fiscal", "printer", "192.168.1.70", 9100),
+           ("Cámaras (grabador)", "camera", "192.168.1.80", 554)],
+}
 
 SERVICES = {
     "en": [("Online banking", "http", "https://bank.example"), ("ERP", "tcp", "erp.example:443")],
@@ -57,6 +65,7 @@ class State:
     isp_bad: bool = False
     wifi_bad: bool = False
     erp_down: bool = False
+    pos_down: bool = False
     rekey_drop: bool = False
     path_drop: bool = False
     backup: bool = False
@@ -69,6 +78,8 @@ class Simulator:
         self.tunnel = Tunnel("branch-office", "198.51.100.20", "10.10.0.1", "ipsec-l2tp")
         self.services = [Service(*s) for s in SERVICES.get(lang, SERVICES["en"])]
         self.checks: dict[str, list[Check]] = {s.name: [] for s in self.services}
+        self.devices = [Device(*d) for d in DEVICES.get(lang, DEVICES["en"])]
+        self.dev_checks: dict[str, list[Check]] = {d.name: [] for d in self.devices}
         self.clock = 0.0
         self.on_backup = False
         self.mon = Monitor(store, WIN, capture=self._capture, recapture_every=600)
@@ -82,6 +93,7 @@ class Simulator:
             "tunnels": [{"name": self.tunnel.name, "underlay": self.tunnel.underlay,
                          "overlay": self.tunnel.overlay, "type": self.tunnel.type}],
             "services": [{"name": s.name, "kind": s.kind, "target": s.target} for s in self.services],
+            "devices": [{"name": d.name, "kind": d.kind, "target": d.target, "port": d.port} for d in self.devices],
             "link": {"enabled": True, "host": "192.168.1.1", "community": "demo-ro", "port": 161,
                      "interface": "ether1", "down_mbps": 300, "up_mbps": 100}})
 
@@ -135,12 +147,19 @@ class Simulator:
             self.checks[s.name].append(Check(now, ok, (180 if s.kind == "http" else 45) + rng.gauss(0, 8) if ok else None,
                                              "HTTP 200" if ok else "timeout"))
             self.checks[s.name] = self.checks[s.name][-10:]
+        pos = self.devices[0].name
+        for dv in self.devices:                  # the card terminal drops once while the internet is fine
+            ok = not (dv.name == pos and st.pos_down) and not st.wifi_bad
+            self.dev_checks[dv.name].append(Check(now, ok, (1.5 if dv.port is None else 3.0) + rng.random() if ok else None,
+                                                  "ping OK" if ok else "no reply to ping"))
+            self.dev_checks[dv.name] = self.dev_checks[dv.name][-10:]
         rows = ([("home", home[0]), ("isp", m.isp_hop)] + [("anchor", a) for a in anchors]
                 + [("tcp", t) for t in tcp.values()] + [("dns", d) for d in dns])   # like a real monitor
         under = w(self.tunnel.underlay, n, n - (round(n * .5) if st.path_drop else 0), 41.0)
         over = w(self.tunnel.overlay, n, 0 if st.rekey_drop else (n - round(n * .5) if st.path_drop else n), 43.0)
         self.mon.step(m, rows, now=now, tunnels=[(self.tunnel, under, over)],
-                      services=[(s, list(self.checks[s.name])) for s in self.services])
+                      services=[(s, list(self.checks[s.name])) for s in self.services],
+                      devices=[(d, list(self.dev_checks[d.name])) for d in self.devices])
 
     # ------------------------------------------------------------------ a whole day
     def history(self, hours: float = 24.0, scenario: str = "healthy", end: float | None = None) -> float:
@@ -157,7 +176,7 @@ class Simulator:
             f = i / total
             minute = (i * WIN) / 60
             st = State(isp_bad=0.58 <= f < 0.66 or 0.86 <= f < 0.94, wifi_bad=0.26 <= f < 0.285,
-                       erp_down=0.72 <= f < 0.75, rekey_drop=minute % 120 < 2.5 and minute > 5,
+                       erp_down=0.72 <= f < 0.75, pos_down=0.79 <= f < 0.81, rekey_drop=minute % 120 < 2.5 and minute > 5,
                        path_drop=0.40 <= f < 0.42, backup=0.47 <= f < 0.55)
             if i >= total - tail:
                 st = self.scenario_state(scenario, now)

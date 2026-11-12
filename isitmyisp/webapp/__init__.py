@@ -313,14 +313,14 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         if g.readonly:
             abort(403)
 
-    def _save(values: dict):
+    def _save(values: dict, anchor: str = ""):
         try:
             settings_mod.save(store, values)
         except settings_mod.SettingsError as exc:
             g.settings = current_settings()
             return _settings_page(str(exc), 400)
         flash(g.t["saved"])
-        return redirect(url_for("settings_page"))
+        return redirect(url_for("settings_page") + anchor)
 
     @app.post("/settings/general")
     def settings_general():
@@ -424,6 +424,22 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
             if p.id in chosen and p.name not in have and p.target not in have:
                 current.append({"name": p.name, "kind": p.kind, "target": p.target})
         return current
+
+    @app.post("/settings/devices/add")
+    def device_add():
+        _guard_write()
+        f = request.form
+        current = [{"name": dv.name, "kind": dv.kind, "target": dv.target, "port": dv.port} for dv in g.settings.devices]
+        current.append({"name": f.get("name", "").strip(), "kind": f.get("kind", "other"),
+                        "target": f.get("target", "").strip(), "port": f.get("port", "").strip()})
+        return _save({"devices": current}, "#devices")
+
+    @app.post("/settings/devices/delete")
+    def device_delete():
+        _guard_write()
+        name = request.form.get("name")
+        return _save({"devices": [{"name": dv.name, "kind": dv.kind, "target": dv.target, "port": dv.port}
+                                  for dv in g.settings.devices if dv.name != name]}, "#devices")
 
     @app.post("/settings/services/delete")
     def service_delete():

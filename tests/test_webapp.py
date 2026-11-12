@@ -779,3 +779,30 @@ class MonthlyReportWeb(WebAppBase):
         r = self.client.post("/settings/monthly", data={"csrf_token": csrf(page), "day": "3", "hour": "9", "action": "send"})
         self.assertEqual(r.status_code, 400)
         self.assertIn("email server", r.get_data(as_text=True))
+
+
+class LocalDevicesWeb(WebAppBase):
+    def test_add_list_delete_and_report(self):
+        import time as _t
+        self.create_admin()
+        page = self.client.get("/settings").get_data(as_text=True)
+        self.assertIn('id="devices"', page)
+        r = self.client.post("/settings/devices/add", data={"csrf_token": csrf(page), "name": "Posnet caja 1", "kind": "pos",
+                                                            "target": "192.168.1.60", "port": ""})
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(r.headers["Location"].endswith("#devices"))
+        bad = self.client.post("/settings/devices/add", data={"csrf_token": csrf(page), "name": "Banco", "kind": "other",
+                                                              "target": "8.8.8.8"})
+        self.assertEqual(bad.status_code, 400)                                  # public addresses go in services
+        self.assertEqual([d.name for d in settings_mod.load(self.store).devices], ["Posnet caja 1"])
+        now = _t.time()
+        iid = self.store.open_incident("device_down", ["192.168.1.60 (ping): no reply to ping (3/3 checks failed)"],
+                                       ts=now - 600, scope="device:Posnet caja 1")
+        dash = self.client.get("/?lang=en").get_data(as_text=True)
+        self.assertIn("Card terminal", dash)
+        self.assertIn("it&#39;s the device", dash)
+        self.store.close_incident(iid, ts=now - 60)
+        report = self.client.get("/report?since=1d&lang=en").get_data(as_text=True)
+        self.assertIn("Devices on your network", report)
+        self.client.post("/settings/devices/delete", data={"csrf_token": csrf(page), "name": "Posnet caja 1"})
+        self.assertEqual(settings_mod.load(self.store).devices, [])

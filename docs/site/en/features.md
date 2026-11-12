@@ -14,6 +14,16 @@ For Argentina there are ready-made checks to tick: the tax agency ARCA (Clave Fi
 
 Each one says exactly what it checks. Some use TCP because their HTTPS can't be checked fairly: ARCA's e-invoicing server uses a TLS setup modern clients reject, and Santander blocks automated clients.
 
+## Devices on your network
+
+"Did the card terminal drop, or the internet?" Add the devices on your network in **Settings → Devices on your network**: the card terminal, the fiscal printer, the camera recorder, the phone system, the Wi-Fi access points.
+
+- Each one is checked every 30 seconds **by ping** or, when the device doesn't answer ping, **by connecting to a port** it listens on: printers 9100, cameras 554 (RTSP) or 80, phone systems 5060.
+- If it stops answering **3 times in a row while your router still answers**, the dashboard, the alerts and the report say **it's that device**, not your internet or your ISP: check that it's on, its cable or its Wi-Fi.
+- If what fails is your own network (the router doesn't answer), the device isn't blamed.
+- They show in the **Services, devices and tunnels** card of the dashboard and on the TV board.
+- Here, and only here, private addresses (192.168…, 10…, 172.16…) or local names (`printer.local`) are accepted. Internet addresses go in **Your services**.
+
 ## Opening hours
 
 For a shop, 20 minutes without internet at 3 a.m. isn't the same as at 11 a.m. Set your hours in **Settings → Opening hours** (or in the wizard): per weekday, with up to two shifts, such as a split shift with a lunch break.

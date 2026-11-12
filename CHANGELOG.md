@@ -6,6 +6,10 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 ## [Unreleased]
 
 ### Added
+- Devices on your network (#10): card terminals, printers, camera recorders, phone systems, access
+  points, checked by ping or a TCP port every 30 s. When one stops answering while the router still
+  does, the dashboard, TV board, alerts and report say it's the device, not the internet. Private
+  addresses are accepted only for these. The demo has three, and its card terminal drops once.
 - Monthly report by email (#36): on a chosen day and hour, last month's evidence report goes out with a
   plain-language summary in the message and the report attached (PDF in the Docker image, HTML
   otherwise). Uses the alerts' SMTP server, sent once per month across restarts, retried on failure,
