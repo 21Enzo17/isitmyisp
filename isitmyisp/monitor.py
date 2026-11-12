@@ -62,6 +62,7 @@ class Monitor:
         self._open_after, self._close_after = open_after, close_after
         self._tunnels: dict[str, _TunnelState] = {}
         self._services: dict[str, int | None] = {}  # service name -> open incident id
+        self._devices: dict[str, int | None] = {}   # device name -> open incident id
 
     def _merge_details(self, new: dict) -> None:
         """Across the whole incident, a cause is ruled out only if every window ruled it out."""
@@ -118,6 +119,7 @@ class Monitor:
 
     def step(self, m: Measurements, rows: list[tuple[str, WindowStats]], now: float | None = None,
              tunnels: list[TunnelSample] = (), services: list[tuple[Service, list[Check]]] = (),
+             devices: list = (),
              suppress: bool = False) -> StepResult:
         """`suppress`: a speed test filled the link during this window. Its samples are kept (they show
         the latency under load) but it gets no verdict of its own: no incident opens or closes, no
@@ -165,6 +167,8 @@ class Monitor:
                           for t, under, over in tunnels]
         for svc, checks in services:
             self._step_service(svc, checks, v.code in INTERNET_OK, now)
+        for dev, checks in devices:                 # your own network is fine unless the verdict says so
+            self._step_device(dev, checks, v.code != "local", now)
         self.store.commit()
         return StepResult(v, tr, self.incident_id, tunnel_results)
 
@@ -195,6 +199,26 @@ class Monitor:
         elif st == "up" and iid is not None:
             self.store.close_incident(iid, ts=checks[-OKS_TO_UP].ts)
             self._services[svc.name] = None
+
+    def _step_device(self, dev, checks: list[Check], lan_ok: bool, now: float) -> None:
+        """A device on your network: down when it stops answering while your router still does."""
+        recent = [c for c in checks if c.ts > now - max(self.window, CHECK_EVERY * 1.5)]
+        if recent:
+            times = sorted(c.ms for c in recent if c.ok and c.ms is not None)
+            med = times[len(times) // 2] if times else None
+            self.store.add_window(f"device:{dev.name}", WindowStats(
+                dev.endpoint, len(recent), sum(1 for c in recent if c.ok), times[0] if times else None, med,
+                times[-1] if times else None, None, med), ts=now)
+        st = service_state(checks)
+        iid = self._devices.get(dev.name)
+        if st == "down" and iid is None and lan_ok:
+            evidence = [f"{dev.endpoint} ({dev.how}): {checks[-1].detail} ({FAILS_TO_DOWN}/{FAILS_TO_DOWN} checks failed)",
+                        "your network: OK at the same time (your router answered)"]
+            self._devices[dev.name] = self.store.open_incident("device_down", evidence, ts=checks[-FAILS_TO_DOWN].ts,
+                                                               scope=f"device:{dev.name}")
+        elif st == "up" and iid is not None:
+            self.store.close_incident(iid, ts=checks[-OKS_TO_UP].ts)
+            self._devices[dev.name] = None
 
     def _step_tunnel(self, t: Tunnel, under: WindowStats | None, over: WindowStats | None,
                      internet_ok: bool, now: float) -> tuple[TunnelVerdict, Transition]:

@@ -14,6 +14,16 @@ Para Argentina hay servicios listos para tildar: ARCA (Clave Fiscal, facturació
 
 Cada uno dice qué chequea exactamente. Algunos se chequean por TCP porque su HTTPS no se puede evaluar de forma justa: el servidor de facturación de ARCA usa una configuración TLS que los clientes modernos rechazan, y Santander bloquea a los clientes automáticos.
 
+## Dispositivos del local
+
+"¿Se cayó el posnet o internet?" Cargá los aparatos de tu red en **Configuración → Dispositivos del local**: el posnet o la terminal de cobro, la impresora fiscal, el grabador de las cámaras, la central telefónica, los puntos de acceso Wi-Fi.
+
+- Cada uno se chequea cada 30 segundos **por ping** o, si el aparato no responde ping, **conectándose a un puerto** en el que escuche: impresoras 9100, cámaras 554 (RTSP) u 80, centrales 5060.
+- Si deja de responder **3 veces seguidas mientras tu router sí responde**, el panel, las alertas y el informe dicen que **es ese aparato**, no tu internet ni tu ISP: revisá que esté prendido, su cable o su Wi-Fi.
+- Si lo que falla es tu propia red (el router no responde), no se culpa al aparato.
+- Aparecen en la tarjeta **Servicios, dispositivos y túneles** del panel y en el modo TV.
+- Acá, y solo acá, se aceptan direcciones privadas (192.168…, 10…, 172.16…) o nombres locales (`impresora.local`). Las direcciones de internet van en **Tus servicios**.
+
 ## Horario de atención
 
 Para un comercio, 20 minutos sin internet a las 3 de la mañana no son lo mismo que a las 11. Cargá tu horario en **Configuración → Horario de atención** (o en el asistente): por día de la semana, con hasta dos turnos, como el horario cortado con siesta.

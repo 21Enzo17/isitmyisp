@@ -68,4 +68,4 @@ Below the path:
 
 - **Your link (from your router):** how much of your plan is in use right now, if you connected the router over SNMP. Above 85 % it's marked as full. Below it, the latest **speed test** against what you pay for.
 - **Call quality:** the estimated MOS (1 to 5) and whether a call would sound good now.
-- **Your services and tunnels:** whether each one answers, how fast and since when.
+- **Services, devices and tunnels:** whether each one answers, how fast and since when. [Devices on your network](features.md#devices-on-your-network) (card terminal, printer, cameras…) show their kind and address.
