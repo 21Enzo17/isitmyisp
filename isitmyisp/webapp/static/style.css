@@ -816,11 +816,11 @@ label.check input { width: 17px; height: 17px; accent-color: var(--accent); }
 
 /* latest events: a vertical timeline */
 .ev-list { list-style: none; margin: 0; padding: 0; }
-.ev-list li { --c: var(--other); position: relative; padding: 0 0 18px 28px; }
+.ev-list li { position: relative; padding: 0 0 18px 28px; }
 .ev-list li:last-child { padding-bottom: 0; }
 .ev-list li::before { content: ""; position: absolute; left: 6px; top: 16px; bottom: -2px; width: 2px; background: var(--line); }
 .ev-list li:last-child::before { display: none; }
-.ev-dot { position: absolute; left: 0; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--c);
+.ev-dot { position: absolute; left: 0; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--c, var(--other));
           box-shadow: 0 0 0 3px var(--surface); }
 .ev-t { font-weight: 500; font-size: 14.5px; }
 .ev-w { font-size: 13px; color: var(--ink-3); margin-top: 2px; font-variant-numeric: tabular-nums; }
@@ -880,3 +880,93 @@ input[type=text], input[type=password], input[type=number], input[type=datetime-
                 font-family: var(--mono); font-weight: 700; font-size: clamp(3rem, 11vw, 9rem); letter-spacing: .08em; color: var(--ink); }
 .tv-pair-steps { margin: 0; padding-left: 1.4em; text-align: left; font-size: clamp(1.1rem, 2vw, 1.8rem); color: var(--ink-2); line-height: 1.6; }
 .tv-pair-note { color: var(--ink-3); font-size: clamp(.95rem, 1.4vw, 1.3rem); }
+
+/* ---------- TV board, in the dashboard's design: fills the window exactly, no scrolling, no JavaScript.
+   Everything is in rem and html.tv-board sets the root size from the tighter of width and height. */
+/* rows: header, [alarm], verdict + figures, 24 h + events, destinations + services. The alarm row is a class
+   from the template (no :has(), which many TV browsers don't support). */
+.tvb { height: 100vh; display: grid; grid-template-rows: auto 8.6rem minmax(11rem, 1fr) 13rem; gap: .9rem;
+       padding: 1.1rem 1.4rem 1.2rem; overflow: hidden; }
+.tvb.has-alarm { grid-template-rows: auto auto 8.6rem minmax(11rem, 1fr) 13rem; }
+.tvb-head { display: flex; align-items: center; gap: 1.1rem; min-width: 0; }
+.tvb-brand { display: inline-flex; align-items: center; gap: .6rem; font-weight: 700; font-size: 1.45rem; letter-spacing: -.02em; color: var(--ink); }
+.tvb-brand .mark { width: 2.2rem; height: 2.2rem; }
+.tvb-sub { color: var(--ink-2); font-size: 1rem; padding-left: 1.1rem; border-left: 1px solid var(--line-2); white-space: nowrap;
+           overflow: hidden; text-overflow: ellipsis; }
+.tvb-clock { margin-left: auto; display: inline-flex; align-items: center; gap: .55rem; color: var(--ink-2); font-size: 1rem;
+             font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tvb-alarm { display: flex; align-items: center; gap: .7rem; margin: 0; padding: .55rem 1rem; border-radius: .9rem; font-size: 1.05rem;
+             color: var(--ink); background: color-mix(in srgb, var(--isp) 20%, var(--surface)); border: 1px solid var(--isp); overflow: hidden; }
+.tvb-alarm span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tvb-alarm .ico { width: 1.3rem; height: 1.3rem; color: var(--isp); stroke-width: 3; flex: none; }
+.tvb-row { display: grid; gap: .9rem; min-height: 0; }
+.tvb-row.first { grid-template-columns: minmax(0, 1.75fr) repeat(3, minmax(0, 1fr)); }
+.tvb-row.mid { grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr); }
+.tvb-row.low { grid-template-columns: minmax(0, 2.6fr) minmax(0, 1fr); }
+.tvb-card { background: var(--surface); border: 1px solid var(--line); border-radius: .9rem; padding: .85rem 1.05rem;
+            min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.tvb-card.alarm { border-color: var(--isp); box-shadow: inset 0 0 0 1px var(--isp); }
+.tvb-card-head { display: flex; align-items: center; justify-content: space-between; gap: .8rem; margin-bottom: .6rem; flex: none; }
+.tvb-card-head h2 { margin: 0; display: flex; align-items: center; gap: .55rem; font-size: 1.05rem; letter-spacing: -.01em; white-space: nowrap; }
+.tvb-card-head .ico { width: 1.25rem; height: 1.25rem; stroke-width: 2.2; }
+.tvb-rot { color: var(--ink-3); font-size: .75rem; white-space: nowrap; margin-top: auto; padding-top: .35rem; }
+.tvb-card-head h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* the verdict, big */
+.tvb-verdict { flex-direction: row; align-items: center; gap: 1.2rem;
+               background: color-mix(in srgb, var(--c) 9%, var(--surface)); border-color: color-mix(in srgb, var(--c) 30%, var(--line)); }
+.tvb-verdict .verdict-ico { width: 5.2rem; height: 5.2rem; box-shadow: 0 0 0 .5rem color-mix(in srgb, var(--c) 20%, transparent); }
+.tvb-verdict .verdict-ico .ico { width: 2.6rem; height: 2.6rem; }
+.tvb-verdict h1 { margin: 0 0 .3rem; font-size: 2.05rem; line-height: 1.1; letter-spacing: -.025em; }
+.tvb-verdict p { margin: 0; color: var(--ink-2); font-size: 1rem; }
+/* the three figures, at board scale */
+.tvb .kpi { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto 1fr auto; column-gap: .6rem; }
+.tvb .kpi-name { font-size: .95rem; gap: .5rem; } .tvb .kpi-name .ico { width: 1.2rem; height: 1.2rem; }
+.tvb .kpi-val { font-size: 2.1rem; margin-top: .5rem; }
+.tvb .kpi-val.bad { font-size: 1.9rem; }
+.tvb .kpi-delta { font-size: .9rem; margin-top: .3rem; } .tvb .kpi-delta .ico { width: .8rem; height: .8rem; }
+.tvb .kpi-spark { min-height: 2.6rem; }
+.tvb .status-pill { font-size: .85rem; padding: .3rem .8rem .3rem .65rem; gap: .45rem; }
+.tvb .status-pill .dot { width: .6rem; height: .6rem; }
+/* 24 h: the timeline grows into the card */
+.tvb-tl { flex: 1; min-height: 0; grid-template-columns: 5.2rem minmax(0, 1fr); column-gap: .8rem; row-gap: .45rem;
+          grid-template-rows: 1.15rem minmax(1.5rem, 1fr) minmax(1.5rem, 1fr) 1rem; }
+.tvb-tl.fo { grid-template-rows: .8rem 1.15rem minmax(1.5rem, 1fr) minmax(1.5rem, 1fr) 1rem; }
+.tvb-tl .tl-name { font-size: .82rem; } .tvb-tl .xaxis { font-size: .75rem; } .tvb .yt { font-size: .7rem; }
+/* latest events */
+/* an event that does not fit whole wraps into a hidden second column instead of showing cut in half */
+.tvb-events .ev-list { flex: 1 1 0; min-height: 0; display: flex; flex-flow: column wrap; align-content: flex-start; column-gap: 2rem; overflow: hidden; }
+.tvb-events .ev-list > li { width: 100%; flex: none; }
+.tvb-events .ev-list li { padding-bottom: .75rem; padding-left: 1.6rem; }
+.tvb-events .ev-dot { width: .8rem; height: .8rem; top: .25rem; }
+.tvb-events .ev-list li::before { left: .34rem; top: 1.15rem; }
+.tvb-events .ev-t { font-size: .95rem; line-height: 1.3; } .tvb-events .ev-w { font-size: .78rem; }
+/* monitored destinations: one tile each */
+.tvb-tiles { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .7rem; }
+.tvb-tile { position: relative; display: flex; flex-direction: column; gap: .1rem; min-width: 0; padding: .6rem .7rem;
+            border-radius: .7rem; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
+.tvb-tile.s-bad { border-color: var(--isp); }
+.tvb-tile-name { display: flex; align-items: center; gap: .45rem; font-size: .9rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tvb-tile-ip { color: var(--ink-3); font-family: var(--mono); font-size: .72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tvb-tile-ms { font-size: 1.35rem; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin-top: .2rem; }
+.tvb-tile-ip b { font-family: var(--font); color: var(--isp); font-weight: 600; }
+.tvb-tile-spark { position: absolute; right: .6rem; bottom: .55rem; width: 38%; height: 1.5rem; }
+.tvb-tile-spark svg { width: 100%; height: 100%; overflow: visible; }
+.tvb-tile-spark .ln { fill: none; stroke: var(--series); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.tvb .ring { width: .8rem; height: .8rem; border-width: .18rem; flex: none; }
+.tvb .tvb-tile.s-warn .ring, .tvb-conn-list .s-none .ring { --rc: var(--you); }
+.tvb .tvb-tile.s-bad .ring, .tvb-conn-list .s-bad .ring { --rc: var(--isp); }
+.tvb-conn-list .s-none .ring { --rc: var(--ink-3); }
+/* services, devices and tunnels */
+.tvb-conn-list { list-style: none; margin: 0; padding: 0; overflow: hidden; flex: none; }
+.tvb-conn-list li { display: grid; grid-template-columns: .8rem minmax(0, 1fr) auto; gap: .55rem; align-items: center; padding: .22rem 0;
+                    font-size: .88rem; border-bottom: 1px solid var(--line); }
+.tvb-conn-list li:last-child { border-bottom: 0; }
+.tvb-conn-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tvb-conn-state { color: var(--ink-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tvb-conn-list .s-bad { background: color-mix(in srgb, var(--isp) 14%, transparent); }
+.tvb-conn-list .s-bad .tvb-conn-name { font-weight: 600; }
+.tvb-conn-list .s-bad .tvb-conn-state b { color: var(--ink); }
+
+.tvb-open { display: flex; gap: .4rem; margin: 0 0 0 auto; font-size: .95rem; color: var(--ink-3); }
+.tvb-open dt { margin: 0; } .tvb-open dd { margin: 0; color: var(--ink); font-weight: 600; }
+.tvb-open + .status-pill { margin-left: .8rem; }

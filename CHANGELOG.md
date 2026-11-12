@@ -27,6 +27,10 @@ arm64 so nobody has to build it.
 - A light/dark button that works without JavaScript, and a documentation site at /docs (es/en).
 
 ### Changed
+- The TV board follows the new design: the verdict and three figures on top, the last 24 hours beside
+  the latest events, then the destinations as tiles and your services, devices and tunnels. It fits
+  any screen from 720p to 1440p without scrolling, shows only events that fit whole, and no longer
+  relies on CSS that older TV browsers lack.
 - A new design for the dashboard and every page: a sidebar, the verdict beside three figures with
   sparklines and change against the day before, and cards of equal height for the chart, destinations
   and events.

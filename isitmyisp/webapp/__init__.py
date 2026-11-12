@@ -158,6 +158,14 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     def _dt_filter(ts):
         return time.strftime("%Y-%m-%d %H:%M", time.localtime(ts)) if ts else ""
 
+    @app.template_filter("tvdate")
+    def _tvdate(ts):
+        """'Wed 12 Nov' / 'mié 12 nov', for the TV board's clock."""
+        from ..report import R
+        rt = R.get(g.lang, R["en"])
+        lt = time.localtime(ts)
+        return f"{rt['days'][lt.tm_wday]} {lt.tm_mday} {rt['months'][lt.tm_mon - 1]}"
+
     @app.template_filter("ago")
     def _ago(ts):
         """'2 h ago' / 'hace 2 h', for the latest events."""
@@ -588,7 +596,8 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
 
     def _tv_board():
         d = views.dashboard_data(store, g.settings)
-        return render_template("tv.html", d=d, b=views.board(d), simple=request.args.get("layout") == "simple")
+        return render_template("tv.html", d=d, b=views.board(d), simple=request.args.get("layout") == "simple",
+                               now=time.time())
 
     @app.get("/tv")
     @limiter.limit("60 per minute")
