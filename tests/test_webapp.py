@@ -166,6 +166,17 @@ class CsrfAndSettings(WebAppBase):
         self.assertEqual((s.anchors, s.interval, s.window, s.lang), (["1.1.1.1", "9.9.9.9"], 1.5, 20, "es"))
         self.assertGreater(self.store.settings_version(), before)
 
+    def test_dns_servers_setting(self):
+        self.store.add_network({"dns_servers": ["100.100.100.100"], "dns_detected": ["100.100.100.100"]})
+        page = self.page()
+        self.assertIn('placeholder="Automatic (found: 100.100.100.100)"', page)    # what it would use
+        r = self.client.post("/settings/general", data={"csrf_token": csrf(page), "anchors": "1.1.1.1",
+                                                        "interval": "2", "window": "30", "lang": "en",
+                                                        "dns": "192.168.1.22, 127.0.0.1"})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(settings_mod.load(self.store).dns, ["192.168.1.22", "127.0.0.1"])
+        self.assertIn('value="192.168.1.22 127.0.0.1"', self.page())
+
     def test_settings_page_refreshes_itself_while_downloading(self):
         from isitmyisp.webapp import ASN_JOB
         self.assertNotIn('http-equiv="refresh"', self.client.get("/settings").get_data(as_text=True))

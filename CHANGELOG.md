@@ -3,6 +3,20 @@
 Versions follow [semantic versioning](https://semver.org). Each release has a Docker image
 (`21enzo03/isitmyisp:<version>` on Docker Hub, amd64 and arm64) and a git tag `v<version>`.
 
+## [0.2.3] - 2026-11-12
+
+### Fixed
+- With Tailscale's MagicDNS on the machine, the DNS server measured was Tailscale's local forwarder
+  (100.100.100.100), not your network's. It's now skipped like systemd-resolved's stub. A resolver on
+  the same machine (AdGuard Home, Pi-hole on 127.0.0.1) is measured if it answers. When nothing else
+  is found, the router is measured only if it answers DNS: many business routers and firewalls don't,
+  and measuring one blamed "your DNS" all the time.
+
+### Added
+- **Settings → General → DNS servers:** choose which DNS servers to measure (up to 3, private
+  addresses and 127.0.0.1 allowed, for AdGuard Home or Pi-hole). Empty means automatic, and the
+  field shows what was found.
+
 ## [0.2.2] - 2026-11-12
 
 ### Fixed

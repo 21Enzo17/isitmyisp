@@ -303,7 +303,9 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         token = settings_mod.metrics_token(store) if not g.readonly else None
         is_admin = (not g.readonly and g.settings.auth_mode == "local"
                     and bool(g.user and getattr(g.user, "is_admin", False)))
-        return render_template("settings.html", active="settings", s=g.settings, error=error,
+        snap = store.network_at(time.time()) or {}
+        dns_detected = snap.get("dns_detected", snap.get("dns_servers") if not g.settings.dns else None) or []
+        return render_template("settings.html", active="settings", s=g.settings, error=error, dns_detected=dns_detected,
                                metrics_token=token, bind=app.config["BIND"],
                                alerts=alerts_mod.masked(alerts_mod.load(store)),
                                alerts_last=store.get_setting("_alerts_last"), test_results=results,
@@ -339,7 +341,8 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         _guard_write()
         f = request.form
         return _save({"anchors": f.get("anchors", "").split(), "interval": f.get("interval"),
-                      "window": f.get("window"), "lang": f.get("lang"), "voip_target": f.get("voip_target", "")})
+                      "window": f.get("window"), "lang": f.get("lang"), "voip_target": f.get("voip_target", ""),
+                      "dns": f.get("dns", "").replace(",", " ").split()})
 
     @app.post("/settings/tunnels/add")
     def tunnel_add():

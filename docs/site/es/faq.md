@@ -90,6 +90,7 @@ docker start isitmyisp
 - **"Operation not permitted" al hacer ping:** al contenedor le falta el permiso para hacer ping. Corré el [instalador](install.md) de nuevo o agregá `--cap-add=NET_RAW`.
 - **Ve una sola dirección rara en lugar de tu router:** falta `--net=host`. Sin eso mide la red interna de Docker, no la tuya.
 - **En Docker Desktop (Mac o Windows):** `--net=host` no ve la red real del equipo, así que el camino y el router salen mal. Usalo en Linux: una Raspberry Pi, una mini PC o un servidor.
+- **Mide un DNS que no es el tuyo** (`100.100.100.100`, `127.0.0.53`): son reenviadores locales de Tailscale o de systemd-resolved, y isitmyisp ya no los usa; si no encuentra otro, mide tu router. Si tus equipos usan otro DNS, como un AdGuard Home o un Pi-hole, ponelo en **Configuración → General → Servidores DNS** (por ejemplo `192.168.1.22`, o `127.0.0.1` si corre en el mismo equipo).
 - **El panel no se abre desde otro equipo:** si lo instalaste con `--local`, solo responde en ese equipo. Volvé a correr el instalador sin esa opción.
 
 ## ¿Cuánto cuesta?
