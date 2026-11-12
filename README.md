@@ -76,6 +76,7 @@ The UI has no JavaScript, so the demo also works as a plain static site: `isitmy
 **What do I send my ISP, and who tells me?**
 - **The evidence report** (HTML/PDF): a plain-language summary for you, a ready-to-paste message for the ISP's NOC with only the incidents inside their network, every mtr capture, call quality and measured speed.
 - **Alerts** by Telegram, email or webhook (Discord, Slack, Home Assistant…), only for problems that last, each one saying whose fault it is and what to do.
+- **The monthly report by email:** on the day you choose, last month's report arrives on its own, with a plain-language summary and the full report attached, ready to forward.
 
 <p>
   <img src="docs/screenshots/dashboard-dark.png" alt="Full dashboard, dark theme" width="62%">

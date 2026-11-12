@@ -219,6 +219,26 @@
     </form>
   </div>
 
+  {% set m = monthly %}
+  <div class="card" id="monthly"><h3>{{ t.monthly_title }}</h3><p class="muted">{{ t.monthly_sub }}</p>
+    {% if not m.email_ready %}<p class="note"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><span>{{ t.monthly_no_email }} <a href="#alerts">{{ t.monthly_go_email }}</a></span></p>{% endif %}
+    {% if m.error %}<div class="flash err"><b>{{ t.monthly_failed }}</b> {{ m.error.error }}</div>{% endif %}
+    {% if m.last %}<p class="small muted">{{ t.monthly_last.format(month=m.last.month, when=m.last.ts|dt) }}</p>{% endif %}
+    <form method="post" action="{{ url_for('settings_monthly') }}">{{ csrf() }}
+      <label class="check"><input type="checkbox" name="enabled" value="1" {{ 'checked' if m.cfg.enabled }} {{ 'disabled' if readonly }}> {{ t.monthly_enabled }}</label>
+      <div class="form-row">
+        <div><label for="md">{{ t.monthly_day }}</label><select id="md" name="day" {{ 'disabled' if readonly }}>
+          {% for d in range(1, 29) %}<option value="{{ d }}" {{ 'selected' if m.cfg.day == d }}>{{ d }}</option>{% endfor %}</select></div>
+        <div><label for="mh">{{ t.monthly_hour }}</label><select id="mh" name="hour" {{ 'disabled' if readonly }}>
+          {% for h in range(24) %}<option value="{{ h }}" {{ 'selected' if m.cfg.hour == h }}>{{ '%02d:00'|format(h) }}</option>{% endfor %}</select></div>
+        <div><label for="mt">{{ t.monthly_to }}</label><input type="text" id="mt" name="to" value="{{ m.cfg.to }}" placeholder="{{ m.default_to }}" {{ 'disabled' if readonly }}></div>
+      </div>
+      <p class="muted small">{{ t.monthly_help }}</p>
+      {% if not readonly %}<div class="actions"><button class="btn primary" type="submit" name="action" value="save">{{ t.save }}</button>
+        <button class="btn" type="submit" name="action" value="send" {{ 'disabled' if not m.email_ready }}>{{ t.monthly_send_now.format(month=m.month) }}</button></div>{% endif %}
+    </form>
+  </div>
+
   <div class="card"><h3>{{ t.security }}</h3>
     <p class="muted">{{ t.bind_hint.format(bind=bind) }}</p>
     <form method="post" action="{{ url_for('settings_access') }}">{{ csrf() }}

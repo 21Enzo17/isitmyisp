@@ -763,3 +763,19 @@ class AssetFingerprint(WebAppBase):
         css = (Path(__file__).resolve().parents[1] / "isitmyisp" / "webapp" / "static" / "style.css").read_bytes()
         self.create_admin()
         self.assertIn(f"style.css?v={hashlib.sha256(css).hexdigest()[:10]}", self.client.get("/").get_data(as_text=True))
+
+
+class MonthlyReportWeb(WebAppBase):
+    def test_settings_card_saves_and_explains_a_missing_email_server(self):
+        from isitmyisp import monthly
+        self.create_admin()
+        page = self.client.get("/settings").get_data(as_text=True)
+        self.assertIn('id="monthly"', page)
+        self.assertIn("Set up the email server in the alerts first", page)
+        r = self.client.post("/settings/monthly", data={"csrf_token": csrf(page), "enabled": "1", "day": "3", "hour": "9",
+                                                        "to": "boss@example.com", "action": "save"})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(monthly.load(self.store)["day"], 3)
+        r = self.client.post("/settings/monthly", data={"csrf_token": csrf(page), "day": "3", "hour": "9", "action": "send"})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("email server", r.get_data(as_text=True))

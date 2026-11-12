@@ -864,3 +864,9 @@ input[type=text], input[type=password], input[type=number], input[type=datetime-
 /* sign-in, first admin, invitations: one card on the page */
 .auth .card { padding: 26px 28px; }
 .auth .brand { font-size: 22px; }
+
+/* a pending step, not an error */
+.note { display: flex; gap: 10px; align-items: flex-start; margin: 4px 0 14px; padding: 11px 14px; border-radius: var(--r-sm);
+        background: var(--accent-soft); color: var(--ink); font-size: 14px; }
+.note .ico { color: var(--series); margin-top: 1px; }
+.note a { color: var(--series); font-weight: 500; }

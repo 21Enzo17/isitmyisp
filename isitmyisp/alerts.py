@@ -214,12 +214,15 @@ def send_telegram(cfg: dict, title: str, body: str) -> None:
         raise AlertError(f"Telegram unreachable: {type(exc).__name__}") from None
 
 
-def send_email(cfg: dict, title: str, body: str) -> None:
+def send_email(cfg: dict, title: str, body: str, attachments: list | None = None) -> None:
+    """attachments: [(filename, maintype, subtype, bytes)]"""
     msg = EmailMessage()
     msg["Subject"] = title
     msg["From"] = cfg["sender"]
     msg["To"] = ", ".join(r.strip() for r in cfg["to"].split(",") if r.strip())
     msg.set_content(body + "\n\n-- isitmyisp")
+    for name, maintype, subtype, data in attachments or []:
+        msg.add_attachment(data, maintype=maintype, subtype=subtype, filename=name)
     try:
         if cfg["security"] == "ssl":
             server: smtplib.SMTP = smtplib.SMTP_SSL(cfg["host"], cfg["port"], timeout=TIMEOUT,
