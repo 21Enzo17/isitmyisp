@@ -92,6 +92,15 @@ class Monthly(unittest.TestCase):
         self.assertTrue(name.startswith("isitmyisp-2026-10."))
         self.assertGreater(len(data), 1000)
 
+    def test_overlapping_incidents_count_once(self):
+        a = self.store.open_incident("isp", ["x"], ts=ts("2026-10-14 12:00"))
+        b = self.store.open_incident("local", ["y"], ts=ts("2026-10-14 12:30"))
+        self.store.close_incident(a, ts=ts("2026-10-14 13:00"))
+        self.store.close_incident(b, ts=ts("2026-10-14 13:15"))
+        body = monthly.summary(self.store, *monthly.previous_month(ts("2026-11-01 08:00"))[:2], "en")[1]
+        self.assertIn("3 incidents, 1 h 45 min in total", body)    # 10:00-10:30 and 12:00-13:15, not 2 h 15 min
+        self.assertIn("Worst day: 2026-10-14, 1 h 45 min", body)
+
     def test_clear_errors_without_an_email_server(self):
         alerts.save(self.store, {**alerts.load(self.store), "email": {**alerts.load(self.store)["email"], "host": ""}})
         with self.assertRaises(monthly.MonthlyError) as e:

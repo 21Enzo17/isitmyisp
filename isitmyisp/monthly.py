@@ -117,6 +117,20 @@ def due(cfg: dict, now: float, store: Store) -> str | None:
     return month
 
 
+def union(incidents, start: float, end: float) -> list[tuple[float, float]]:
+    """The stretches with at least one problem, clipped to [start, end]: overlapping incidents count once."""
+    spans = sorted((max(i.opened, start), min(i.closed or end, end)) for i in incidents)
+    out: list[list[float]] = []
+    for a, b in spans:
+        if b <= a:
+            continue
+        if out and a <= out[-1][1]:
+            out[-1][1] = max(out[-1][1], b)
+        else:
+            out.append([a, b])
+    return [(a, b) for a, b in out]
+
+
 def month_name(month: str, lang: str) -> str:
     y, m = month.split("-")
     return f"{MONTHS[lang][int(m) - 1]} {y}"
@@ -141,8 +155,8 @@ def summary(store: Store, start: float, end: float, lang: str, public_url: str =
     healthy = sum(w[1] for w in windows if w[2] == "ok")
     pct = f"{100 * healthy / measured:.1f}%" if measured else "—"
     incs = store.incidents_between(start, end)
-    clip = lambda i: max(0.0, min(i.closed or end, end) - max(i.opened, start))  # noqa: E731
-    total = sum(clip(i) for i in incs)
+    bad = union(incs, start, end)            # every minute with a problem counts once
+    total = sum(b - a for a, b in bad)
     if not incs:
         lines.append(t["ok"].format(pct=pct))
         head = t["head_ok"]
@@ -159,8 +173,7 @@ def summary(store: Store, start: float, end: float, lang: str, public_url: str =
         head = t["head_some"].format(n=len(incs), inc=inc, dur=fmt_duration(total))
         # the worst day: the one with the most time with problems
         per_day: dict[str, float] = {}
-        for i in incs:
-            a, b = max(i.opened, start), min(i.closed or end, end)
+        for a, b in bad:
             while a < b:
                 day_end = datetime.fromtimestamp(a).replace(hour=23, minute=59, second=59).timestamp() + 1
                 per_day[datetime.fromtimestamp(a).strftime("%Y-%m-%d")] = per_day.get(
@@ -172,9 +185,9 @@ def summary(store: Store, start: float, end: float, lang: str, public_url: str =
     bh = hours_mod.load(store)
     if hours_mod.active(bh):
         open_s = hours_mod.open_seconds(bh, start, end)
-        bad_open = sum(hours_mod.in_hours(bh, max(i.opened, start), min(i.closed or end, end)) for i in incs)
+        bad_open = sum(hours_mod.in_hours(bh, a, b) for a, b in bad)
         lines.append(t["open"].format(bad=fmt_duration(bad_open), open=fmt_duration(open_s)))
-    backup = sum(clip(i) for i in store.incidents_between(start, end, scope="failover"))
+    backup = sum(b - a for a, b in union(store.incidents_between(start, end, scope="failover"), start, end))
     if backup >= 60:
         lines.append(t["backup"].format(dur=fmt_duration(backup)))
     from .report import call_periods
