@@ -18,11 +18,20 @@ from .store import Capture, Incident, Store
 from .tunnels import periodic_interval
 
 ISP_CODES = ("access", "isp")
-TUNNEL_COLORS = {"path_local": "#d9534f", "path_remote": "#7b6fd0", "config": "#e0a526", "unknown": "#9aa0a6"}
-COLORS = {
-    "ok": "#3fa66b", "local": "#e0a526", "access": "#d9534f", "isp": "#b83a6e",
-    "remote": "#7b6fd0", "dns": "#3b8ad9", "no_data": "#c9ccd1", "saturation": "#e07b26",
+TUNNEL_COLORS = {"path_local": "#ef4444", "path_remote": "#64748b", "config": "#f59e0b", "unknown": "#94a3b8"}
+COLORS = {   # the dashboard's palette: green fine, orange your side, red the ISP, slate others
+    "ok": "#22c55e", "local": "#f59e0b", "access": "#ef4444", "isp": "#dc2626",
+    "remote": "#64748b", "dns": "#2563eb", "no_data": "#cbd5e1", "saturation": "#f97316",
 }
+MARK = ('<svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M17 32H24.5M39.5 32H47" stroke="#525d73" '
+        'stroke-width="4" stroke-linecap="round" fill="none"/><circle cx="32" cy="32" r="12" fill="#3b82f6" opacity=".22"/>'
+        '<circle cx="11" cy="32" r="6" fill="none" stroke="#525d73" stroke-width="4"/><circle cx="53" cy="32" r="6" '
+        'fill="none" stroke="#525d73" stroke-width="4"/><circle cx="32" cy="32" r="7.5" fill="#3b82f6"/></svg>')
+ICON_OK = ('<svg class="ri" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" '
+           'stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>')
+ICON_Q = ('<svg class="ri" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" '
+          'stroke="currentColor" stroke-width="2"/><path d="M12 7.5v5.5M12 16.2v.2" stroke="currentColor" '
+          'stroke-width="2.2" stroke-linecap="round"/></svg>')
 
 R = {
     "en": {
@@ -31,6 +40,26 @@ R = {
         "period": "Period", "generated": "Generated", "isp": "ISP", "connection": "Measured over",
         "wifi": "Wi-Fi", "cable": "cable", "cgnat": "CGNAT", "yes": "yes", "no": "no",
         "measured": "Time measured", "healthy": "Healthy", "incidents": "Incidents",
+        "sum_title": "Summary for you",
+        "fig_ok": "Worked fine", "fig_cuts": "Outages", "fig_open": "Problems while open", "fig_speed": "Speed",
+        "fig_speed_v": "{pct} of your plan",
+        "cmp": "The {span} before: {n} outages, {dur} with problems, working fine {pct} of the time.",
+        "cmp_better": "This period was better.", "cmp_worse": "This period was worse.", "cmp_same": "About the same as before.",
+        "top_title": "The outages that hit you most", "top_open": " ({dur} while open)", "top_closed": " (while closed)",
+        "who": {"isp": "in your ISP's network", "you": "on your side", "other": "on other sites or DNS"},
+        "times": ("time", "times"),
+        "dev_line": "{name} stopped answering {n} {times} ({dur} in total) while your network was fine: it was the device.",
+        "svc_line": "{name} was unreachable {n} {times} ({dur} in total) while your internet was fine: it was that service.",
+        "todo_title": "What to do.",
+        "todo_isp": "There were {k} {cortes} inside your ISP's network. Tell their support: the technical annex opens with a message ready to send, and has the evidence.",
+        "todo_home": "Most problems were on your side (Wi-Fi, network or router): check that equipment and its cabling before calling your ISP.",
+        "todo_other": "The problems were in single sites or services, not in your ISP: there's nothing to tell them.",
+        "todo_none": "Nothing to do: your connection worked fine.",
+        "annex_title": "Technical annex",
+        "annex_sub": "For your ISP's support and NOC: the detail of every incident, the charts, and the mtr captures.",
+        "calls_more": "and {n} shorter periods.",
+        "days": ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
+        "months": ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
         "degraded": "Time with problems", "peak": "Worst loss", "open_tile": "Problems while open",
         "open_line": "Business hours: {open} open in this period, {bad} of it with problems ({pct}).",
         "open_inc": "{dur} while open", "closed_inc": "while closed",
@@ -120,6 +149,26 @@ R = {
         "period": "Período", "generated": "Generado", "isp": "ISP", "connection": "Medido por",
         "wifi": "Wi-Fi", "cable": "cable", "cgnat": "CGNAT", "yes": "sí", "no": "no",
         "measured": "Tiempo medido", "healthy": "Sana", "incidents": "Incidentes",
+        "sum_title": "Resumen para vos",
+        "fig_ok": "Funcionó bien", "fig_cuts": "Cortes", "fig_open": "Problemas en horario", "fig_speed": "Velocidad",
+        "fig_speed_v": "{pct} de lo contratado",
+        "cmp": "Los {span} anteriores: {n} cortes, {dur} con problemas, funcionó bien el {pct} del tiempo.",
+        "cmp_better": "Este período fue mejor.", "cmp_worse": "Este período fue peor.", "cmp_same": "Parecido al anterior.",
+        "top_title": "Los cortes que más te afectaron", "top_open": " ({dur} con el local abierto)", "top_closed": " (con el local cerrado)",
+        "who": {"isp": "en la red de tu ISP", "you": "de tu lado", "other": "en otros sitios o DNS"},
+        "times": ("vez", "veces"),
+        "dev_line": "{name} dejó de responder {n} {times} ({dur} en total) mientras tu red andaba: era el aparato.",
+        "svc_line": "{name} no respondió {n} {times} ({dur} en total) mientras tu internet andaba: era ese servicio.",
+        "todo_title": "Qué hacer.",
+        "todo_isp": "Hubo {k} {cortes} dentro de la red de tu ISP. Avisale a su soporte: el anexo técnico empieza con un mensaje listo para mandar, y tiene la evidencia.",
+        "todo_home": "La mayoría de los problemas fueron de tu lado (Wi-Fi, red o router): revisá esos equipos y su cableado antes de llamar a tu ISP.",
+        "todo_other": "Los problemas fueron en sitios o servicios puntuales, no en tu ISP: no hay nada que avisarle.",
+        "todo_none": "Nada que hacer: tu conexión anduvo bien.",
+        "annex_title": "Anexo técnico",
+        "annex_sub": "Para el soporte y el NOC de tu ISP: el detalle de cada incidente, los gráficos y las capturas de mtr.",
+        "calls_more": "y {n} períodos más cortos.",
+        "days": ("lun", "mar", "mié", "jue", "vie", "sáb", "dom"),
+        "months": ("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"),
         "degraded": "Tiempo con problemas", "peak": "Peor pérdida", "open_tile": "Problemas en horario",
         "open_line": "Horario de atención: {open} abierto en este período, {bad} de eso con problemas ({pct}).",
         "open_inc": "{dur} en horario", "closed_inc": "fuera de horario",
@@ -206,6 +255,36 @@ R = {
 
 
 # ------------------------------------------------------------------ helpers
+
+def union(incidents, start: float, end: float) -> list[tuple[float, float]]:
+    """The stretches with at least one problem, clipped to [start, end]: overlapping incidents count once."""
+    spans = sorted((max(i.opened, start), min(i.closed or end, end)) for i in incidents)
+    out: list[list[float]] = []
+    for a, b in spans:
+        if b <= a:
+            continue
+        if out and a <= out[-1][1]:
+            out[-1][1] = max(out[-1][1], b)
+        else:
+            out.append([a, b])
+    return [(a, b) for a, b in out]
+
+
+def _day(ts: float, t: dict) -> str:
+    lt = time.localtime(ts)
+    return f"{t['days'][lt.tm_wday]} {lt.tm_mday} {t['months'][lt.tm_mon - 1]}"
+
+
+def _tint(hex_color: str, amount: float) -> str:
+    """hex_color mixed with white (amount = share of the colour), resolved here so the PDF engine needs no color-mix()."""
+    r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+    return "#" + "".join(f"{round(255 - (255 - c) * amount):02x}" for c in (r, g, b))
+
+
+def _hero(color: str, text: str) -> str:
+    return (f'<div class="hero" style="--c:{color};--ct:{_tint(color, .09)};--cb:{_tint(color, .3)}">'
+            f'{_e(text)}</div>')
+
 
 def _e(s: object) -> str:
     return html.escape(str(s))
@@ -380,9 +459,9 @@ def ruled_out_html(inc: Incident, lang: str) -> str:
     no = [NOT_RULED[lang][c] for c in d.get("not_ruled_out", []) if c in NOT_RULED[lang]]
     out = ""
     if ok:
-        out += '<div class="ruled">' + "".join(f"<div>✓ {_e(x)}</div>" for x in ok) + "</div>"
+        out += '<div class="ruled">' + "".join(f"<div>{ICON_OK}{_e(x)}</div>" for x in ok) + "</div>"
     if no:
-        out += '<div class="notruled">' + "".join(f"<div>? {_e(x)}</div>" for x in no) + "</div>"
+        out += '<div class="notruled">' + "".join(f"<div>{ICON_Q}{_e(x)}</div>" for x in no) + "</div>"
     return out
 
 
@@ -470,6 +549,7 @@ def isp_message(incidents: list[Incident], captures: dict[int, list[Capture]], t
     isp = [i for i in incidents if i.code in ISP_CODES]
     if not isp:
         return t["msg_none"]
+
     total = sum(i.duration(now) for i in isp)
     sat_ok = all(i.details and "saturation" in i.details.get("ruled_out", []) for i in isp)
     from .classifier import CLEAN_LINK_PCT
@@ -491,45 +571,75 @@ def isp_message(incidents: list[Incident], captures: dict[int, list[Capture]], t
 
 
 CSS = """
-:root { --ink:#1d2330; --muted:#6b7280; --line:#e5e7eb; --bg:#ffffff; --soft:#f6f7f9; }
+:root { --ink:#0f172a; --ink2:#525d73; --muted:#6b7489; --line:#e4e8f0; --bg:#f5f7fb; --card:#ffffff; --soft:#f5f7fb;
+        --blue:#2563eb; --good:#15803d; --warn:#b45309; }
 * { box-sizing: border-box; }
-body { margin:0; background:var(--bg); color:var(--ink); font: 14px/1.5 -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-main { max-width: 960px; margin: 0 auto; padding: 32px 24px 48px; }
-header .brand { font-weight:700; letter-spacing:.02em; color:var(--muted); font-size:12px; text-transform:uppercase; }
-h1 { font-size: 26px; margin: 4px 0 12px; }
-h2 { font-size: 17px; margin: 32px 0 10px; padding-bottom:6px; border-bottom:1px solid var(--line); }
-h3 { font-size: 14px; margin: 22px 0 6px; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font: 14px/1.55 "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+main { max-width: 1000px; margin: 28px auto; padding: 34px 38px 40px; background:var(--card); border:1px solid var(--line);
+       border-radius:18px; box-shadow: 0 1px 2px rgba(16,24,40,.05), 0 2px 8px rgba(16,24,40,.05); }
+header .brand { display:flex; align-items:center; gap:9px; font-weight:700; font-size:16px; letter-spacing:-.01em; color:var(--ink); }
+header .mark { width:30px; height:30px; }
+h1 { font-size: 27px; margin: 14px 0 10px; letter-spacing:-.02em; }
+h2 { font-size: 18px; margin: 34px 0 12px; letter-spacing:-.01em; }
+h3 { font-size: 14.5px; margin: 22px 0 6px; }
 .meta { display:flex; flex-wrap:wrap; gap:6px 22px; color:var(--muted); font-size:13px; }
 .meta b { color:var(--ink); font-weight:600; }
-.hero { margin:20px 0 6px; padding:16px 18px; border-radius:10px; background:var(--soft); border-left:5px solid var(--c); font-size:16px; font-weight:600; }
-.tiles { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
-.tile { flex:1 1 140px; border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
-.tile .k { color:var(--muted); font-size:12px; }
-.tile .v { font-size:20px; font-weight:700; font-variant-numeric: tabular-nums; }
+/* the verdict, with its colour as a dot, like the dashboard */
+.hero { position:relative; margin:22px 0 8px; padding:16px 18px 16px 56px; border-radius:14px; font-size:16.5px; font-weight:600;
+        background: var(--ct); border:1px solid var(--cb); }
+.hero::before { content:""; position:absolute; left:18px; top:50%; width:22px; height:22px; margin-top:-11px; border-radius:50%;
+                background:var(--c); border:5px solid var(--cb); box-sizing:content-box; margin-left:-5px; margin-top:-16px; }
+.tiles { display:flex; flex-wrap:wrap; gap:12px; margin-top:16px; }
+.tile { flex:1 1 140px; background:var(--soft); border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
+.tile .k { color:var(--ink2); font-size:12.5px; font-weight:500; }
+.tile .v { font-size:22px; font-weight:700; letter-spacing:-.02em; font-variant-numeric: tabular-nums; margin-top:2px; }
 table { width:100%; border-collapse:collapse; font-size:13px; }
-th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
-th { color:var(--muted); font-weight:600; font-size:12px; }
+th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+th { color:var(--ink2); font-weight:600; font-size:12px; background:var(--soft); }
+thead th:first-child { border-top-left-radius:8px; } thead th:last-child { border-top-right-radius:8px; }
 td.num, th.num { text-align:right; font-variant-numeric: tabular-nums; }
 td.num { white-space:nowrap; }
 td.dt { text-align:right; font-variant-numeric: tabular-nums; line-height:1.3; }
 td.dt small { color:var(--muted); }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12.5px; }
-.dot { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px; }
+.dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:7px; vertical-align:-1px; }
 .chart { width:100%; height:auto; display:block; margin:4px 0 2px; }
 .chart .axis { font-size:10.5px; fill:var(--muted); }
 .chart .grid { stroke:var(--line); stroke-width:1; }
-.legend { display:flex; flex-wrap:wrap; gap:4px 16px; font-size:12px; color:var(--muted); margin:2px 0 10px; }
-.label { font-size:12px; color:var(--muted); margin-top:12px; }
-pre.message { white-space:pre-wrap; background:var(--soft); border:1px solid var(--line); border-radius:8px; padding:14px; font: 13px/1.55 ui-monospace, Menlo, Consolas, monospace; }
-tr.bad td { color:#b42318; font-weight:600; }
+.legend { display:flex; flex-wrap:wrap; gap:4px 16px; font-size:12px; color:var(--ink2); margin:4px 0 10px; }
+.label { font-size:12px; color:var(--ink2); margin-top:14px; font-weight:500; }
+pre.message { white-space:pre-wrap; background:var(--soft); border:1px solid var(--line); border-radius:12px; padding:16px;
+              font: 13px/1.55 ui-monospace, Menlo, Consolas, monospace; }
+tr.bad td { color:#b91c1c; font-weight:600; }
 table.incidents { table-layout:fixed; }
 table.incidents td.ev { font-size:12px; overflow-wrap:anywhere; }
 tr.muted td, .muted { color:var(--muted); }
 .verdict-line { font-weight:600; margin:6px 0 0; }
 ul.method li { margin:4px 0; }
-.ruled { margin-top:6px; color:#1f7a4d; } .notruled { margin-top:4px; color:#8a5a00; }
-footer { margin-top:36px; color:var(--muted); font-size:12px; border-top:1px solid var(--line); padding-top:10px; }
-@media print { main { padding: 0; } h2 { break-after: avoid; } table, svg, .tile { break-inside: avoid; } }
+.ruled, .notruled { margin-top:6px; }
+.ruled div, .notruled div { display:flex; gap:6px; align-items:flex-start; }
+.ruled { color:var(--good); } .notruled { color:var(--warn); }
+.ri { width:14px; height:14px; flex:none; margin-top:2px; }
+a { color:var(--blue); }
+/* the two parts: a summary for you, the detail for the ISP's technicians */
+.part { margin-top: 30px; }
+.part + .part { margin-top: 44px; padding-top: 6px; border-top: 2px solid var(--line); }
+.part-h { font-size: 22px; margin: 18px 0 6px; letter-spacing: -.02em; }
+.cmp { margin: 12px 0 0; color: var(--ink2); }
+ul.top, ul.others { list-style: none; padding: 0; margin: 6px 0 0; }
+ul.top li, ul.others li { padding: 7px 0; border-bottom: 1px solid var(--line); }
+ul.others { margin-top: 14px; color: var(--ink2); }
+.todo { margin-top: 18px; padding: 13px 16px; border-radius: 12px; background: #e4ecfe; color: #1e3a8a; }
+.note { margin: 10px 0; padding: 10px 14px; border-radius: 10px; background: var(--soft); border: 1px solid var(--line); color: var(--ink2); }
+footer { margin-top:38px; color:var(--muted); font-size:12px; border-top:1px solid var(--line); padding-top:12px; }
+@media print {
+  body { background:#ffffff; }
+  main { margin:0; padding:0; border:0; border-radius:0; box-shadow:none; max-width:none; }
+  h2 { break-after: avoid; } table, svg, .tile, .hero, .todo { break-inside: avoid; }
+  .part.annex { break-before: page; border-top: 0; margin-top: 0; }
+}
+@media (max-width: 720px) { main { margin:0; border-radius:0; border:0; padding:22px 16px 30px; } }
 """
 
 
@@ -573,7 +683,6 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
     healthy = sum(w[1] for w in windows if w[2] == "ok")
     pct = f"{100 * healthy / measured:.1f}%" if measured else "—"
     total_bad = sum(i.duration(now) for i in incidents)
-    peak = max((i.peak_loss for i in incidents), default=0.0)
     from . import hours as hours_mod
     bh = hours_mod.load(store)
     bh_on = hours_mod.active(bh)
@@ -582,6 +691,7 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
         return hours_mod.in_hours(bh, max(i.opened, start), min(i.closed or now, end)) if bh_on else 0.0
 
     meta = [f'<span>{t["period"]}: <b>{_e(_dt(start))} → {_e(_dt(end))}</b></span>',
+            f'<span>{t["measured"]}: <b>{_e(fmt_duration(measured))}</b></span>',
             f'<span>{t["generated"]}: <b>{_e(_dt(now))}</b></span>']
     if net.get("isp_name"):
         meta.append(f'<span>{t["isp"]}: <b>{_e(net.get("isp_asn") or "")} {_e(net["isp_name"])}</b></span>')
@@ -590,25 +700,27 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
         meta.append(f'<span>{t["cgnat"]}: <b>{t["yes"] if net.get("cgnat") else t["no"]}</b></span>')
 
     demo = bool(store.get_setting("_demo"))  # synthetic data: say so on screen and on every printed page
-    demo_css = (f'\n.demo {{ margin:0 0 16px; padding:10px 14px; border-radius:8px; background:#fff4d6; '
-                f'border:1px solid #e0b04a; font-weight:600; }}\n@page {{ @top-center {{ content: "{t["demo_page"]}"; '
-                f'font: 600 10px sans-serif; color: #8a5a00; }} }}') if demo else ""
+    demo_css = (f'\n.demo {{ margin:0 0 18px; padding:11px 14px; border-radius:10px; background:#e4ecfe; '
+                f'color:#1e3a8a; font-weight:600; }}\n@page {{ @top-center {{ content: "{t["demo_page"]}"; '
+                f'font: 600 10px sans-serif; color: #1d4ed8; }} }}') if demo else ""
     out = [f'<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
            f'<meta name="viewport" content="width=device-width, initial-scale=1">'
            f'<title>{_e(t["title"])}</title><style>{CSS}{demo_css}</style></head><body><main>',
            (f'<div class="demo">{_e(t["demo_banner"])}</div>' if demo else "")
-           + f'<header><div class="brand">isitmyisp</div><h1>{_e(t["title"])}</h1>'
+           + f'<header><div class="brand">{MARK}<span>isitmyisp</span></div><h1>{_e(t["title"])}</h1>'
            f'<div class="meta">{"".join(meta)}</div></header>']
 
     if not windows:
-        out.append(f'<div class="hero" style="--c:{COLORS["no_data"]}">{_e(t["no_data"])}</div>')
+        out.append(_hero(COLORS["no_data"], t["no_data"]))
         out.append(f'<footer>{_e(t["footer"].format(v=__version__, tz=tz))}</footer></main></body></html>')
         return "".join(out)
 
-    # ---- hero + tiles
+    # ======== 1. the summary for you: plain words, one page
     n = len(incidents)
     k_isp = sum(1 for i in incidents if i.code in ISP_CODES)
     k_home = sum(1 for i in incidents if i.code == "local")
+    bad_spans = union(incidents, start, end)
+    total_bad = sum(b - a for a, b in bad_spans)
     if n == 0:
         hero, color = t["hero_none"].format(pct=pct), COLORS["ok"]
     elif k_home > n / 2:
@@ -617,17 +729,75 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
         hero = t["hero_some"].format(n=n, dur=fmt_duration(total_bad), k=k_isp, incidents=t["plural"](n)["incidents"],
                                      were=t["plural"](k_isp)["were"])
         color = COLORS["isp"] if k_isp else COLORS["remote"]
-    out.append(f'<div class="hero" style="--c:{color}">{_e(hero)}</div>')
-    tiles = [(t["measured"], fmt_duration(measured)), (t["healthy"], pct), (t["incidents"], str(n)),
-             (t["degraded"], fmt_duration(total_bad)), (t["peak"], f"{peak:.1f}%")]
+    out.append(f'<section class="part"><h2 class="part-h">{_e(t["sum_title"])}</h2>')
+    out.append(_hero(color, hero))
+    figs = [(t["fig_ok"], pct), (t["fig_cuts"], f"{n}" + (f" · {fmt_duration(total_bad)}" if n else ""))]
+    bad_open = open_s = 0.0
     if bh_on:
         open_s = hours_mod.open_seconds(bh, start, end)
-        bad_open = sum(in_hours(i) for i in incidents)
-        tiles.insert(4, (t["open_tile"], fmt_duration(bad_open)))
+        bad_open = sum(hours_mod.in_hours(bh, a, b) for a, b in bad_spans)
+        figs.append((t["fig_open"], fmt_duration(bad_open)))
+    link_cfg = store.get_setting("link") or {}
+    plan_d, plan_u = float(link_cfg.get("down_mbps") or 0), float(link_cfg.get("up_mbps") or 0)
+    tests_ok = [r for r in store.speedtests_between(start, end) if not r.get("error") and r.get("down_mbps")]
+    med_d = statistics.median(r["down_mbps"] for r in tests_ok) if tests_ok else None
+    med_u = statistics.median(r.get("up_mbps") or 0 for r in tests_ok) if tests_ok else None
+    if med_d is not None and plan_d:
+        figs.append((t["fig_speed"], t["fig_speed_v"].format(pct=f"{100 * med_d / plan_d:.0f}%")))
+    out.append('<div class="tiles">' + "".join(
+        f'<div class="tile"><div class="k">{_e(k)}</div><div class="v">{_e(v)}</div></div>' for k, v in figs) + "</div>")
+    if bh_on:
         share = f"{100 * bad_open / open_s:.1f}%" if open_s else "—"
         out.append(f'<p class="muted">{_e(t["open_line"].format(open=fmt_duration(open_s), bad=fmt_duration(bad_open), pct=share))}</p>')
-    out.append('<div class="tiles">' + "".join(
-        f'<div class="tile"><div class="k">{_e(k)}</div><div class="v">{_e(v)}</div></div>' for k, v in tiles) + "</div>")
+    # against the same stretch just before, when it was measured too
+    span = end - start
+    p_windows = store.windows_between(start - span, start)
+    p_measured = sum(w[1] for w in p_windows if w[2] != "speedtest")
+    if p_measured >= .5 * measured > 0:
+        p_inc = store.incidents_between(start - span, start)
+        p_bad = sum(b - a for a, b in union(p_inc, start - span, start))
+        p_pct = 100 * sum(w[1] for w in p_windows if w[2] == "ok") / p_measured
+        trend = (t["cmp_better"] if total_bad < p_bad * .8 else t["cmp_worse"] if total_bad > p_bad * 1.2 + 60
+                 else t["cmp_same"])
+        out.append(f'<p class="cmp">{_e(t["cmp"].format(span=fmt_duration(span), n=len(p_inc), dur=fmt_duration(p_bad), pct=f"{p_pct:.1f}%"))} '
+                   f'<b>{_e(trend)}</b></p>')
+    if incidents:
+        def hurt(i: Incident) -> tuple[float, float]:   # what hit you most: time while open first, then length
+            return (hours_mod.in_hours(bh, max(i.opened, start), min(i.closed or now, end)) if bh_on else 0.0,
+                    i.duration(now))
+        rows = []
+        for i in sorted(incidents, key=hurt, reverse=True)[:3]:
+            open_txt = ""
+            if bh_on:
+                o = hurt(i)[0]
+                open_txt = t["top_open"].format(dur=fmt_duration(o)) if o >= 60 else t["top_closed"]
+            group = "isp" if i.code in ISP_CODES else ("you" if i.code in ("local", "saturation") else "other")
+            end_txt = time.strftime("%H:%M", time.localtime(i.closed)) if i.closed else t["ongoing"]
+            rows.append(f'<li><span class="dot" style="background:{COLORS[i.code]}"></span><b>{_e(_day(i.opened, t))}, '
+                        f'{_e(time.strftime("%H:%M", time.localtime(i.opened)))}–{_e(end_txt)}</b> · {_e(fmt_duration(i.duration(now)))}'
+                        f'{_e(open_txt)} · {_e(t["who"][group])}</li>')
+        out.append(f'<h3>{_e(t["top_title"])}</h3><ul class="top">{"".join(rows)}</ul>')
+    # devices and services: not your internet, said in one line each
+    others = []
+    for scope_kind, key in (("device:", "dev_line"), ("service:", "svc_line")):
+        groups: dict[str, list[Incident]] = defaultdict(list)
+        for i in store.incidents_between(start, end, scope=None):
+            if i.scope.startswith(scope_kind):
+                groups[i.scope.split(":", 1)[1]].append(i)
+        for name, incs in groups.items():
+            dur = sum(b - a for a, b in union(incs, start, end))
+            others.append(t[key].format(name=name, n=len(incs), times=t["times"][0 if len(incs) == 1 else 1],
+                                        dur=fmt_duration(dur)))
+    if others:
+        out.append('<ul class="others">' + "".join(f"<li>{_e(x)}</li>" for x in others) + "</ul>")
+    todo = (t["todo_isp"].format(k=k_isp, cortes=t["plural"](k_isp)["incidents"]) if k_isp
+            else t["todo_home"] if k_home else t["todo_other"] if n else t["todo_none"])
+    out.append(f'<div class="todo"><b>{_e(t["todo_title"])}</b> {_e(todo)}</div></section>')
+
+    # ======== 2. the technical annex, for the ISP's support and NOC
+    out.append(f'<section class="part annex"><h2 class="part-h">{_e(t["annex_title"])}</h2><p class="muted">{_e(t["annex_sub"])}</p>')
+    out.append(f'<h2>{_e(t["message"])}</h2><p class="muted">{_e(t["message_hint"])}</p>'
+               f'<pre class="message">{_e(isp_message(incidents, captures, t, start, end, now))}</pre>')
 
     # ---- by segment
     if incidents:
@@ -654,15 +824,18 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
         out.append(f'<div class="label">{_e(t["lat_chart"])}</div>' + svg_line(lat, start, end, COLORS["dns"]))
 
     # ---- call quality (E-model estimate)
-    calls = call_periods(store, start, end)
+    calls = call_periods(store, start, end, limit=1000)
     if calls:
-        fit_pct, bad = calls
+        fit_pct, bad_all = calls
+        bad = bad_all[:5]
         rows = "".join(f'<tr><td class="dt">{_dt_html(a)}</td><td class="dt">{_dt_html(b)}</td>'
                        f'<td class="num">{fmt_duration(b - a)}</td><td class="num">{m:.1f}</td></tr>' for a, b, m in bad)
         table = (f'<table><thead><tr><th class="num">{t["start"]}</th><th class="num">{t["end"]}</th>'
                  f'<th class="num">{t["duration"]}</th><th class="num">{t["calls_worst_col"]}</th></tr></thead>'
                  f'<tbody>{rows}</tbody></table>') if bad else f'<p>{_e(t["calls_all_fit"])}</p>'
-        out.append(f'<h2>{_e(t["calls"])}</h2><p>{_e(t["calls_fit"].format(pct=f"{fit_pct:.1f}%"))}</p>{table}'
+        more = (f'<p class="muted">{_e(t["calls_more"].format(n=len(bad_all) - len(bad)))}</p>'
+                if len(bad_all) > len(bad) else "")
+        out.append(f'<h2>{_e(t["calls"])}</h2><p>{_e(t["calls_fit"].format(pct=f"{fit_pct:.1f}%"))}</p>{table}{more}'
                    f'<p class="muted">{_e(t["calls_method"])}</p>')
 
     # ---- incidents
@@ -760,10 +933,6 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
                    f'<th class="num">{t["duration"]}</th><th>{t["fo_col"]}</th><th>{t["evidence"]}</th></tr>'
                    f'</thead><tbody>{rows}</tbody></table>')
 
-    # ---- message for the ISP
-    out.append(f'<h2>{_e(t["message"])}</h2><p class="muted">{_e(t["message_hint"])}</p>'
-               f'<pre class="message">{_e(isp_message(incidents, captures, t, start, end, now))}</pre>')
-
     # ---- appendix
     caps_all = [c for i in incidents for c in captures.get(i.id, [])]
     caps_all += [c for i in tun_incidents for c in tun_captures.get(i.id, [])]
@@ -774,5 +943,6 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
     # ---- methodology + footer
     out.append(f'<h2>{_e(t["method"])}</h2><ul class="method">'
                + "".join(f"<li>{_e(m)}</li>" for m in t["method_items"]) + "</ul>")
+    out.append("</section>")
     out.append(f'<footer>{_e(t["footer"].format(v=__version__, tz=tz))}</footer></main></body></html>')
     return "".join(out)
