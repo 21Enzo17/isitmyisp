@@ -13,6 +13,7 @@ import threading
 import time
 from datetime import datetime
 
+from .report import union
 from .store import Store
 
 KEY = "monthly_report"
@@ -115,20 +116,6 @@ def due(cfg: dict, now: float, store: Store) -> str | None:
     if err.get("month") == month and now - err.get("ts", 0) < RETRY:
         return None
     return month
-
-
-def union(incidents, start: float, end: float) -> list[tuple[float, float]]:
-    """The stretches with at least one problem, clipped to [start, end]: overlapping incidents count once."""
-    spans = sorted((max(i.opened, start), min(i.closed or end, end)) for i in incidents)
-    out: list[list[float]] = []
-    for a, b in spans:
-        if b <= a:
-            continue
-        if out and a <= out[-1][1]:
-            out[-1][1] = max(out[-1][1], b)
-        else:
-            out.append([a, b])
-    return [(a, b) for a, b in out]
 
 
 def month_name(month: str, lang: str) -> str:

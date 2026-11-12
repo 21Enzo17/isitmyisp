@@ -6,6 +6,10 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 ## [Unreleased]
 
 ### Changed
+- The evidence report reads in two parts: a summary for the owner first (worked fine, outages, problems
+  while open, speed against the plan, comparison with the period before, the outages that hit most,
+  devices and services in one line each, and what to do), then the technical annex for the ISP, which
+  opens with the ready message. Call quality lists the five longest stretches, not all of them.
 - The evidence report (HTML and PDF) follows the new design: the dashboard's palette, the new mark,
   the verdict with its colour dot, rounded figure tiles, drawn icons for what the evidence rules
   out, and a neutral note for demo data. Tints are resolved in Python, so the PDF engine needs no
