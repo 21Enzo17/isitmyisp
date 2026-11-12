@@ -56,7 +56,9 @@ case "$LANG_UI" in es) ES=1 ;; en) ES=0 ;; *) die "--lang must be es or en" "--l
 ask() {
   [ "$YES" = 1 ] && return 0
   [ "$DRY" = 1 ] && return 0
-  if [ -r /dev/tty ]; then
+  # /dev/tty can exist and still fail to open (no controlling terminal: cron, CI, ssh without -t),
+  # so try opening it (in a subshell: a failed redirection can end the script) instead of trusting -r
+  if (: < /dev/tty) 2>/dev/null; then
     printf '%s ' "$1" > /dev/tty
     read -r answer < /dev/tty || answer=n
   else
