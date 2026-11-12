@@ -307,11 +307,33 @@
   </div>
 
   <div class="card" id="tv"><h3>{{ t.tv_title }}</h3><p class="muted">{{ t.tv_sub }}</p>
-    {% if tv_url %}<p class="token mono">{{ tv_url }}</p><p class="muted small">{{ t.tv_hint }}</p>{% endif %}
-    <form method="post" action="{{ url_for('settings_tv') }}" class="actions">{{ csrf() }}
-      <button class="btn{{ '' if tv_url else ' primary' }}" name="action" value="rotate">{{ t.tv_rotate if tv_url else t.tv_create }}</button>
-      {% if tv_url %}<button class="btn danger" name="action" value="revoke">{{ t.tv_revoke }}</button>{% endif %}
-    </form>
+    <p>{{ t.tv_pair_how }} <span class="mono">{{ tv_short }}</span></p>
+    {% if not readonly %}
+    <form method="post" action="{{ url_for('settings_tv_pair') }}">{{ csrf() }}
+      <div class="form-row">
+        <div><label for="tvc">{{ t.tv_pair_code_label }}</label><input type="text" id="tvc" name="code" required maxlength="9" placeholder="K7Q-4M2" autocomplete="off" autocapitalize="characters"></div>
+        <div><label for="tvn">{{ t.tv_pair_name }}</label><input type="text" id="tvn" name="name" maxlength="40" placeholder="{{ t.tv_pair_name_ph }}"></div>
+      </div>
+      <div class="actions"><button class="btn primary" type="submit">{{ t.tv_pair_btn }}</button></div>
+    </form>{% endif %}
+    {% if tv_screens %}
+    <h4>{{ t.tv_screens }}</h4>
+    <table><thead><tr><th>{{ t.tv_pair_name }}</th><th>{{ t.tv_linked }}</th><th>{{ t.tv_seen }}</th><th></th></tr></thead><tbody>
+      {% for sc in tv_screens %}
+      <tr><td>{{ sc.name }}</td><td class="num-l">{{ sc.created|dt }}</td><td class="num-l">{{ sc.seen|dt if sc.seen else '—' }}</td>
+        <td class="num">{% if not readonly %}<form class="inline" method="post" action="{{ url_for('settings_tv_unpair') }}">{{ csrf() }}
+          <input type="hidden" name="id" value="{{ sc.id }}"><button class="btn small danger" type="submit">{{ t.tv_unpair }}</button></form>{% endif %}</td></tr>
+      {% endfor %}
+    </tbody></table>{% endif %}
+    <details class="presets">
+      <summary>{{ t.tv_link_alt }}</summary>
+      <p class="muted small">{{ t.tv_link_alt_sub }}</p>
+      {% if tv_url %}<p class="token mono">{{ tv_url }}</p><p class="muted small">{{ t.tv_hint }}</p>{% endif %}
+      <form method="post" action="{{ url_for('settings_tv') }}" class="actions">{{ csrf() }}
+        <button class="btn" name="action" value="rotate">{{ t.tv_rotate if tv_url else t.tv_create }}</button>
+        {% if tv_url %}<button class="btn danger" name="action" value="revoke">{{ t.tv_revoke }}</button>{% endif %}
+      </form>
+    </details>
   </div>
   {% endif %}
 

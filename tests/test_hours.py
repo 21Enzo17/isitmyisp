@@ -117,3 +117,21 @@ class QuietAlerts(Arithmetic):
         self.store.open_incident("isp", ["x"], ts=ts("2026-11-11 22:00"))
         self.tick("2026-11-11 22:10")
         self.assertEqual(len(self.sent), 1)
+
+
+class Retention(unittest.TestCase):
+    def test_old_closed_incidents_and_their_captures_are_pruned_open_ones_never(self):
+        with tempfile.TemporaryDirectory() as d:
+            st = Store(Path(d) / "p.db")
+            now = time.time()
+            old = st.open_incident("isp", ["x"], ts=now - 500 * 86400)
+            st.close_incident(old, ts=now - 499 * 86400)
+            st.add_capture(old, "mtr", "1.1.1.1", {"hops": []}, ts=now - 499 * 86400)
+            still = st.open_incident("isp", ["y"], ts=now - 450 * 86400)      # never closed: kept
+            recent = st.open_incident("local", ["z"], ts=now - 10 * 86400)
+            st.close_incident(recent, ts=now - 9 * 86400)
+            st.prune(now=now)
+            ids = {i.id for i in st.incidents_between(0, 2e10, scope=None)}
+            self.assertEqual(ids, {still, recent})
+            self.assertEqual(st.captures_for([old]), {})
+            st.close()

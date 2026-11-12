@@ -738,10 +738,9 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
         bad_open = sum(hours_mod.in_hours(bh, a, b) for a, b in bad_spans)
         figs.append((t["fig_open"], fmt_duration(bad_open)))
     link_cfg = store.get_setting("link") or {}
-    plan_d, plan_u = float(link_cfg.get("down_mbps") or 0), float(link_cfg.get("up_mbps") or 0)
+    plan_d = float(link_cfg.get("down_mbps") or 0)
     tests_ok = [r for r in store.speedtests_between(start, end) if not r.get("error") and r.get("down_mbps")]
     med_d = statistics.median(r["down_mbps"] for r in tests_ok) if tests_ok else None
-    med_u = statistics.median(r.get("up_mbps") or 0 for r in tests_ok) if tests_ok else None
     if med_d is not None and plan_d:
         figs.append((t["fig_speed"], t["fig_speed_v"].format(pct=f"{100 * med_d / plan_d:.0f}%")))
     out.append('<div class="tiles">' + "".join(

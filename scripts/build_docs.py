@@ -89,9 +89,10 @@ def page(lang: str, slug: str, meta: dict, body: str, toc, titles: dict, order: 
     t = UI[lang]
     other = "en" if lang == "es" else "es"
     nav = []
+    current = ' aria-current="page"'           # (no backslashes inside f-strings: Python 3.10 and 3.11)
     for group, slugs in NAV:
         items = "".join(
-            f'<li><a href="{url(lang, s)}"{" aria-current=\"page\"" if s == slug else ""}>{html.escape(titles[s])}</a></li>'
+            f'<li><a href="{url(lang, s)}"{current if s == slug else ""}>{html.escape(titles[s])}</a></li>'
             for s in slugs)
         nav.append(f'<p class="nav-group">{t[group]}</p><ul>{items}</ul>')
     i = order.index(slug)

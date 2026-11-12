@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="{{ lang }}" class="tv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="refresh" content="5">
+  <title>{{ t.tv_pair_title }} · isitmyisp</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=css_v) }}">
+</head>
+<body class="tv-page">
+<main class="tv-pair">
+  <p class="tv-brand"><img src="{{ url_for('static', filename='favicon.svg') }}" alt="" width="48" height="48">isitmyisp</p>
+  <h1>{{ t.tv_pair_title }}</h1>
+  <p class="tv-pair-code" aria-label="{{ t.tv_pair_code_label }}">{{ code }}</p>
+  <ol class="tv-pair-steps">
+    <li>{{ t.tv_pair_step1 }}</li>
+    <li>{{ t.tv_pair_step2 }}</li>
+    <li>{{ t.tv_pair_step3 }}</li>
+  </ol>
+  <p class="tv-pair-note">{{ t.tv_pair_note }}</p>
+</main>
+</body>
+</html>

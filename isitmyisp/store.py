@@ -240,6 +240,12 @@ class Store:
             n += self.db.execute("DELETE FROM link_usage WHERE ts < ?", (now - samples_days * 86400,)).rowcount
             for table in ("windows", "networks", "speedtests"):
                 n += self.db.execute(f"DELETE FROM {table} WHERE ts < ?", (now - windows_days * 86400,)).rowcount
+            # incidents closed that long ago go too, with their mtr evidence (one still open never does)
+            cutoff = now - windows_days * 86400
+            n += self.db.execute("DELETE FROM captures WHERE incident_id IN "
+                                 "(SELECT id FROM incidents WHERE closed IS NOT NULL AND closed < ?)", (cutoff,)).rowcount
+            n += self.db.execute("DELETE FROM incidents WHERE closed IS NOT NULL AND closed < ?", (cutoff,)).rowcount
+            n += self.db.execute("DELETE FROM captures WHERE incident_id IS NULL AND ts < ?", (cutoff,)).rowcount
             self.db.commit()
         return n
 

@@ -3,7 +3,7 @@ import time
 import unittest
 from pathlib import Path
 
-from isitmyisp.demo import SCENARIOS, Simulator, build
+from isitmyisp.demo import SCENARIOS, build
 from isitmyisp.report import build_report
 from isitmyisp.store import Store
 
