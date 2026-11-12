@@ -38,13 +38,13 @@ TIMEOUT = 15
 T = {
     "en": {"opened": "🔴 {what}", "closed": "✅ Resolved: {what}", "test": "isitmyisp test alert",
            "test_body": "If you can read this, alerts work.", "scope_tunnel": "Tunnel {name}",
-           "scope_service": "Service {name}", "scope_device": "Device {name}", "scope_internet": "Internet", "scope_failover": "Internet link", "since": "Since", "lasted": "Lasted",
+           "scope_service": "Service {name}", "scope_device": "Device {name}", "scope_internet": "Internet", "scope_failover": "Internet link", "since": "Since", "lasted": "Lasted", "intermittent": "It comes and goes: the connection keeps dropping and coming back", "drops": "{n} drops",
            "evidence": "Evidence", "todo": "What to do", "open_dash": "Dashboard",
            "digest": "🌅 While closed: {n} {problems}", "digest_problems": ("problem", "problems"), "days": ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
            "digest_intro": "Alerts were held while the business was closed. All of these are resolved:"},
     "es": {"opened": "🔴 {what}", "closed": "✅ Resuelto: {what}", "test": "isitmyisp: alerta de prueba",
            "test_body": "Si leés esto, las alertas funcionan.", "scope_tunnel": "Túnel {name}",
-           "scope_service": "Servicio {name}", "scope_device": "Dispositivo {name}", "scope_internet": "Internet", "scope_failover": "Enlace a internet", "since": "Desde", "lasted": "Duró",
+           "scope_service": "Servicio {name}", "scope_device": "Dispositivo {name}", "scope_internet": "Internet", "scope_failover": "Enlace a internet", "since": "Desde", "lasted": "Duró", "intermittent": "Intermitente: la conexión se corta y vuelve una y otra vez", "drops": "{n} cortes",
            "evidence": "Evidencia", "todo": "Qué hacer", "open_dash": "Panel",
            "digest": "🌅 Con el local cerrado: {n} {problems}", "digest_problems": ("problema", "problemas"), "days": ("lun", "mar", "mié", "jue", "vie", "sáb", "dom"),
            "digest_intro": "Las alertas se retuvieron mientras el local estaba cerrado. Ya se resolvieron todos:"},
@@ -178,7 +178,8 @@ def digest(incidents: list[Incident], lang: str, public_url: str = "", now: floa
     return title, "\n".join(lines)
 
 
-def describe(inc: Incident, kind: str, lang: str, public_url: str = "", now: float | None = None) -> tuple[str, str]:
+def describe(inc: Incident, kind: str, lang: str, public_url: str = "", now: float | None = None,
+             drops: int = 0) -> tuple[str, str]:
     """(title, body) in plain language: what happened, where, evidence, what to do."""
     now = now or time.time()
     t, advice = T[lang], ADVICE[lang]
@@ -188,12 +189,15 @@ def describe(inc: Incident, kind: str, lang: str, public_url: str = "", now: flo
     when = time.strftime("%Y-%m-%d %H:%M", time.localtime(inc.opened))
     if kind == "opened":
         lines.append(f"{t['since']}: {when}")
+        if (inc.details or {}).get("intermittent"):
+            lines.append(t["intermittent"])
         if inc.evidence:
             lines.append(f"{t['evidence']}: " + "; ".join(inc.evidence[:3]))
         if inc.code in advice:
             lines.append(f"{t['todo']}: {advice[inc.code]}")
     else:
-        lines.append(f"{t['lasted']}: {_fmt_duration(inc.duration(now))} ({when})")
+        lines.append(f"{t['lasted']}: {_fmt_duration(inc.duration(now))} ({when})"
+                     + (f", {t['drops'].format(n=drops)}" if drops else ""))
     if public_url:
         lines.append(f"{t['open_dash']}: {public_url}/")
     return title, "\n".join(lines)
@@ -354,9 +358,11 @@ class Alerter:
         self.store.set_settings({"_digest_for": opened_at}, bump=False)
 
     def _send(self, cfg: dict, inc: Incident, kind: str, lang: str, now: float) -> None:
-        title, body = describe(inc, kind, lang, cfg.get("public_url", ""), now)
+        intermittent = bool((inc.details or {}).get("intermittent"))
+        drops = self.store.drops(inc.opened, inc.closed or now) if intermittent and kind == "closed" else 0
+        title, body = describe(inc, kind, lang, cfg.get("public_url", ""), now, drops=drops)
         extra = {"event": f"incident_{kind}", "scope": inc.scope, "code": inc.code, "opened": inc.opened,
-                 "closed": inc.closed, "evidence": inc.evidence}
+                 "closed": inc.closed, "evidence": inc.evidence, "intermittent": intermittent}
         results = self.sender(cfg, title, body, extra)
         if any(r == "ok" for r in results.values()):
             self.store.mark_alerted(inc.id, kind)

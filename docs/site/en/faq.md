@@ -57,6 +57,41 @@ curl -fsSL https://isitmyisp.enzo-meneghini.com/install.sh | sh -s -- --uninstal
 
 The measurements stay in the `isitmyisp` volume. To delete them too: `docker volume rm isitmyisp`.
 
+## How is it different from Uptime Kuma, SmokePing or PingPlotter?
+
+| | What it tells you |
+|---|---|
+| **Uptime Kuma** | Whether a site or service answers. It doesn't know if the fault is your network, your ISP or the service. |
+| **SmokePing / PingPlotter** | Latency and loss graphs to each destination. Reading them and deciding who's failing is up to you, and "loss" on middle hops is usually noise. |
+| **isitmyisp** | **Whose fault it is**, in one sentence: your Wi-Fi or router, your ISP's network, one service, or your DNS. It separates real loss from ICMP noise, catches intermittent drops and the backup link, tells you whether you filled your own link (with the router connected over SNMP), and builds the report your ISP can't brush off. |
+
+They work together: plenty of people run Uptime Kuma for their services and isitmyisp for the connection.
+
+## How do I back it up, or move it to another machine?
+
+Everything is in the `isitmyisp` Docker volume: settings, users and measurements. To save it to a file:
+
+```bash
+docker stop isitmyisp
+docker run --rm --entrypoint tar -v isitmyisp:/data -v "$PWD":/backup 21enzo03/isitmyisp czf /backup/isitmyisp-backup.tgz -C /data .
+docker start isitmyisp
+```
+
+On the new machine, install it with the [installer](install.md), stop it and restore the file:
+
+```bash
+docker stop isitmyisp
+docker run --rm --entrypoint tar -v isitmyisp:/data -v "$PWD":/backup 21enzo03/isitmyisp xzf /backup/isitmyisp-backup.tgz -C /data
+docker start isitmyisp
+```
+
+## The monitor won't start, or doesn't see my network
+
+- **"Operation not permitted" when pinging:** the container lacks the permission to ping. Run the [installer](install.md) again or add `--cap-add=NET_RAW`.
+- **It sees one odd address instead of your router:** `--net=host` is missing. Without it, it measures Docker's internal network, not yours.
+- **On Docker Desktop (Mac or Windows):** `--net=host` doesn't see the machine's real network, so the path and the router come out wrong. Run it on Linux: a Raspberry Pi, a mini PC or a server.
+- **The dashboard doesn't open from another device:** if you installed with `--local`, it only answers on that machine. Run the installer again without that option.
+
 ## How much does it cost?
 
 The software is free ([MIT](https://github.com/21Enzo17/isitmyisp/blob/main/LICENSE)). If you'd like it installed and looked after for you, it's available as a service.

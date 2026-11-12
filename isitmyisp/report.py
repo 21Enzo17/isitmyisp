@@ -88,6 +88,7 @@ R = {
                       "during each incident."),
         "msg_sat": ", and my link usage read from my router was below {pct}% of the contracted speed",
         "msg_item": "- {start} to {end} ({dur}): {where}{hop}.",
+        "intermittent": "intermittent: dropped and came back {n} times",
         "msg_hop": "; loss starts at hop {i} ({host}{asn})",
         "msg_outro": "Full report with every capture attached. Please escalate it to your network team.",
         "appendix": "Technical appendix: mtr captures",
@@ -120,6 +121,7 @@ R = {
         "speed_intro": "Tests against speed.cloudflare.com with several parallel streams. A test over Wi-Fi measures the Wi-Fi as well.",
         "speed_down": "Download", "speed_up": "Upload", "speed_loaded": "Latency under load", "speed_via": "Measured over",
         "speed_wifi": "Wi-Fi", "speed_cable": "cable",
+        "back": "Back to the dashboard", "pdf_dl": "Download PDF",
         "demo_banner": "Synthetic demo data: this is not a measurement of any real network and is not evidence.",
         "demo_page": "SYNTHETIC DEMO DATA - NOT EVIDENCE",
         "calls": "Call quality",
@@ -196,6 +198,7 @@ R = {
                       "red (router y LAN) respondía normal al mismo tiempo{sat}, y se capturó un mtr durante cada incidente."),
         "msg_sat": ", y el uso de mi enlace leído de mi router estaba por debajo del {pct}% de la velocidad contratada",
         "msg_item": "- {start} a {end} ({dur}): {where}{hop}.",
+        "intermittent": "intermitente: se cortó y volvió {n} veces",
         "msg_hop": "; la pérdida empieza en el salto {i} ({host}{asn})",
         "msg_outro": "Adjunto el informe completo con todas las capturas. Les pido que lo escalen al área de red.",
         "appendix": "Anexo técnico: capturas mtr",
@@ -228,6 +231,7 @@ R = {
         "speed_intro": "Pruebas contra speed.cloudflare.com con varias conexiones en paralelo. Una prueba por Wi-Fi mide también el Wi-Fi.",
         "speed_down": "Bajada", "speed_up": "Subida", "speed_loaded": "Latencia con carga", "speed_via": "Medido por",
         "speed_wifi": "Wi-Fi", "speed_cable": "cable",
+        "back": "Volver al panel", "pdf_dl": "Descargar PDF",
         "demo_banner": "Datos sintéticos de demostración: no es una medición de ninguna red real ni sirve como evidencia.",
         "demo_page": "DATOS SINTÉTICOS DE DEMOSTRACIÓN - NO ES EVIDENCIA",
         "calls": "Calidad para llamadas",
@@ -545,7 +549,7 @@ def tunnel_section(incidents: list[Incident], t: dict, now: float) -> str:
 
 
 def isp_message(incidents: list[Incident], captures: dict[int, list[Capture]], t: dict,
-                start: float, end: float, now: float) -> str:
+                start: float, end: float, now: float, drops: dict[int, int] | None = None) -> str:
     isp = [i for i in incidents if i.code in ISP_CODES]
     if not isp:
         return t["msg_none"]
@@ -565,7 +569,9 @@ def isp_message(incidents: list[Incident], captures: dict[int, list[Capture]], t
                 break
         end_txt = _dt(inc.closed) if inc.closed else t["ongoing"]
         lines.append(t["msg_item"].format(start=_dt(inc.opened), end=end_txt, dur=fmt_duration(inc.duration(now)),
-                                          where=t["seg"][inc.code], hop=hop_txt))
+                                          where=t["seg"][inc.code]
+                                          + (f' ({t["intermittent"].format(n=drops[inc.id])})' if (drops or {}).get(inc.id) else ""),
+                                          hop=hop_txt))
     lines += ["", t["msg_outro"]]
     return "\n".join(lines)
 
@@ -633,13 +639,17 @@ ul.others { margin-top: 14px; color: var(--ink2); }
 .todo { margin-top: 18px; padding: 13px 16px; border-radius: 12px; background: #e4ecfe; color: #1e3a8a; }
 .note { margin: 10px 0; padding: 10px 14px; border-radius: 10px; background: var(--soft); border: 1px solid var(--line); color: var(--ink2); }
 footer { margin-top:38px; color:var(--muted); font-size:12px; border-top:1px solid var(--line); padding-top:12px; }
+nav.bar { max-width: 1000px; margin: 18px auto -12px; padding: 0 4px; display: flex; justify-content: space-between; gap: 16px; }
+nav.bar a { color: #2563eb; font-weight: 600; text-decoration: none; font-size: 14px; }
+nav.bar a:hover { text-decoration: underline; }
 @media print {
+  nav.bar { display: none; }
   body { background:#ffffff; }
   main { margin:0; padding:0; border:0; border-radius:0; box-shadow:none; max-width:none; }
   h2 { break-after: avoid; } table, svg, .tile, .hero, .todo { break-inside: avoid; }
   .part.annex { break-before: page; border-top: 0; margin-top: 0; }
 }
-@media (max-width: 720px) { main { margin:0; border-radius:0; border:0; padding:22px 16px 30px; } }
+@media (max-width: 720px) { nav.bar { margin: 12px 16px; } main { margin:0; border-radius:0; border:0; padding:22px 16px 30px; } }
 """
 
 
@@ -667,12 +677,17 @@ def call_periods(store: Store, start: float, end: float, min_seconds: float = 12
     return 100.0 * sum(q.fit for _, q in marks) / len(marks), sorted(stretches)
 
 
-def build_report(store: Store, start: float, end: float, lang: str = "en", now: float | None = None) -> str:
+def build_report(store: Store, start: float, end: float, lang: str = "en", now: float | None = None,
+                 back: str | None = None, pdf: str | None = None) -> str:
+    """The evidence report as one HTML page. `back` (and `pdf`) are links for the copy shown in the web
+    app: a bar above the report, never printed and absent from the files that get attached or saved."""
     t = R.get(lang, R["en"])
     now = now or time.time()
     windows = store.windows_between(start, end)
     incidents = store.incidents_between(start, end)
     captures = store.captures_for([i.id for i in incidents])
+    drops = {i.id: store.drops(i.opened, i.closed or now) for i in incidents   # a link that came and went
+             if (i.details or {}).get("intermittent")}
     net = store.network_at(end) or {}
     tz = time.strftime("%Z (UTC%z)", time.localtime(end))
 
@@ -705,7 +720,10 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
                 f'font: 600 10px sans-serif; color: #1d4ed8; }} }}') if demo else ""
     out = [f'<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
            f'<meta name="viewport" content="width=device-width, initial-scale=1">'
-           f'<title>{_e(t["title"])}</title><style>{CSS}{demo_css}</style></head><body><main>',
+           f'<title>{_e(t["title"])}</title><style>{CSS}{demo_css}</style></head><body>'
+           + (f'<nav class="bar"><a href="{_e(back)}">← {_e(t["back"])}</a>'
+              + (f'<a href="{_e(pdf)}">{_e(t["pdf_dl"])}</a>' if pdf else "") + '</nav>' if back else "")
+           + '<main>',
            (f'<div class="demo">{_e(t["demo_banner"])}</div>' if demo else "")
            + f'<header><div class="brand">{MARK}<span>isitmyisp</span></div><h1>{_e(t["title"])}</h1>'
            f'<div class="meta">{"".join(meta)}</div></header>']
@@ -796,7 +814,7 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
     # ======== 2. the technical annex, for the ISP's support and NOC
     out.append(f'<section class="part annex"><h2 class="part-h">{_e(t["annex_title"])}</h2><p class="muted">{_e(t["annex_sub"])}</p>')
     out.append(f'<h2>{_e(t["message"])}</h2><p class="muted">{_e(t["message_hint"])}</p>'
-               f'<pre class="message">{_e(isp_message(incidents, captures, t, start, end, now))}</pre>')
+               f'<pre class="message">{_e(isp_message(incidents, captures, t, start, end, now, drops))}</pre>')
 
     # ---- by segment
     if incidents:
@@ -851,6 +869,8 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
             caps = captures.get(inc.id, [])
             links = " ".join(f'<a href="#cap-{c.id}">{_e(t["capture"])} {_e(_dt(c.ts, False))}</a>' for c in caps)
             ev = "<br>".join(_e(localize_evidence(e, lang)) for e in compress_evidence(inc.evidence)[:3])
+            if drops.get(inc.id):
+                ev = f'<b>{_e(t["intermittent"].format(n=drops[inc.id]))}</b><br>' + ev
             ev += ruled_out_html(inc, lang)
             rows.append(
                 f'<tr><td class="num">{idx}</td><td class="dt">{_dt_html(inc.opened)}</td>'

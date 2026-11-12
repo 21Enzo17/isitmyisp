@@ -31,6 +31,7 @@ Pass options after `sh -s --`, for example `curl … | sh -s -- --local`.
 | `--port 9090` | Another port for the dashboard (default 8080) |
 | `--lang es` / `--lang en` | Language (default: the system's) |
 | `--tz Europe/Madrid` | Time zone for reports (default: the machine's) |
+| `--name` / `--volume` | Another name for the container and its data volume (default `isitmyisp`), to run more than one on the same machine |
 | `--version 0.1.0` | A specific version (default: the latest) |
 | `--build` | Build the image from the source instead of downloading it |
 | `--dry-run` | Print the commands, run nothing |

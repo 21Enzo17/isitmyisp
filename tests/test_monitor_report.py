@@ -79,6 +79,40 @@ class MonitorLifecycle(unittest.TestCase):
         self.assertEqual([i.code for i in incs], ["isp", "local"])
         self.assertEqual(incs[0].closed, incs[1].opened)
 
+    def test_a_link_that_drops_every_other_window_is_one_intermittent_incident(self):
+        self.run_seq(["ok", "isp", "ok", "isp", "ok", "isp", "ok", "isp"] + ["ok"] * 6)
+        incs = self.store.incidents_between(0, 2e9)
+        self.assertEqual(len(incs), 1)
+        inc = incs[0]
+        # windows #2, #4, #6, #8 are bad (each ends at T0 + n*WIN): it started when #2 did, and ended
+        # when the first of the six clean windows after #8 started
+        self.assertEqual(inc.opened, T0 + WIN)
+        self.assertEqual(inc.closed, T0 + 8 * WIN)
+        self.assertTrue((inc.details or {}).get("intermittent"))
+        self.assertTrue(self.captured and all(iid == inc.id for _, iid in self.captured))   # evidence, for this one
+        self.assertEqual(self.store.drops(inc.opened, inc.closed), 4)
+        html = build_report(self.store, T0, T0 + 20 * WIN, lang="en", now=T0 + 20 * WIN)
+        self.assertIn("intermittent: dropped and came back 4 times", html)                # the incident row
+        self.assertIn("(intermittent: dropped and came back 4 times)", html)              # the NOC message
+        from isitmyisp.alerts import describe
+        self.assertIn("comes and goes", describe(inc, "opened", "en")[1])
+        self.assertIn("4 drops", describe(inc, "closed", "en", drops=4)[1])
+
+    def test_a_restart_keeps_what_is_normal(self):
+        import time as _t
+        mon = Monitor(self.store, WIN)
+        now = _t.time() - 3600
+        for i in range(8):
+            m, rows = measure()
+            mon.step(m, rows, now=now + i * WIN)
+        mon.step(*measure(anchor_loss_pct=40), now=now + 8 * WIN)    # a bad window isn't "normal"
+        fresh = Monitor(self.store, WIN)
+        fresh.resume()
+        b = fresh.baselines["1.1.1.1"]
+        self.assertTrue(b.ready)
+        self.assertEqual(len(b.values), 8)
+        self.assertEqual(b.value, 30.0)
+
     def test_resume_closes_dangling_incident(self):
         self.run_seq(["isp", "isp", "isp"])  # crash before it closes
         self.assertIsNone(self.store.incidents_between(0, 2e9)[0].closed)

@@ -261,6 +261,30 @@ class Store:
             return self.db.execute("SELECT ts, seconds, code FROM windows WHERE ts BETWEEN ? AND ? ORDER BY ts",
                                    (start, end)).fetchall()
 
+    def healthy_rtts(self, since: float, per_target: int = 60) -> dict[str, list[float]]:
+        """Each target's median RTT in its latest healthy windows (oldest first): what a restarted
+        monitor needs to know what's normal, instead of learning it again (or learning a bad spell)."""
+        with self._lock:
+            rows = self.db.execute(
+                "SELECT s.target, s.rtt_median FROM samples s JOIN windows w ON w.ts = s.ts "
+                "WHERE s.ts >= ? AND w.code = 'ok' AND s.rtt_median IS NOT NULL ORDER BY s.ts DESC",
+                (since,)).fetchall()
+        out: dict[str, list[float]] = {}
+        for target, rtt in rows:
+            vals = out.setdefault(target, [])
+            if len(vals) < per_target:
+                vals.append(rtt)
+        return {t: v[::-1] for t, v in out.items()}
+
+    def drops(self, start: float, end: float) -> int:
+        """How many times the connection went bad in [start, end]: runs of bad windows, counted once
+        each (windows without a verdict, or with a speed test, neither break nor start a run)."""
+        with self._lock:
+            codes = [c for (c,) in self.db.execute("SELECT code FROM windows WHERE ts > ? AND ts <= ? "
+                                                   "AND code NOT IN ('no_data', 'speedtest') ORDER BY ts",
+                                                   (start, end))]
+        return sum(1 for i, c in enumerate(codes) if c != "ok" and (i == 0 or codes[i - 1] == "ok"))
+
     def brief_events(self, start: float, end: float) -> list[dict]:
         """Bad windows that never became an incident (hysteresis filtered them): short blips.
         Consecutive windows with the same verdict are merged."""

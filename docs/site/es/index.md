@@ -14,7 +14,7 @@ Un comando en una Raspberry Pi o cualquier equipo con Linux. [Instalar](install.
 </div>
 <div markdown>
 ### Probarlo sin instalar
-La demo completa con datos de ejemplo, en el navegador. [Ver la demo](/es/isp/)
+La demo completa con datos de ejemplo, en el navegador, con el [modo TV](/es/isp/tv/) incluido. [Ver la demo](/es/isp/)
 </div>
 <div markdown>
 ### Entender el panel
@@ -49,5 +49,9 @@ El informe con la evidencia y cómo presentarlo. [El informe](report.md)
 - **No manda tus datos a ningún lado.** No hay nube ni telemetría: todo queda en tu equipo. Cada conexión externa está [listada](privacy.md).
 - **No reemplaza a tu monitoreo de servidores.** "Tus servicios" existe para separar "mi internet" de "el servicio", no para competir con herramientas como Uptime Kuma.
 - **No adivina.** Cuando la evidencia no alcanza, el veredicto lo dice.
+- **No ve adentro de tu ISP.** Mide desde tu red hacia afuera: dice en qué tramo está el problema (tu red, la red de acceso del ISP, su backbone o un destino puntual), no qué equipo del ISP falló.
+- **Juzga por IPv4.** Detecta si tenés IPv6, pero el veredicto se basa en IPv4.
+- **No marca subas chicas de latencia.** Una latencia cuenta como anormal cuando es el doble de lo normal y al menos 30 ms más; de 30 a 55 ms no alcanza. Así no grita "¡lobo!" por cada pico.
+- **Corre en Linux.** En Docker Desktop (Mac o Windows) no ve la red real del equipo.
 
 isitmyisp es software libre ([licencia MIT](https://github.com/21Enzo17/isitmyisp/blob/main/LICENSE)), hecho por alguien que trabajó en el NOC de un ISP.

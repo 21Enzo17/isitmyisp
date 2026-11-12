@@ -31,6 +31,7 @@ Las opciones se pasan después de `sh -s --`, por ejemplo `curl … | sh -s -- -
 | `--port 9090` | Otro puerto para el panel (por defecto 8080) |
 | `--lang es` / `--lang en` | Idioma (por defecto, el del sistema) |
 | `--tz America/Argentina/Jujuy` | Zona horaria de los informes (por defecto, la del equipo) |
+| `--name` / `--volume` | Otro nombre para el contenedor y su volumen de datos (por defecto `isitmyisp`), para tener más de uno en el mismo equipo |
 | `--version 0.1.0` | Una versión puntual (por defecto, la última) |
 | `--build` | Construir la imagen desde el código en vez de descargarla |
 | `--dry-run` | Mostrar los comandos sin ejecutar nada |

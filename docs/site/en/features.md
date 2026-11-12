@@ -24,6 +24,8 @@ Each one says exactly what it checks. Some use TCP because their HTTPS can't be 
 - They show in the **Services, devices and tunnels** card of the dashboard and on the TV board.
 - Here, and only here, private addresses (192.168…, 10…, 172.16…) or local names (`printer.local`) are accepted. Internet addresses go in **Your services**.
 
+![Settings → Devices on your network, with a card terminal, a fiscal printer and the camera recorder](/docs/img/devices-settings.png)
+
 ## Opening hours
 
 For a shop, 20 minutes without internet at 3 a.m. isn't the same as at 11 a.m. Set your hours in **Settings → Opening hours** (or in the wizard): per weekday, with up to two shifts, such as a split shift with a lunch break.
@@ -33,6 +35,8 @@ With hours set:
 - **The dashboard** adds "While open: 14 min" to the last 24 hours' summary, and TV mode shows a **While open** figure.
 - **The report** adds how long the business was open in the period, how much of that time had problems, and marks each incident "while open" or "while closed".
 - **Held alerts** (optional): while closed, nothing reaches you. At opening time you get one summary of what happened, such as "While closed: 2 problems". A problem still going on when you open is alerted as usual.
+
+![Settings → Opening hours: two shifts Monday to Friday and Saturday morning](/docs/img/hours-settings.png)
 
 For a shift past midnight, enter it in two parts: until 24:00, and from 00:00 the next day. Hours use the time zone of the machine running isitmyisp.
 
@@ -84,7 +88,9 @@ Every ISP's favourite objection is "you saturated your own link". Connect your r
 
 ## TV mode
 
-A board for a screen on the office wall: large type, refreshes by itself, no menus or login.
+A board for a screen on the office wall: large type, refreshes by itself, no menus or login. See it in the [demo](/en/isp/tv/).
+
+![The TV board during a problem in the ISP's network](/docs/img/tv.png)
 
 **To put it on a TV**, without typing anything long with the remote:
 
@@ -93,12 +99,20 @@ A board for a screen on the office wall: large type, refreshes by itself, no men
 3. From your phone or computer, in **Settings → TV mode**, type that code and name the screen ("Counter TV").
 4. Within a few seconds the TV shows the board, and stays paired: after a power cut or a restart it comes back to the board on its own.
 
+![What the TV shows before it's paired: a short code and the steps](/docs/img/tv-code.png)
+
+![Settings → TV mode: where the code is typed](/docs/img/tv-settings.png)
+
+For the TV to reach the dashboard, the dashboard has to be reachable from your network, which is what the installer does by default. If you installed it with `--local`, run it again without that option (see [Install](install.md)); your data is kept.
+
 The code expires after 10 minutes and works once. **Settings → TV mode** lists the paired screens and can unpair any of them. If you'd rather paste a link, there's also a secret, revocable **direct link**.
 
 It has two views:
 
-- **Board** (default): the path, calls, the link, the 24-hour timeline, every destination, services, tunnels and recent incidents. Whatever is down is named at the top in red, and long lists rotate on every refresh.
-- **Simple** (`?layout=simple`): just the verdict, for a shop counter.
+- **Board** (default): the verdict and three figures (availability, time without outages or with problems, latency), the last 24 hours beside the latest events, every measured destination and your services, devices and tunnels. Whatever is down is named at the top in red, destinations losing packets are marked in red, and long lists rotate on every refresh. It fits any screen from 720p to 4K with no scrollbars.
+- **Simple** (`?layout=simple`): just the verdict, for a shop counter. [See it in the demo](/en/isp/tv/simple/).
+
+![The simple TV view](/docs/img/tv-simple.png)
 
 ## Users
 

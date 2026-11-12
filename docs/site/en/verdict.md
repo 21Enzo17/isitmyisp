@@ -26,8 +26,9 @@ Routers deprioritise pings addressed to themselves, so `mtr` shows "loss" on a m
 ## It doesn't cry wolf
 
 - **Statistical significance.** One packet lost out of 50 isn't "2 % loss". Loss must be significant by a 95 % Wilson interval, with at least 2 packets lost.
-- **Its own baseline.** Latency is judged against what's normal for each destination, not a fixed number.
-- **Hysteresis.** An incident opens after 2 bad windows in a row and closes after 2 good ones.
+- **Its own baseline.** Latency is judged against what's normal for each destination, not a fixed number: it's abnormal when it's twice the usual and at least 30 ms more. What's normal is learned from healthy windows only and kept across restarts, so a problem in progress never becomes "normal".
+- **Hysteresis.** Each window lasts 30 seconds. An incident opens after 2 bad windows in a row and closes after 2 good ones. If the ISP's first hop looks affected in one window and not in the next, it's still the same ISP outage, not two.
+- **Intermittent drops.** A connection that drops and comes back (bad, good, bad, good…) never makes 2 bad windows in a row, and it's exactly what the ISP needs to hear about. So **3 bad windows within the last 5 minutes** also open an incident, marked **intermittent** on the dashboard, in alerts and in the report, with how many times it dropped ("dropped and came back 6 times"). It closes only after 3 minutes in a row without drops.
 
 ## Whose fault it is
 
