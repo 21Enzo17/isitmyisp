@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ t.nav.tunnels }}{% endblock %}
 {% block content %}
-<div class="topbar"><h1>{{ t.nav.tunnels }}</h1><div class="right"><a class="btn" href="{{ url_for('settings_page') }}#tunnels">◎ {{ t.nav.settings }}</a></div></div>
+<div class="topbar"><h1>{{ t.nav.tunnels }}</h1><div class="right"><a class="btn" href="{{ url_for('settings_page') }}#tunnels"><svg class="ico" aria-hidden="true"><use href="#i-settings"/></svg>{{ t.nav.settings }}</a>{% include "_theme.html" %}</div></div>
 {% if not tunnels %}
 <div class="card hero"><h3>{{ t.no_tunnels }}</h3><p class="muted">{{ t.add_tunnel_hint }}</p></div>
 {% else %}

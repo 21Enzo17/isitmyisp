@@ -733,3 +733,25 @@ class BusinessHoursWeb(WebAppBase):
         report = self.client.get("/report?since=1d&lang=en").get_data(as_text=True)
         self.assertIn("Problems while open", report)
         self.assertIn("20 min while open", report)
+
+
+class DashboardLook(WebAppBase):
+    """The theme button (a cookie, no JavaScript) and the figures next to the verdict."""
+
+    def test_theme_cookie_switches_and_redirects_only_inside(self):
+        self.create_admin()
+        r = self.client.get("/theme?to=dark&next=/incidents")
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(r.headers["Location"].endswith("/incidents"))
+        self.assertIn("theme=dark", r.headers.get("Set-Cookie", ""))
+        self.assertIn('data-theme="dark"', self.client.get("/").get_data(as_text=True))
+        self.assertTrue(self.client.get("/theme?to=light&next=//evil.example").headers["Location"].endswith("/"))
+        self.client.get("/theme?to=whatever")
+        self.assertNotIn("data-theme", self.client.get("/").get_data(as_text=True))   # back to the system's
+
+    def test_dashboard_has_status_figures_and_both_theme_links(self):
+        self.create_admin()
+        page = self.client.get("/?lang=en").get_data(as_text=True)
+        for part in ('class="status-pill g-good"', "Connection stable", 'class="card kpi"', "Availability, 24 h",
+                     'class="theme-btn to-dark"', 'class="theme-btn to-light"', 'class="sys', "Monitor running"):
+            self.assertIn(part, page)
