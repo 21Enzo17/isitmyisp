@@ -84,7 +84,18 @@ La objeción favorita de cualquier ISP es "saturaste tu propio enlace". Si conec
 
 ## Modo TV
 
-Un tablero para una pantalla en la pared de la oficina: letras grandes, se actualiza solo, sin menús ni inicio de sesión. Se abre con un link que generás (y podés revocar) en **Configuración → Modo TV**. Tiene dos vistas:
+Un tablero para una pantalla en la pared de la oficina: letras grandes, se actualiza solo, sin menús ni inicio de sesión.
+
+**Para ponerlo en una tele**, sin escribir nada largo con el control remoto:
+
+1. En la tele abrí la dirección del panel seguida de **/tv**, por ejemplo `192.168.1.50:8080/tv`.
+2. La tele muestra un código corto, como **C4R-HN9**.
+3. Desde tu celular o tu PC, en **Configuración → Modo TV**, escribí ese código y ponele un nombre a la pantalla ("Tele del mostrador").
+4. En unos segundos la tele muestra el tablero, y queda vinculada: si se apaga o se reinicia, vuelve sola al tablero.
+
+El código vence a los 10 minutos y sirve una sola vez. En **Configuración → Modo TV** ves las pantallas vinculadas y podés desvincular cualquiera. Si preferís pegar un link, hay también un **link directo** secreto que se puede revocar.
+
+Tiene dos vistas:
 
 - **Tablero** (por defecto): el camino, las llamadas, el enlace, la línea de 24 horas, cada destino, servicios, túneles e incidentes recientes. Lo que falla se nombra arriba en rojo, y las listas largas rotan en cada actualización.
 - **Simple** (`?layout=simple`): solo el veredicto, para el mostrador.

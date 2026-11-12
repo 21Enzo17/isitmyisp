@@ -127,7 +127,7 @@ class IncidentDetails(unittest.TestCase):
             self.assertIn("saturation", inc.details["not_ruled_out"])  # 76% in the 3rd window: can't rule it out
             self.assertEqual(inc.details["link"]["down_pct"], 76)
             doc = build_report(store, t0, t0 + 600, lang="es", now=t0 + 600)
-            from isitmyisp.report import ICON_OK, ICON_Q
+            from isitmyisp.report import ICON_Q
             self.assertIn(f'<div>{ICON_Q}Saturación por tu propio tráfico', doc)
             self.assertNotIn("por debajo del 70%", doc)  # the ISP message must not claim it
             store.close()

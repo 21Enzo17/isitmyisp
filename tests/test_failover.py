@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from isitmyisp import alerts
-from isitmyisp.failover import REACHED, PathWatch, Provider, compare, isp_ttl, parse_ttl_reply, provider_of
+from isitmyisp.failover import REACHED, PathWatch, compare, isp_ttl, parse_ttl_reply, provider_of
 from isitmyisp.monitor import Monitor
 from isitmyisp.report import build_report
 from isitmyisp.store import Store

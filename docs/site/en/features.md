@@ -84,7 +84,18 @@ Every ISP's favourite objection is "you saturated your own link". Connect your r
 
 ## TV mode
 
-A board for a screen on the office wall: large type, refreshes by itself, no menus or login. It opens with a link you create (and can revoke) in **Settings → TV mode**. It has two views:
+A board for a screen on the office wall: large type, refreshes by itself, no menus or login.
+
+**To put it on a TV**, without typing anything long with the remote:
+
+1. On the TV, open the dashboard's address followed by **/tv**, for example `192.168.1.50:8080/tv`.
+2. The TV shows a short code, like **C4R-HN9**.
+3. From your phone or computer, in **Settings → TV mode**, type that code and name the screen ("Counter TV").
+4. Within a few seconds the TV shows the board, and stays paired: after a power cut or a restart it comes back to the board on its own.
+
+The code expires after 10 minutes and works once. **Settings → TV mode** lists the paired screens and can unpair any of them. If you'd rather paste a link, there's also a secret, revocable **direct link**.
+
+It has two views:
 
 - **Board** (default): the path, calls, the link, the 24-hour timeline, every destination, services, tunnels and recent incidents. Whatever is down is named at the top in red, and long lists rotate on every refresh.
 - **Simple** (`?layout=simple`): just the verdict, for a shop counter.

@@ -34,7 +34,7 @@ from . import auth, charts, views
 from ..api import metrics_text, status_json
 from .strings import S
 
-PUBLIC_ENDPOINTS = {"static", "healthz", "favicon", "tv"}   # tv checks its own token
+PUBLIC_ENDPOINTS = {"static", "healthz", "favicon", "tv", "tv_screen"}   # both check their own credentials
 AUTH_ENDPOINTS = {"login", "setup", "invite", "theme"}
 VIEWER_WRITES = {"logout", "settings_password"}   # the only POSTs a read-only user may make
 INVITE_TTL = 48 * 3600
@@ -142,7 +142,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         resp.headers["X-Content-Type-Options"] = "nosniff"
         resp.headers["X-Frame-Options"] = "DENY"
         # URLs with a secret in them (TV, invitations) must not leak through the Referer header
-        resp.headers["Referrer-Policy"] = "no-referrer" if request.endpoint in ("tv", "invite") else "same-origin"
+        resp.headers["Referrer-Policy"] = "no-referrer" if request.endpoint in ("tv", "tv_screen", "invite") else "same-origin"
         if request.endpoint not in PUBLIC_ENDPOINTS:
             resp.headers["Cache-Control"] = "no-store"
         if request.args.get("lang") in S:  # remember the language picked in the UI
@@ -289,7 +289,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
 
     def _settings_page(error: str | None = None, status: int = 200, results: dict | None = None,
                        ifaces: list | None = None, invite: dict | None = None):
-        from .. import alerts as alerts_mod
+        from .. import alerts as alerts_mod, tvpair
         token = settings_mod.metrics_token(store) if not g.readonly else None
         is_admin = (not g.readonly and g.settings.auth_mode == "local"
                     and bool(g.user and getattr(g.user, "is_admin", False)))
@@ -302,6 +302,8 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                                presets=_presets_view(), hours=_hours_view(), monthly=_monthly_view(),
                                users=store.list_users() if is_admin else [],
                                invites=store.pending_invites() if is_admin else [],
+                               tv_screens=tvpair.listing(store),
+                               tv_short=request.host_url.rstrip("/") + "/tv",
                                tv_url=(url_for("tv", token=store.get_setting("tv_token"), _external=True)
                                        if is_admin and store.get_setting("tv_token") else None)), status
 
@@ -582,8 +584,59 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         expected = store.get_setting("tv_token")
         if not expected or not hmac.compare_digest(token.encode(), str(expected).encode()):
             abort(404)
+        return _tv_board()
+
+    def _tv_board():
         d = views.dashboard_data(store, g.settings)
-        return render_template("tv.html", d=d, b=views.board(d), simple=request.args.get("layout") == "simple")  # noqa: E501
+        return render_template("tv.html", d=d, b=views.board(d), simple=request.args.get("layout") == "simple")
+
+    @app.get("/tv")
+    @limiter.limit("60 per minute")
+    def tv_screen():
+        """The short address for a wall screen. A paired screen (its device cookie) or a signed-in user
+        sees the board; any other browser gets a short code to pair it from Settings, and waits."""
+        from .. import tvpair
+        if tvpair.device(store, request.cookies.get("tv_device")) or (
+                g.settings.auth_mode == "local" and current_user.is_authenticated):
+            return _tv_board()
+        secret = request.cookies.get("tv_pair")
+        code, token = tvpair.status(store, secret) if secret else (None, None)
+        if token:                                       # approved: this browser becomes a paired screen
+            resp = redirect(url_for("tv_screen") + (f"?{request.query_string.decode()}" if request.query_string else ""))
+            resp.set_cookie("tv_device", token, max_age=10 * 365 * 86400, httponly=True, samesite="Lax",
+                            secure=app.config["SESSION_COOKIE_SECURE"])
+            resp.delete_cookie("tv_pair")
+            return resp
+        new = None
+        if not code:
+            new = tvpair.start(store)
+            if new is None:
+                return render_template("message.html", message=g.t["tv_pair_busy"]), 429
+            code = new[0]
+        resp = make_response(render_template("tv_pair.html", code=tvpair.pretty(code),
+                                             where=request.host_url.rstrip("/")))
+        if new:
+            resp.set_cookie("tv_pair", new[1], max_age=tvpair.TTL, httponly=True, samesite="Lax",
+                            secure=app.config["SESSION_COOKIE_SECURE"])
+        return resp
+
+    @app.post("/settings/tv/pair")
+    @limiter.limit("10 per minute")
+    def settings_tv_pair():
+        from .. import tvpair
+        _guard_write()
+        if not tvpair.approve(store, request.form.get("code", ""), request.form.get("name", "")):
+            return _settings_page(g.t["tv_pair_bad"], 400)
+        flash(g.t["tv_paired"])
+        return redirect(url_for("settings_page") + "#tv")
+
+    @app.post("/settings/tv/unpair")
+    def settings_tv_unpair():
+        from .. import tvpair
+        _guard_write()
+        tvpair.unpair(store, request.form.get("id", ""))
+        flash(g.t["saved"])
+        return redirect(url_for("settings_page") + "#tv")
 
     @app.post("/settings/tv")
     def settings_tv():

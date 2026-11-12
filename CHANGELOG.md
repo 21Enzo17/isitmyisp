@@ -5,6 +5,14 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 
 ## [Unreleased]
 
+### Added
+- TV mode at the short address /tv: the TV shows a code, an admin types it in Settings, and the screen
+  stays paired with its own device cookie (codes expire in 10 minutes and work once; screens can be
+  unpaired one by one). The direct secret link remains as an alternative.
+
+### Fixed
+- The docs builder used an f-string form that needs Python 3.12; it now runs on 3.10 and 3.11 too.
+
 ### Changed
 - The evidence report reads in two parts: a summary for the owner first (worked fine, outages, problems
   while open, speed against the plan, comparison with the period before, the outages that hit most,

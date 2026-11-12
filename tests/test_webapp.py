@@ -806,3 +806,50 @@ class LocalDevicesWeb(WebAppBase):
         self.assertIn("Devices on your network", report)
         self.client.post("/settings/devices/delete", data={"csrf_token": csrf(page), "name": "Posnet caja 1"})
         self.assertEqual(settings_mod.load(self.store).devices, [])
+
+
+class TvPairing(WebAppBase):
+    """/tv: a short code on the TV, typed by an admin in Settings, and the screen stays paired."""
+
+    def code_on(self, tv):
+        import re as _re
+        html = tv.get("/tv?lang=en").get_data(as_text=True)
+        m = _re.search(r'class="tv-pair-code"[^>]*>([A-Z0-9]{3}-[A-Z0-9]{3})<', html)
+        return m.group(1) if m else None
+
+    def test_pair_a_screen_with_its_code_then_unpair_it(self):
+        from isitmyisp import tvpair
+        self.create_admin()
+        tv = self.app.test_client()                       # the TV: never signed in
+        code = self.code_on(tv)
+        self.assertIsNotNone(code)
+        self.assertEqual(self.code_on(tv), code)          # the same code while it waits
+        self.assertNotIn("Last 24 hours", tv.get("/tv?lang=en").get_data(as_text=True))
+        page = self.client.get("/settings").get_data(as_text=True)
+        bad = self.client.post("/settings/tv/pair", data={"csrf_token": csrf(page), "code": "AAA-AAA", "name": "x"})
+        self.assertEqual(bad.status_code, 400)
+        r = self.client.post("/settings/tv/pair", data={"csrf_token": csrf(page), "code": code.lower(), "name": "Counter"})
+        self.assertEqual(r.status_code, 302)
+        r = tv.get("/tv?lang=en")                         # next refresh: the cookie is handed over
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("tv_device=", r.headers.get("Set-Cookie", ""))
+        board = tv.get("/tv?lang=en").get_data(as_text=True)
+        self.assertIn('class="noc ', board)
+        self.assertIn("Counter", self.client.get("/settings").get_data(as_text=True))
+        again = self.client.post("/settings/tv/pair", data={"csrf_token": csrf(page), "code": code, "name": "y"})
+        self.assertEqual(again.status_code, 400)          # a code works once
+        dev = tvpair.listing(self.store)[0]
+        self.client.post("/settings/tv/unpair", data={"csrf_token": csrf(page), "id": dev["id"]})
+        self.assertNotIn('class="noc ', tv.get("/tv?lang=en").get_data(as_text=True))   # back to a code
+
+    def test_signed_in_users_see_the_board_and_codes_expire(self):
+        import time as _t
+        from isitmyisp import tvpair
+        self.create_admin()
+        self.assertIn('class="noc ', self.client.get("/tv?lang=en").get_data(as_text=True))
+        code, secret = tvpair.start(self.store, now=_t.time() - tvpair.TTL - 1)
+        self.assertFalse(tvpair.approve(self.store, code, "late"))
+        self.assertEqual(tvpair.status(self.store, secret), (None, None))
+        for _ in range(tvpair.MAX_PENDING):
+            tvpair.start(self.store)
+        self.assertIsNone(tvpair.start(self.store))         # anyone can open /tv: it can't fill the database
