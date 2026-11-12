@@ -1,3 +1,3 @@
 """isitmyisp: find out whether the problem is your Wi-Fi, your router or your ISP."""
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"

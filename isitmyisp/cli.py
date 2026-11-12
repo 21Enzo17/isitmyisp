@@ -183,8 +183,12 @@ def print_tunnels(results, t: dict) -> None:
             print(f"     · {e}")
 
 
-def _discover(args) -> Network:
-    return discover(data_dir=data_dir(), asn_online=args.asn_online, want_public_ip=args.public_ip)
+def _discover(args, cfg=None) -> Network:
+    net = discover(data_dir=data_dir(), asn_online=args.asn_online, want_public_ip=args.public_ip)
+    net.dns_detected = list(net.dns_servers)
+    if cfg is not None and cfg.dns:              # Settings → DNS servers: the ones your network really uses
+        net.dns_servers = list(cfg.dns)
+    return net
 
 
 # ---------------------------------------------------------------- commands
@@ -200,8 +204,8 @@ def cmd_discover(args, t) -> int:
 
 
 def cmd_status(args, t) -> int:
-    net = _discover(args)
     cfg = _settings(args, Store(args.db) if args.db or default_db_exists() else None)
+    net = _discover(args, cfg)
     with Session(net, args.interval, socket_interval=2.0, engine=args.engine,
                  anchors=cfg.anchors, tunnels=cfg.tunnels) as s:
         print_network(net, t, engine=s.icmp.name)
@@ -285,8 +289,9 @@ def cmd_monitor(args, t) -> int:
             window = args.window or cfg.window
             interval = args.interval or cfg.interval
             mon.window = window
-            net = _discover(args)
+            net = _discover(args, cfg)
             snapshot = network_to_dict(net)
+            snapshot["dns_detected"] = net.dns_detected
             snapshot["tunnels"] = [tun.name for tun in cfg.tunnels]
             store.add_network(snapshot)
             was_on_backup = any(i.scope == "failover" for i in store.active_incidents())

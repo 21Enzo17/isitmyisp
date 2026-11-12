@@ -32,6 +32,7 @@ DEFAULTS: dict = {
     "proxy_header": "Remote-User",
     "trusted_proxies": ["127.0.0.1/32", "::1/128"],
     "voip_target": "",         # optional: your SIP provider / cloud PBX, to judge call quality against it
+    "dns": [],                 # DNS servers to measure; empty = the ones this machine uses (detected)
     "speedtest": {},           # see speedtest.DEFAULTS: OFF until you turn it on and accept the risks
     "tunnels": [],             # list of {name, underlay, overlay, type}
     "services": [],            # list of {name, kind: http|tcp, target}
@@ -62,6 +63,7 @@ class Settings:
     devices: list = field(default_factory=list)   # list[devices.Device]
     link: dict = field(default_factory=lambda: dict(DEFAULTS["link"]))
     voip_target: str = ""
+    dns: list[str] = field(default_factory=list)
     speedtest: dict = field(default_factory=dict)
     version: int = 0
 
@@ -133,6 +135,20 @@ def validate(values: dict) -> dict:
             if not ip.is_global:
                 raise SettingsError(f"calls destination {target} must be a public address")
         out["voip_target"] = target
+    if "dns" in values:
+        servers = [d.strip() for d in values["dns"] if d and d.strip()]
+        if len(servers) > 3:
+            raise SettingsError("at most 3 DNS servers")
+        for d in servers:
+            try:
+                ip = ipaddress.ip_address(d)
+            except ValueError as exc:
+                raise SettingsError(f"DNS server {d!r} is not an IP address") from exc
+            if ip.version != 4:
+                raise SettingsError(f"DNS server {d}: use an IPv4 address")
+            if ip.is_unspecified or ip.is_multicast or ip.is_reserved or str(ip) == "255.255.255.255":
+                raise SettingsError(f"DNS server {d} is not a usable address")
+        out["dns"] = list(dict.fromkeys(servers))     # private and 127.0.0.1 allowed: AdGuard, Pi-hole…
     if "speedtest" in values:
         from .speedtest import validate as validate_speed
         try:
@@ -204,6 +220,7 @@ def load(store: Store, toml_path: str | None = None, data_dir: Path | None = Non
         devices=[Device(**dv) for dv in raw.get("devices") or []],
         link={**DEFAULTS["link"], **(raw.get("link") or {})},
         voip_target=str(raw.get("voip_target") or ""),
+        dns=list(raw.get("dns") or []),
         speedtest={**SPEED_DEFAULTS, **(raw.get("speedtest") or {})},
     )
     if data_dir is not None or toml_path:

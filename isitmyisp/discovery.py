@@ -41,6 +41,7 @@ class Network:
     interface: str | None = None
     wireless: bool = False
     dns_servers: list[str] = field(default_factory=list)
+    dns_detected: list[str] = field(default_factory=list)  # what discovery found, before Settings → DNS servers
     public_ipv4: str | None = None  # only filled if the user opts in (--public-ip)
     home_routers: list[str] = field(default_factory=list)
     isp_hop: str | None = None  # first responding hop of the ISP segment
@@ -89,19 +90,44 @@ def _nameservers(path: str) -> list[str]:
         return []
 
 
+# Local forwarders that stand in front of the real resolver, for this machine only: measuring them says
+# nothing about your network's DNS. systemd-resolved's stub, and Tailscale's MagicDNS (it rewrites
+# /etc/resolv.conf). Any other loopback address is a resolver running here (AdGuard Home, Pi-hole,
+# dnsmasq, unbound), which is measured like any other, if it answers.
+STUB_RESOLVERS = ("127.0.0.53", "127.0.0.54", "100.100.100.100")
+
+
+def _is_stub(server: str) -> bool:
+    return server in STUB_RESOLVERS
+
+
+def _answers_dns(server: str) -> bool:
+    from .probes.sockets import dns_query_ms
+    return any(dns_query_ms(server, name, timeout=2.0) is not None for name in ("www.google.com", "www.cloudflare.com"))
+
+
 def dns_servers(dev: str | None, gateway: str | None = None) -> list[str]:
     """Upstream DNS servers this machine really uses.
 
-    With systemd-resolved, /etc/resolv.conf only shows the 127.0.0.53 stub. The real servers come
-    from `resolvectl`, or /run/systemd/resolve/resolv.conf (mount it read-only in Docker). As a last
-    resort we assume the router is the resolver, which is true for most home networks.
+    With systemd-resolved, /etc/resolv.conf only shows the 127.0.0.53 stub, and with Tailscale's
+    MagicDNS only 100.100.100.100. The real servers come from `resolvectl`, or
+    /run/systemd/resolve/resolv.conf (mount it read-only in Docker). As a last resort the router,
+    which is the resolver on most home networks, but only if it answers DNS: plenty of business
+    routers and firewalls don't, and measuring one would blame "your DNS" forever. A resolver on this
+    machine (127.0.0.1) is kept only if it answers, for the same reason. Settings → DNS servers
+    overrides all of it.
     """
-    servers = _nameservers("/etc/resolv.conf")
-    if any(s.startswith("127.") for s in servers):
+    servers = [s for s in _nameservers("/etc/resolv.conf") if ":" not in s]
+    if not servers or all(_is_stub(s) for s in servers):
         out = _run(["resolvectl", "dns", dev] if dev else ["resolvectl", "dns"])
         found = re.findall(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", out.split(":", 1)[-1])
-        servers = found or _nameservers("/run/systemd/resolve/resolv.conf") or ([gateway] if gateway else [])
-    return list(dict.fromkeys(s for s in servers if s and not s.startswith("127.") and ":" not in s))
+        servers = ([s for s in found if not _is_stub(s)]
+                   or [s for s in _nameservers("/run/systemd/resolve/resolv.conf") if ":" not in s and not _is_stub(s)])
+    servers = [s for s in dict.fromkeys(servers) if s and not _is_stub(s)]
+    servers = [s for s in servers if not s.startswith("127.") or _answers_dns(s)]
+    if not servers and gateway and _answers_dns(gateway):
+        servers = [gateway]
+    return servers
 
 
 def public_ipv4(timeout: float = 5) -> str | None:

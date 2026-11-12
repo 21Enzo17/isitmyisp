@@ -92,7 +92,7 @@ S = {
         "calls_how_voip": "Estimated with the ITU-T G.107 E-model from latency, jitter and loss towards your calls provider ({target}); it isn't a measured call.",
         "calls_set_target": "Measure against your calls provider",
         "voip_label": "Your calls provider (optional)", "voip_placeholder": "public IP of your SIP trunk or cloud PBX",
-        "voip_hint": "If you use IP telephony, put your provider's IP here: call quality is then judged against it instead of the internet in general.",
+        "dns_label": "DNS servers", "dns_auto": "Automatic (found: {found})", "dns_hint": "Leave it empty to use the ones this machine uses. Set it when that isn't your network's real DNS: with Tailscale (100.100.100.100), or with AdGuard Home or Pi-hole on this same machine (127.0.0.1 or its address). Up to 3, separated by spaces.", "voip_hint": "If you use IP telephony, put your provider's IP here: call quality is then judged against it instead of the internet in general.",
 
         "headline_backup": "Internet works, on the backup link",
         "sub_backup": "Your main ISP isn't carrying the traffic: your router moved it to the backup link.",
@@ -431,7 +431,7 @@ S = {
         "calls_how_voip": "Estimado con el modelo E de la UIT (G.107) a partir de latencia, jitter y pérdida hacia tu proveedor de telefonía ({target}); no es una llamada medida.",
         "calls_set_target": "Medir contra tu proveedor de telefonía",
         "voip_label": "Tu proveedor de telefonía (opcional)", "voip_placeholder": "IP pública de tu troncal SIP o central en la nube",
-        "voip_hint": "Si usás telefonía IP, poné acá la IP de tu proveedor: la calidad de llamadas se mide contra él y no contra internet en general.",
+        "dns_label": "Servidores DNS", "dns_auto": "Automático (encontrados: {found})", "dns_hint": "Dejalo vacío para usar los de este equipo. Completalo cuando esos no son el DNS real de tu red: con Tailscale (100.100.100.100), o con AdGuard Home o Pi-hole en este mismo equipo (127.0.0.1 o su dirección). Hasta 3, separados por espacios.", "voip_hint": "Si usás telefonía IP, poné acá la IP de tu proveedor: la calidad de llamadas se mide contra él y no contra internet en general.",
 
         "headline_backup": "Internet anda, por el respaldo",
         "sub_backup": "Tu ISP principal no está llevando el tráfico: tu router lo pasó al enlace de respaldo.",
