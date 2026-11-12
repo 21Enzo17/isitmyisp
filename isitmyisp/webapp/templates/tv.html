@@ -9,7 +9,7 @@
   <meta http-equiv="refresh" content="30">
   <title>{{ t.headline.get(d.code, d.code) if d.has_data else t.headline.no_data }} · isitmyisp</title>
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=css_v) }}">
 </head>
 <body class="tv-page">
 {% macro more(h, rot) %}{% if h.bad %}{{ t.board_more.format(n=h.bad + h.none + h.good) }} {{ t.board_more_bad.format(n=h.bad) }} {% endif %}{% if rot %}{{ t.board_rot.format(shown=rot.shown, total=rot.total, page=rot.page, pages=rot.pages) }}{% endif %}{% endmacro %}

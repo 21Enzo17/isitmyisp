@@ -201,12 +201,16 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
             return t["verdict"][code]
         return REPORT_STRINGS.get(g.get("lang", "en"), REPORT_STRINGS["en"])["tun_cause"].get(code, code)
 
+    # the stylesheet's URL carries a fingerprint of its content, so a new design is never stuck in a cache
+    import hashlib
+    css_v = hashlib.sha256((Path(__file__).parent / "static" / "style.css").read_bytes()).hexdigest()[:10]
+
     @app.context_processor
     def inject():
         return {"t": g.get("t", S["en"]), "lang": g.get("lang", "en"), "user": g.get("user"),
                 "readonly": g.get("readonly", False), "version": __version__, "demo": app.config["DEMO"],
                 "demo_static": app.config.get("DEMO_STATIC"),
-                "auth_mode": g.settings.auth_mode if g.get("settings") else "local",
+                "auth_mode": g.settings.auth_mode if g.get("settings") else "local", "css_v": css_v,
                 "theme": request.cookies.get("theme") if request.cookies.get("theme") in ("light", "dark") else None,
                 "live": _live()}
 

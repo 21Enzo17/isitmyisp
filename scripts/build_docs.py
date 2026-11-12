@@ -40,6 +40,9 @@ UI = {
            "demo": "Live demo", "prev": "Previous", "next": "Next", "toc": "On this page",
            "menu": "Menu", "edit": "Edit this page", "skip": "Skip to content", "other": "Español"},
 }
+# the stylesheet's URL carries a fingerprint of its content, so a new look is never stuck in a cache
+import hashlib  # noqa: E402
+CSS_V = hashlib.sha256((Path(__file__).resolve().parents[1] / "docs" / "site" / "docs.css").read_bytes()).hexdigest()[:10]
 CSP = ("default-src 'none'; style-src 'self'; img-src 'self' data:; font-src 'self'; "
        "form-action 'none'; frame-ancestors 'none'; base-uri 'none'")
 
@@ -117,7 +120,7 @@ def page(lang: str, slug: str, meta: dict, body: str, toc, titles: dict, order: 
 <link rel="alternate" hreflang="{other}" href="{url(other, slug)}">
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/static/favicon-32.png" sizes="32x32" type="image/png">
-<link rel="stylesheet" href="/docs/docs.css">
+<link rel="stylesheet" href="/docs/docs.css?v={CSS_V}">
 </head>
 <body>
 <a class="skip" href="#content">{t["skip"]}</a>

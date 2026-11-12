@@ -4,8 +4,8 @@
   "description": "Is it your Wi-Fi, your router or your ISP?",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f121a",
-  "theme_color": "#0f121a",
+  "background_color": "#0a1121",
+  "theme_color": "#0a1121",
   "icons": [
     {
       "src": "icon-192.png",
