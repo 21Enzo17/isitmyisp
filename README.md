@@ -13,13 +13,13 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-9b8cff"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-2563eb"></a>
   <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-3987e5">
   <img alt="Docker: amd64 and arm64" src="https://img.shields.io/badge/docker-amd64%20%7C%20arm64-3987e5">
   <img alt="Self-hosted" src="https://img.shields.io/badge/self--hosted-no%20cloud-0ca30c">
   <img alt="No telemetry" src="https://img.shields.io/badge/telemetry-none-0ca30c">
-  <img alt="No JavaScript in the UI" src="https://img.shields.io/badge/UI-no%20JavaScript-161b26">
-  <img alt="English and Spanish" src="https://img.shields.io/badge/i18n-EN%20%7C%20ES-161b26">
+  <img alt="No JavaScript in the UI" src="https://img.shields.io/badge/UI-no%20JavaScript-0f192d">
+  <img alt="English and Spanish" src="https://img.shields.io/badge/i18n-EN%20%7C%20ES-0f192d">
 </p>
 
 <p align="center">
@@ -188,7 +188,7 @@ Prometheus scrapes `/metrics` with a bearer token shown in Settings (`authorizat
 ## Dashboard, metrics and API
 | Path | What |
 |---|---|
-| `/` | Verdict and path, what to do, last 24 h (who, loss, latency, calls, backup link) with hover readouts and a table view, every target with 6 h of history, your link and speed, services and tunnels, latest incidents. Refreshes every 30 s; no JavaScript (hover is pure CSS), light and dark themes |
+| `/` | Status pill, the verdict beside three figures (availability, time without outages, latency) with 24 h sparklines and change vs the day before; last 24 h (who, loss, latency, calls, backup link) with hover readouts and a table view; monitored destinations with 6 h of history; latest events; where the problem is (the path, what to do, what the evidence rules out); your link and speed, calls, services and tunnels. Refreshes every 30 s; no JavaScript (hover is pure CSS); light and dark with a theme button |
 | `/report?since=7d&lang=es` | Evidence report (HTML) |
 | `/report.pdf?since=7d` | Evidence report (PDF) |
 | `/metrics` | Prometheus: `isitmyisp_loss_ratio`, `isitmyisp_rtt_median_ms`, `isitmyisp_verdict`, `isitmyisp_incident_active`, `isitmyisp_incidents_total` |

@@ -755,3 +755,11 @@ class DashboardLook(WebAppBase):
         for part in ('class="status-pill g-good"', "Connection stable", 'class="card kpi"', "Availability, 24 h",
                      'class="theme-btn to-dark"', 'class="theme-btn to-light"', 'class="sys', "Monitor running"):
             self.assertIn(part, page)
+
+
+class AssetFingerprint(WebAppBase):
+    def test_stylesheet_url_changes_with_its_content(self):
+        import hashlib
+        css = (Path(__file__).resolve().parents[1] / "isitmyisp" / "webapp" / "static" / "style.css").read_bytes()
+        self.create_admin()
+        self.assertIn(f"style.css?v={hashlib.sha256(css).hexdigest()[:10]}", self.client.get("/").get_data(as_text=True))
