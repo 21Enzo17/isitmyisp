@@ -6,7 +6,7 @@ every 2 hours with a clean path (a rekey/lifetime mismatch). Addresses are docum
 (RFC 5737) and services use .example domains: nothing points at a real network.
 
 `Simulator` builds the history and can keep feeding windows live, so a demo never goes stale;
-the scenario decides how the history ends and what keeps happening (healthy, isp, failover, wifi).
+the scenario decides how the history ends and what keeps happening (healthy, isp, failover, wifi, loop).
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ from . import settings as settings_mod
 from .classifier import Measurements
 from .config import Tunnel
 from .devices import Device
+from .lan import LanStats
 from .monitor import Monitor
 from .probes.icmp import WindowStats
 from .services import Check, Service
@@ -27,8 +28,8 @@ from .store import Store
 
 ANCHORS = ["1.1.1.1", "8.8.8.8", "9.9.9.9"]
 WIN = 30.0
-SCENARIOS = ("healthy", "isp", "failover", "wifi")
-TAIL = {"isp": 40, "wifi": 24, "failover": 140}  # windows at the end of the history in that state
+SCENARIOS = ("healthy", "isp", "failover", "wifi", "loop")
+TAIL = {"isp": 40, "wifi": 24, "failover": 140, "loop": 30}  # windows at the end of the history in that state
 
 DEVICES = {
     "en": [("Card terminal, till 1", "pos", "192.168.1.60", None), ("Fiscal printer", "printer", "192.168.1.70", 9100),
@@ -69,6 +70,7 @@ class State:
     rekey_drop: bool = False
     path_drop: bool = False
     backup: bool = False
+    loop: bool = False      # a cable closing a circle between two switches
 
 
 class Simulator:
@@ -125,9 +127,9 @@ class Simulator:
         self.clock = now
         rng, n = self.rng, 15
         self.set_backup(st.backup, now)
-        lost_a = (round(n * rng.uniform(.25, .4)) if st.isp_bad else round(n * .35) if st.wifi_bad
+        lost_a = (round(n * rng.uniform(.25, .4)) if st.isp_bad else round(n * .35) if st.wifi_bad or st.loop
                   else (1 if rng.random() < .03 else 0))
-        lost_h = round(n * .35) if st.wifi_bad else 0
+        lost_h = round(n * .35) if st.wifi_bad else round(n * .3) if st.loop else 0
         lat = 30 + rng.gauss(0, 1.2) + (45 if st.isp_bad else 0) + (6 if st.backup else 0)
         home = [w("192.168.1.1", n, n - lost_h, 2.0 + (20 if st.wifi_bad else 0))]
         anchors = [w(a, n, n - lost_a, lat + rng.gauss(0, .6)) for a in ANCHORS]
@@ -140,7 +142,10 @@ class Simulator:
         dns_ok = not st.wifi_bad
         dns = [w("dns://192.168.1.1", 6, 6 if dns_ok else 3, 3.5 + rng.gauss(0, .4)),
                w("dns://1.1.1.1", 6, 6 if dns_ok else 3, lat + 1.5)]
-        m = Measurements(home, w(hop, n, n, 4.4), anchors, tcp, dns=dns, wireless=True, link=link)
+        mcast = rng.uniform(4800, 6200) if st.loop else rng.uniform(3, 9)
+        lan = LanStats(dups=rng.randint(9, 14) if st.loop else 0, replies=30 if st.loop else 15,
+                       macs=["04:18:92:7a:44:73"], mcast_pps=round(mcast, 1), mcast_base=6.0)
+        m = Measurements(home, w(hop, n, n, 4.4), anchors, tcp, dns=dns, wireless=True, link=link, lan=lan)
         erp = self.services[-1].name
         for s in self.services:
             ok = not (s.name == erp and st.erp_down)
@@ -194,6 +199,8 @@ class Simulator:
             base.wifi_bad = True
         elif scenario == "failover":
             base.backup = True
+        elif scenario == "loop":
+            base.loop = True
         return base
 
 

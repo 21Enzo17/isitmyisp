@@ -120,7 +120,7 @@ class Monitor:
 
     @staticmethod
     def worst_loss(m: Measurements, code: str) -> float:
-        pool: list[WindowStats] = m.home if code == "local" else m.anchors
+        pool: list[WindowStats] = m.home if code == "local" else (m.home + m.anchors if code == "loop" else m.anchors)
         pool = [s for s in pool if s.sent]
         return max((s.loss for s in pool), default=0.0)
 
@@ -177,7 +177,7 @@ class Monitor:
         for svc, checks in services:
             self._step_service(svc, checks, v.code in INTERNET_OK, now)
         for dev, checks in devices:                 # your own network is fine unless the verdict says so
-            self._step_device(dev, checks, v.code != "local", now)
+            self._step_device(dev, checks, v.code not in ("local", "loop"), now)
         self.store.commit()
         return StepResult(v, tr, self.incident_id, tunnel_results)
 

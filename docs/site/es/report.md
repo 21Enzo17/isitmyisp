@@ -29,7 +29,7 @@ El informe junta en un archivo todo lo que pasó en un período: qué falló, cu
 El informe no exagera, y eso es lo que lo hace difícil de ignorar:
 
 - **Prueba** que hubo pérdida o latencia anormal, cuándo, cuánto duró y en qué tramo del camino empezó, con ICMP y TCP de acuerdo.
-- **Descarta** tu red local cuando el router respondía bien; el ruido de ICMP, porque solo cuenta la pérdida que llega hasta el destino; un único sitio caído, porque mide varios destinos; y, si conectaste el router por SNMP, el enlace lleno por tráfico propio.
+- **Descarta** tu red local cuando el router respondía bien; el ruido de ICMP, porque solo cuenta la pérdida que llega hasta el destino; un único sitio caído, porque mide varios destinos; un loop o una tormenta de broadcast en tu red, cuando no hubo respuestas duplicadas ni broadcast fuera de lo normal; y, si conectaste el router por SNMP, el enlace lleno por tráfico propio.
 - **No prueba** lo que no midió. Si no hay datos del router, dice que no puede descartar un enlace saturado.
 
 ## Cómo usarlo en un reclamo

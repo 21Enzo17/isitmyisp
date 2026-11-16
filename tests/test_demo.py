@@ -16,7 +16,7 @@ except ImportError:
 
 class Scenarios(unittest.TestCase):
     def test_each_scenario_ends_in_its_state_and_keeps_it_live(self):
-        expected = {"healthy": ("ok", set()), "isp": ("isp", {"internet"}),
+        expected = {"healthy": ("ok", set()), "isp": ("isp", {"internet"}), "loop": ("loop", {"internet"}),
                     "failover": ("ok", {"failover"}), "wifi": ("local", {"internet"})}
         for sc in SCENARIOS:
             with self.subTest(scenario=sc), tempfile.TemporaryDirectory() as d:

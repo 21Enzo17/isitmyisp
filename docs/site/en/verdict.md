@@ -39,10 +39,23 @@ Routers deprioritise pings addressed to themselves, so `mtr` shows "loss" on a m
 
 When a service you added fails while the internet is healthy, the verdict is "that service". When the office is on the backup link, it says so.
 
+## Loops and broadcast storms
+
+A cable closing a circle between two switches (or both ends of one cable in the same switch) sends frames round and round. Everything drops on and off and, from outside, it looks like the ISP. While it measures, isitmyisp looks for four signs that need no extra permissions:
+
+- **Duplicate replies (DUP)** to its own ping to your router, once a second: a frame that went round the loop arrives twice. 2 or more in a window count.
+- **Broadcast and multicast on your network card** (`/sys/class/net/<interface>/statistics/multicast`): a storm is over 500 packets per second, or 10 times the usual and at least 100 per second. The usual rate is learned from calm windows.
+- **Your router's MAC flapping** back and forth in the ARP table (A → B → A). A single change doesn't count: you may have swapped the router.
+- **Broadcast per interface on the router**, if you connected it over SNMP (`ifHCInBroadcastPkts` and `ifHCInMulticastPkts`): over 1000 packets per second on any interface other than the WAN.
+
+If a sign shows up **and something is failing too** (your router or the internet), the verdict is **"There's a loop on your network"**, on your side, with the evidence and what to check: recent cables between switches and switches without STP; unplug them one by one until it stops. If there are signs but nothing fails, the terminal mentions it as a hint and the verdict doesn't change.
+
+The idea comes from [Bruno Torres](https://www.linkedin.com/in/bruno-torres-dev/), from a real case: an intermittent outage that looked like the ISP was a loop in the LAN.
+
 ## Evidence for every incident
 
 When an incident opens, an `mtr` capture towards the affected destination is taken and stored with it. If the path changes, it's rediscovered. Incident evidence is kept about 13 months, per-destination measurements 35 days.
 
 ## What the evidence rules out
 
-Every ISP incident lists what the evidence rules out (your LAN, ICMP noise, a single site, a full link) and what it can't. Without router data over SNMP, a full link stays as "can't rule out". Better to say so than to over-claim.
+Every ISP incident lists what the evidence rules out (your LAN, ICMP noise, a single site, a full link, a loop on your network) and what it can't. Without router data over SNMP, a full link stays as "can't rule out". Better to say so than to over-claim.

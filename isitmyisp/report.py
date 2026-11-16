@@ -21,10 +21,11 @@ from .texts import remote_summary
 from .tunnels import periodic_interval
 
 ISP_CODES = ("access", "isp")
+YOU_CODES = ("local", "loop", "saturation")   # your side: rules the ISP out
 TUNNEL_COLORS = {"path_local": "#ef4444", "path_remote": "#64748b", "config": "#f59e0b", "unknown": "#94a3b8"}
 COLORS = {   # the dashboard's palette: green fine, orange your side, red the ISP, slate others
     "ok": "#22c55e", "local": "#f59e0b", "access": "#ef4444", "isp": "#dc2626",
-    "remote": "#64748b", "dns": "#2563eb", "no_data": "#cbd5e1", "saturation": "#f97316",
+    "remote": "#64748b", "dns": "#2563eb", "no_data": "#cbd5e1", "saturation": "#f97316", "loop": "#d97706",
 }
 MARK = ('<svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M17 32H24.5M39.5 32H47" stroke="#525d73" '
         'stroke-width="4" stroke-linecap="round" fill="none"/><circle cx="32" cy="32" r="12" fill="#3b82f6" opacity=".22"/>'
@@ -72,13 +73,14 @@ R = {
         "by_segment": "Where the problems were",
         "seg": {"local": "Your side (Wi-Fi, LAN, router)", "access": "ISP access network",
                 "isp": "ISP backbone / upstream", "remote": "Remote destinations only", "dns": "DNS resolver",
-                "saturation": "Link full: your own traffic"},
+                "saturation": "Link full: your own traffic",
+                "loop": "Loop or broadcast storm on your LAN"},
         "count": "Count", "duration": "Duration",
         "daily": "Availability day by day", "daily_hint": "Out of each day's measured time: how much of it your internet worked, and how much of it the ISP's network had no trouble.", "col_day": "Day", "col_internet": "Your internet", "col_isp": "ISP network", "col_down": "Without internet", "col_cause": "Mostly", "not_measured": "Not measured", "partial": "partial", "seg_other": {"no_data": "No measurement", "stale": "No measurement"},
         "timeline": "Timeline", "status": "Status per window", "loss_chart": "Packet loss to the internet (%)",
         "lat_chart": "Latency to the internet (median, ms)",
         "legend": {"ok": "healthy", "local": "your side", "access": "ISP access", "isp": "ISP backbone",
-                   "remote": "remote", "dns": "DNS", "saturation": "link full (yours)",
+                   "remote": "remote", "dns": "DNS", "saturation": "link full (yours)", "loop": "LAN loop",
                    "no_data": "not measuring (start-up, re-discovery, settings change)"},
         "incident_list": "Incidents", "start": "Start", "end": "End", "where": "Where", "evidence": "Evidence",
         "ongoing": "ongoing", "capture": "mtr",
@@ -184,13 +186,14 @@ R = {
         "by_segment": "Dónde estuvieron los problemas",
         "seg": {"local": "Tu lado (Wi-Fi, LAN, router)", "access": "Red de acceso del ISP",
                 "isp": "Red troncal / salida del ISP", "remote": "Solo destinos remotos", "dns": "Servidor DNS",
-                "saturation": "Enlace lleno: tu propio tráfico"},
+                "saturation": "Enlace lleno: tu propio tráfico",
+                "loop": "Loop o tormenta de broadcast en tu red"},
         "count": "Cantidad", "duration": "Duración",
         "daily": "Disponibilidad por día", "daily_hint": "Sobre el tiempo medido de cada día: cuánto funcionó tu internet y cuánto estuvo sin problemas la red del ISP.", "col_day": "Día", "col_internet": "Tu internet", "col_isp": "Red del ISP", "col_down": "Sin internet", "col_cause": "Sobre todo", "not_measured": "Sin medir", "partial": "parcial", "seg_other": {"no_data": "Sin medición", "stale": "Sin medición"},
         "timeline": "Línea de tiempo", "status": "Estado por ventana", "loss_chart": "Pérdida de paquetes hacia internet (%)",
         "lat_chart": "Latencia hacia internet (mediana, ms)",
         "legend": {"ok": "sana", "local": "tu lado", "access": "acceso ISP", "isp": "troncal ISP",
-                   "remote": "remoto", "dns": "DNS", "saturation": "enlace lleno (tuyo)",
+                   "remote": "remoto", "dns": "DNS", "saturation": "enlace lleno (tuyo)", "loop": "loop en tu red",
                    "no_data": "sin medir (arranque, redescubrimiento, cambio de configuración)"},
         "incident_list": "Incidentes", "start": "Inicio", "end": "Fin", "where": "Dónde", "evidence": "Evidencia",
         "ongoing": "en curso", "capture": "mtr",
@@ -503,6 +506,10 @@ EVIDENCE_ES = [
     ("DNS failure", "falla de DNS"), ("timeout", "sin respuesta (timeout)"), ("connection refused", "conexión rechazada"),
     ("TLS error", "error de TLS"), ("through the tunnel", "por dentro del túnel"), ("outside the tunnel", "por fuera del túnel"),
     ("never answers ICMP", "nunca responde ICMP"), ("all anchors degraded (worst", "todos los destinos afectados (peor"),
+    ("duplicate replies (DUP) out of", "respuestas duplicadas (DUP) de"), ("gateway ping", "ping al gateway"),
+    ("broadcast on your network card", "broadcast en tu placa de red"), ("broadcast on your router", "broadcast en tu router"),
+    ("packets/s", "paquetes/s"), ("(usual", "(habitual"), ("gateway MAC changed", "la MAC del gateway cambió"),
+    (" times:", " veces:"),
     (": OK", ": bien"),
 ]
 
@@ -807,7 +814,7 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
     # ======== 1. the summary for you: plain words, one page
     n = len(incidents)
     k_isp = sum(1 for i in incidents if i.code in ISP_CODES)
-    k_home = sum(1 for i in incidents if i.code == "local")
+    k_home = sum(1 for i in incidents if i.code in YOU_CODES)
     bad_spans = union(incidents, start, end)
     total_bad = sum(b - a for a, b in bad_spans)
     if n == 0:
@@ -859,7 +866,7 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
             if bh_on:
                 o = hurt(i)[0]
                 open_txt = t["top_open"].format(dur=fmt_duration(o)) if o >= 60 else t["top_closed"]
-            group = "isp" if i.code in ISP_CODES else ("you" if i.code in ("local", "saturation") else "other")
+            group = "isp" if i.code in ISP_CODES else ("you" if i.code in YOU_CODES else "other")
             end_txt = time.strftime("%H:%M", time.localtime(i.closed)) if i.closed else t["ongoing"]
             rows.append(f'<li><span class="dot" style="background:{COLORS[i.code]}"></span><b>{_e(_day(i.opened, t))}, '
                         f'{_e(time.strftime("%H:%M", time.localtime(i.opened)))}–{_e(end_txt)}</b> · {_e(fmt_duration(i.duration(now)))}'
@@ -895,7 +902,7 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
         rows = "".join(
             f'<tr><td><span class="dot" style="background:{COLORS[c]}"></span>{_e(t["seg"][c])}</td>'
             f'<td class="num">{len(agg[c])}</td><td class="num">{fmt_duration(sum(agg[c]))}</td></tr>'
-            for c in ("local", "saturation", "access", "isp", "remote", "dns") if c in agg)
+            for c in ("local", "loop", "saturation", "access", "isp", "remote", "dns") if c in agg)
         out.append(f'<h2>{_e(t["by_segment"])}</h2><table><thead><tr><th></th><th class="num">{t["count"]}</th>'
                    f'<th class="num">{t["duration"]}</th></tr></thead><tbody>{rows}</tbody></table>')
 

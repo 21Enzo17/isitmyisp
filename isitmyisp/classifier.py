@@ -2,6 +2,8 @@
 
 Segments, from closest to farthest:
   local   -> your device, Wi-Fi or LAN, up to and including any router at home
+  loop    -> local, with signs of a loop or a broadcast storm on the LAN (duplicate replies,
+             a flood of broadcast, the gateway's MAC flapping)
   access  -> your ISP's first hop (access network / BNG / CGNAT)
   isp     -> every destination affected while the first hop is fine: ISP backbone or upstream
   remote  -> only some destinations affected: not your ISP's fault
@@ -16,6 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from .lan import LanStats
 from .probes.icmp import WindowStats
 from .snmp import LinkUsage
 from .stats import Baseline, loss_is_significant
@@ -23,6 +26,7 @@ from .stats import Baseline, loss_is_significant
 SATURATION_PCT = 85.0   # link use (% of contracted speed) at which your own traffic explains the problem
 CLEAN_LINK_PCT = 70.0   # below this, saturation is ruled out
 ROUTER_CPU_BUSY = 80.0
+ROUTER_STORM_PPS = 1000.0   # broadcast + multicast received by one router interface (SNMP)
 
 WIFI_LATENCY_MS = 15.0
 JITTER_BAD_MS = 20.0
@@ -37,11 +41,12 @@ class Measurements:
     dns: list[WindowStats] = field(default_factory=list)
     wireless: bool = False
     link: LinkUsage | None = None  # WAN usage read from the router (SNMP), if configured
+    lan: LanStats | None = None    # loop / broadcast storm signs on the LAN (lan.LanWatch)
 
 
 @dataclass
 class Verdict:
-    code: str  # ok | local | access | isp | remote | dns | no_data
+    code: str  # ok | local | loop | saturation | access | isp | remote | dns | no_data
     evidence: list[str] = field(default_factory=list)
     hints: list[str] = field(default_factory=list)
 
@@ -81,6 +86,16 @@ def classify(m: Measurements, baselines: dict[str, Baseline] | None = None) -> V
             continue
         if icmp_why or tcp_why:
             bad.append((a, icmp_why or f"TCP/443 {tcp_why}"))
+
+    # 0) A loop or a broadcast storm on your LAN: everything degrades and, from outside, it looks
+    # like the ISP. Only a verdict when something is actually failing; otherwise just a hint.
+    loop = loop_signals(m)
+    if loop:
+        home_bad = [(h, why) for h in m.home if (why := _why(h, baselines))]
+        if bad or home_bad:
+            return Verdict("loop", evidence=loop + [f"home router {h.target}: {why}" for h, why in home_bad[:1]]
+                           + [f"{a.target}: {why}" for a, why in bad[:2]])
+        hints.append("lan_loop")
 
     # 1) Home: your device, Wi-Fi, LAN and any router you own. A home problem must also show up
     # on the internet (traffic goes THROUGH that router). If only the router "loses" pings while
@@ -134,6 +149,14 @@ def classify(m: Measurements, baselines: dict[str, Baseline] | None = None) -> V
     return v
 
 
+def loop_signals(m: Measurements) -> list[str]:
+    """Evidence of a loop or a broadcast storm on the LAN, from this machine and from the router."""
+    out = m.lan.signals() if m.lan else []
+    if m.link is not None and m.link.bcast_pps is not None and m.link.bcast_pps >= ROUTER_STORM_PPS:
+        out.append(f"broadcast on your router ({m.link.bcast_if}): {m.link.bcast_pps:.0f} packets/s")
+    return out
+
+
 def _link_text(link: LinkUsage) -> str:
     def part(label, mbps, pct):
         return f"{label} {mbps:.0f} Mbps" + (f" ({pct:.0f}% of contract)" if pct is not None else "")
@@ -165,6 +188,8 @@ def assess(m: Measurements, v: Verdict, baselines: dict[str, Baseline] | None = 
         ruled_out.append("router_overload")
     else:
         not_ruled_out.append("router_overload")
+    if (m.lan is not None or (m.link is not None and m.link.bcast_pps is not None)) and not loop_signals(m):
+        ruled_out.append("loop")                    # no duplicate replies, no broadcast flood, stable MAC
     if v.code == "isp":
         not_ruled_out.append("transit")             # beyond the first hop it may be the ISP's own providers
     return {"ruled_out": ruled_out, "not_ruled_out": not_ruled_out,

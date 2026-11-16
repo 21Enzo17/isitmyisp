@@ -16,7 +16,7 @@ from .. import mos as mos_mod
 ROLE_ORDER = {"home": 0, "isp": 1, "anchor": 2, "voip": 3, "tcp": 4, "dns": 5}
 CAUSE_CLASS = {"ok": "ok", "local": "warn", "access": "bad", "isp": "bad", "remote": "info", "dns": "info",
                "no_data": "muted", "stale": "muted", "config": "warn", "path_local": "bad",
-               "path_remote": "info", "unknown": "muted", "saturation": "warn", "speedtest": "muted"}
+               "path_remote": "info", "unknown": "muted", "saturation": "warn", "loop": "warn", "speedtest": "muted"}
 
 
 @dataclass
@@ -113,7 +113,7 @@ class Hop:
     blamed: bool = False  # the current verdict points here
 
 
-BLAME = {"local": "home", "saturation": "home", "access": "isp", "isp": "isp", "remote": "internet", "dns": "internet"}
+BLAME = {"local": "home", "loop": "home", "saturation": "home", "access": "isp", "isp": "isp", "remote": "internet", "dns": "internet"}
 
 
 @dataclass

@@ -100,6 +100,7 @@ class Session:
                  anchors: list[str] | None = None, tunnels: list | None = None, services: list | None = None,
                  link: dict | None = None, voip: str = "", devices: list | None = None):
         from .devices import check as check_device
+        from .lan import LanWatch
         from .services import ServiceProber
         self.net = net
         self.link = None
@@ -123,15 +124,18 @@ class Session:
         self.last_tunnels: list = []
         self.icmp = IcmpProber([ip for _, ip in self.roles] + tunnel_targets, interval=interval, engine=engine)
         self.sockets = SocketProber(tcp=self.anchors, dns=net.dns_servers[:MAX_DNS], interval=socket_interval)
+        self.lan = LanWatch(net.gateway, net.interface)   # loop / broadcast storm signs
 
     def __enter__(self) -> "Session":
         self.icmp.__enter__()
         self.sockets.__enter__()
         self.services.__enter__()
         self.devices.__enter__()
+        self.lan.__enter__()
         return self
 
     def __exit__(self, *exc) -> None:
+        self.lan.__exit__()
         self.devices.__exit__()
         self.services.__exit__()
         self.sockets.__exit__()
@@ -148,6 +152,7 @@ class Session:
             dns=[socks[SocketProber.dns_name(s)] for s in self.net.dns_servers[:MAX_DNS]],
             wireless=self.net.wireless,
             link=self.link.sample() if self.link else None,
+            lan=self.lan.window(),
         )
         rows = [(role, icmp[ip]) for role, ip in self.roles]
         rows += [("tcp", socks[SocketProber.tcp_name(a)]) for a in self.anchors]
@@ -559,7 +564,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("update-asn", help="download the public IP-to-ASN dataset for offline lookups")
 
     demo = sub.add_parser("demo", help="the full web UI on synthetic data, live and read-only (no network, no root)")
-    demo.add_argument("--scenario", choices=["healthy", "isp", "failover", "wifi"], default="healthy",
+    demo.add_argument("--scenario", choices=["healthy", "isp", "failover", "wifi", "loop"], default="healthy",
                       help="what the network is doing right now in the demo")
     demo.add_argument("--bind", default="127.0.0.1:8090", help="where to serve it (default 127.0.0.1:8090)")
     demo.add_argument("--static", metavar="DIR", help="write the demo as a static site into DIR (every page, "

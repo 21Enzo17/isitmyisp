@@ -86,6 +86,8 @@ Cuando está activado:
 
 La objeción favorita de cualquier ISP es "saturaste tu propio enlace". Si conectás tu router por SNMP (versión 2c, solo lectura), isitmyisp lee el uso de la interfaz WAN y la CPU en cada ventana. Así descarta esa objeción, o te dice que tenía razón. Necesita las velocidades contratadas para saber cuándo el enlace está lleno.
 
+También lee el broadcast y el multicast que recibe cada interfaz del router: una tormenta en la LAN (un loop entre switches) se ve ahí, al lado de la CPU. Ver [loops y tormentas de broadcast](/docs/es/verdict/#loops-y-tormentas-de-broadcast).
+
 ## Modo TV
 
 Un tablero para una pantalla en la pared de la oficina: letras grandes, se actualiza solo, sin menús ni inicio de sesión. Lo podés ver en la [demo](/es/isp/tv/).

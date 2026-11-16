@@ -39,10 +39,23 @@ Los routers le dan baja prioridad a los pings dirigidos a ellos mismos. Por eso 
 
 Cuando un servicio que agregaste falla con internet sano, el veredicto es "ese servicio". Cuando la oficina está en el enlace de respaldo, se dice.
 
+## Loops y tormentas de broadcast
+
+Un cable que cierra un círculo entre dos switches (o las dos puntas de un cable en el mismo switch) hace que las tramas den vueltas sin fin. Se cae todo de a ratos y, desde afuera, parece el ISP. Mientras mide, isitmyisp busca cuatro señales que no necesitan permisos extra:
+
+- **Respuestas duplicadas (DUP)** a un ping propio al router, una vez por segundo: una trama que dio la vuelta llega dos veces. Cuentan 2 o más en una ventana.
+- **Broadcast y multicast en tu placa de red** (`/sys/class/net/<interfaz>/statistics/multicast`): una tormenta es más de 500 paquetes por segundo, o 10 veces lo habitual y al menos 100 por segundo. Lo habitual se aprende de las ventanas tranquilas.
+- **La MAC del router cambiando** de un lado a otro en la tabla ARP (A → B → A). Un solo cambio no cuenta: puede ser que cambiaste el router.
+- **Broadcast por interfaz en el router**, si lo conectaste por SNMP (`ifHCInBroadcastPkts` y `ifHCInMulticastPkts`): más de 1000 paquetes por segundo en alguna interfaz que no sea la WAN.
+
+Si aparece alguna señal **y además algo falla** (tu router o internet), el veredicto es **"Hay un loop en tu red"**, del lado tuyo, con la evidencia y qué revisar: cables recientes entre switches y switches sin STP; desconectalos de a uno hasta que pare. Si hay señales pero nada falla, la terminal lo avisa como sugerencia y el veredicto no cambia.
+
+La idea viene de [Bruno Torres](https://www.linkedin.com/in/bruno-torres-dev/), de un caso real: un corte intermitente que parecía del ISP era un loop en la LAN.
+
 ## Evidencia en cada incidente
 
 Al abrir un incidente se toma una captura de `mtr` hacia el destino afectado y se guarda con el incidente. Si el camino cambia, se redescubre. La evidencia de los incidentes se guarda unos 13 meses, y las mediciones de cada destino, 35 días.
 
 ## Lo que la evidencia descarta
 
-Cada incidente del ISP lista qué descarta la evidencia (tu LAN, el ruido de ICMP, un único sitio, un enlace lleno) y qué no puede descartar. Si no hay datos del router por SNMP, el enlace lleno queda como "no se puede descartar". Mejor decirlo que prometer de más.
+Cada incidente del ISP lista qué descarta la evidencia (tu LAN, el ruido de ICMP, un único sitio, un enlace lleno, un loop en tu red) y qué no puede descartar. Si no hay datos del router por SNMP, el enlace lleno queda como "no se puede descartar". Mejor decirlo que prometer de más.
