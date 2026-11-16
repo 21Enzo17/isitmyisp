@@ -6,7 +6,7 @@ import statistics
 import time
 from dataclasses import dataclass, field
 
-from ..report import _anchor_series, availability, fmt_duration, fmt_pct
+from ..report import _anchor_series, _midnight, availability, daily, fmt_duration, fmt_pct
 from ..settings import Settings
 from ..store import Store
 from ..api import is_stale
@@ -147,6 +147,7 @@ class Dashboard:
     failover: dict | None = None   # on the backup link right now
     calls: dict | None = None      # estimated call quality (E-model)
     speed: dict | None = None      # speed test state and last results
+    month: dict | None = None      # availability day by day, the last 30 days (month_view)
 
 
 def _sample_loss(s: dict) -> float:
@@ -197,6 +198,7 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
                                      calls=d.calls["series"] if d.calls else None)
         d.brief = list(reversed(store.brief_events(start, end)))[:12]
         d.kpi = kpis(store, windows, series, start, now)
+        d.month = month_view(store, now)
 
     # the latest measurement of every target (they make up the path in the hero), with 6 h of history
     h_start = now - 6 * 3600
@@ -371,6 +373,25 @@ def service_cards(store: Store, settings: Settings, now: float | None = None) ->
         else:
             cards.append(ServiceCard(sv.name, sv.kind, sv.target, "no_data", "muted", None))
     return cards
+
+
+def _share(days, attr: str) -> float | None:
+    measured = sum(x.measured for x in days if getattr(x, attr) is not None)
+    return sum(x.measured * getattr(x, attr) for x in days if getattr(x, attr) is not None) / measured if measured else None
+
+
+def month_view(store: Store, now: float, days: int = 30) -> dict:
+    """The last `days` days, one square each: how much of the measured time your internet worked, and
+    the ISP's network on its own. Until there are that many days, it says since when it measures."""
+    rows = daily(store, _midnight(now, 1 - days), now)
+    first = store.first_and_last_window()[0]
+    for x in rows:
+        x.group = ("before" if x.before else "none" if x.internet is None
+                   else "good" if x.down < 60 else charts.GROUP.get(x.culprit or "", "other"))
+    young = first is not None and first > rows[0].start
+    return {"days": rows, "internet": _share(rows, "internet"), "isp": _share(rows, "isp"),
+            "since": first if young else None,
+            "n": len([x for x in rows if not x.before]) if young else days}
 
 
 def kpis(store: Store, windows, series, start: float, now: float) -> dict:
