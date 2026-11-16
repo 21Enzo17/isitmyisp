@@ -114,6 +114,35 @@
 {% endif %}
 </div>
 
+{% if d.month %}{% set m = d.month %}
+<section class="card month" aria-labelledby="month-h">
+  <div class="card-head">
+    <h2 id="month-h"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-calendar"/></svg>{{ t.month_title }}</h2>
+    {% if m.since %}<p class="month-since">{{ (t.month_since_1 if m.n == 1 else t.month_since).format(when=m.since|tvdate, n=m.n) }}</p>{% endif %}
+  </div>
+  <div class="month-figs">
+    <p><span>{{ t.month_internet }}</span><b>{{ '%.2f'|format(m.internet) if m.internet is not none else '—' }}%</b></p>
+    <p><span>{{ t.month_isp }}</span><b>{{ '%.2f'|format(m.isp) if m.isp is not none else '—' }}%</b></p>
+  </div>
+  {% macro day_tip(x) %}{{ x.start|tvdate }}: {% if x.before %}{{ t.month_before }}{% elif x.internet is none %}{{ t.month_none }}{% else %}{{ '%.1f'|format(x.internet) }}%{% if x.down >= 60 %} · {{ t.month_down.format(dur=x.down|dur) }} · {{ t.verdict.get(x.culprit, x.culprit) }}{% endif %}{% if x.partial %} ({{ t.month_partial }}){% endif %}{% endif %}{% endmacro %}
+  <ol class="days" aria-hidden="true">
+    {% for x in m.days %}<li class="g-{{ x.group }}{{ ' partial' if x.partial }}" title="{{ day_tip(x) }}"></li>{% endfor %}
+  </ol>
+  <p class="days-x"><span>{{ m.days[0].start|tvdate }}</span><span>{{ t.month_today }}</span></p>
+  <p class="muted month-hint">{{ t.month_hint }}</p>
+  <details class="table-view">
+    <summary>{{ t.table_view }}</summary>
+    <table>
+      <thead><tr><th>{{ t.col_day }}</th><th class="num">{{ t.month_internet }}</th><th class="num">{{ t.month_isp }}</th><th class="num">{{ t.col_down }}</th><th>{{ t.col_cause }}</th></tr></thead>
+      <tbody>{% for x in m.days|reverse if not x.before %}<tr><td class="num-l"><i class="sw g-{{ x.group }}" aria-hidden="true"></i>{{ x.start|tvdate }}{% if x.partial %} <span class="muted">({{ t.month_partial }})</span>{% endif %}</td>
+        {% if x.internet is none %}<td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="muted">{{ t.month_none }}</td>
+        {% else %}<td class="num">{{ '%.1f'|format(x.internet) }}%</td><td class="num">{{ '%.1f'|format(x.isp) }}%</td>
+        <td class="num">{{ x.down|dur if x.down >= 60 else '—' }}</td><td>{{ t.verdict.get(x.culprit, x.culprit) if x.down >= 60 else '' }}</td>{% endif %}</tr>{% endfor %}</tbody>
+    </table>
+  </details>
+</section>
+{% endif %}
+
 {% if d.has_data %}
 <section class="card where g-{{ grp }}" aria-labelledby="where-h">
   <div class="card-head"><h2 id="where-h"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-tunnels"/></svg>{{ t.where_title }}</h2></div>
