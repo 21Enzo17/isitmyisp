@@ -3,6 +3,30 @@
 Versions follow [semantic versioning](https://semver.org). Each release has a Docker image
 (`21enzo03/isitmyisp:<version>` on Docker Hub, amd64 and arm64) and a git tag `v<version>`.
 
+## [Unreleased]
+
+### Added
+- **Loops and broadcast storms on your LAN** get a verdict of their own: duplicate replies, broadcast
+  well above normal, or the router's MAC moving. With the router over SNMP, its broadcast and
+  multicast counters too. A `loop` demo scenario (#64).
+- **`isitmyisp doctor`**, a check-up of how your network is set up even when nothing is down: CGNAT,
+  double NAT, IPv6, DNS speed and hijacking, MTU, router reboots, loops, link speed, NIC errors and
+  Wi-Fi. Green, yellow or red with what to do, and an A–F grade next to the list. It also runs once a
+  day, has its own dashboard page and goes in the report (#65).
+- **Check from this device** (`/check`): measure from a PC or phone in about 15 seconds, crossed with
+  what the probe saw in the same minutes. The page loads `/static/check.js`, allowed by its CSP only
+  there, with `connect-src https:` to reach the internet destinations (#66).
+- **Speed inside and outside the ISP**: up to three iperf3 servers of your own, marked inside or
+  outside your ISP by ASN (or by hand), next to Cloudflare. The dashboard and the report say whether
+  the bottleneck is your access or the ISP's exit (#68).
+
+### Fixed
+- The speed test confirmation said "about 15 seconds" even with iperf3 servers, each of which adds
+  about as much.
+- Docs and README brought in line with the code: the speed test's incident and busy-link guards
+  apply only to scheduled tests, the "Measurement" settings card, BBVA in the presets, and every new
+  outgoing connection listed in Privacy (#75).
+
 ## [0.3.0] - 2026-11-12
 
 ### Added

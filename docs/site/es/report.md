@@ -15,7 +15,7 @@ El informe junta en un archivo todo lo que pasó en un período: qué falló, cu
 
 - Un resumen en criollo: "3 incidentes, 1 h 6 min en total; 2 fueron dentro de la red de tu ISP".
 - Una línea de tiempo y dónde estuvo cada problema: tu red, el ISP u otros.
-- El tiempo en el enlace de respaldo, la calidad de las llamadas y la velocidad medida contra la contratada.
+- El tiempo en el enlace de respaldo, la calidad de las llamadas y la velocidad medida contra la contratada. Con servidores iperf3 a cada lado, la sección **Dentro y fuera del ISP** dice dónde estuvo el cuello de botella.
 
 **Para el soporte y el NOC del ISP:**
 

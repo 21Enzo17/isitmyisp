@@ -15,12 +15,15 @@ isitmyisp está pensado para correr meses en tu red. Por defecto **nunca manda t
 | TCP a 1.1.1.1, 8.8.8.8 y 9.9.9.9, puerto 443 | siempre | SYN y cierra (sin datos ni TLS) | sí |
 | Consultas DNS a tus propios servidores | siempre | consultas A de www.google.com, www.cloudflare.com y www.wikipedia.org | sí |
 | `mtr` a 1.1.1.1 | al descubrir el camino y en incidentes | sondas ICMP | sí |
+| [El chequeo de la red](doctor.md): pings con "no fragmentar" a 1.1.1.1 | una vez por día y cuando lo corrés | pings de distintos tamaños, para medir el MTU | sí |
+| El chequeo: una consulta DNS a 192.0.2.53 | una vez por día y cuando lo corrés | una consulta A de www.google.com a una dirección que no existe en internet: si alguien contesta, intercepta tu DNS | sí |
 | iptoasn.com | solo cuando apretás el botón en Configuración o corrés `update-asn` | una descarga HTTPS del dataset público (sin consultas por IP) | manual |
 | Team Cymru whois | solo con `--asn-online` | las IP públicas de tu camino | **no** |
 | api.ipify.org | solo con `--public-ip` | un pedido HTTPS (les revela tu IP pública) | **no** |
 | Tus servicios | solo los que agregues | un GET HTTP (o conexión TCP) cada 30 s | **no** |
 | speed.cloudflare.com | solo si activás el test de velocidad | descargas y subidas de unos 15 s; Cloudflare ve tu IP pública | **no** |
 | Tus servidores iperf3 | solo los que agregues al test de velocidad | descargas y subidas de unos 15 s cada uno; cada servidor ve tu IP pública | **no** |
+| Los destinos de internet, desde tu navegador | solo cuando apretás el botón en [Chequear desde este equipo](device-check.md) | pedidos HTTPS sin cookies desde esa PC o celular (no desde la sonda) | **no** |
 | Tu router por SNMP | solo si lo conectás | lectura de los contadores de la WAN y la CPU | **no** |
 | Telegram, tu servidor SMTP o tu webhook | solo si activás alertas | el texto de la alerta | **no** |
 

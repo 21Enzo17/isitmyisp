@@ -48,7 +48,7 @@ Todo corre en un equipo chico en tu red (alcanza con una Raspberry Pi). Sin nube
 ```bash
 docker run --rm -p 127.0.0.1:8090:8080 21enzo03/isitmyisp --lang es demo --scenario isp --bind 0.0.0.0:8080
 ```
-Después abrí **http://127.0.0.1:8090**. Escenarios: `healthy`, `isp`, `failover`, `wifi`.
+Después abrí **http://127.0.0.1:8090**. Escenarios: `healthy`, `isp`, `failover`, `wifi`, `loop`.
 
 ## Instalarlo con un comando
 
@@ -80,10 +80,12 @@ Se complementan bien: Uptime Kuma para tus servicios, isitmyisp para la conexió
 - **Panel:** el veredicto al lado de la disponibilidad, el tiempo sin cortes y la latencia; las últimas 24 horas (de quién fue la culpa, pérdida, latencia, calidad de llamadas, enlace de respaldo) con valores al pasar el mouse y una vista en tabla; cada destino; los últimos eventos; en qué tramo está el problema y qué hacer. Modo claro y oscuro. Todo funciona sin JavaScript.
 - **Modo TV:** abrí `/tv` en la tele, escribí en Configuración el código corto que muestra, y queda vinculada. Un tablero que se acomoda a cualquier pantalla de 720p a 4K, o una vista simple para el mostrador.
 - **Tus servicios y dispositivos:** tu banco, tu sistema de gestión o ARCA (con presets de un clic para Argentina), y los aparatos de tu red (posnet, impresoras, cámaras, centrales telefónicas), para que "¿es mi internet o son ellos?" tenga respuesta.
-- **Respaldo, llamadas y velocidad:** detecta en un minuto cuando el tráfico pasa al enlace de respaldo; estima la calidad de las llamadas (modelo E de la ITU-T G.107, aclarando que es una estimación); un test de velocidad opcional contra tu plan, apagado por defecto, con presupuesto de datos.
+- **Respaldo, llamadas y velocidad:** detecta en un minuto cuando el tráfico pasa al enlace de respaldo; estima la calidad de las llamadas (modelo E de la ITU-T G.107, aclarando que es una estimación); un test de velocidad opcional contra tu plan, apagado por defecto, con presupuesto de datos; con servidores iperf3 propios dentro y fuera de tu ISP, dice si el cuello de botella es tu acceso o la salida del ISP al resto de internet.
+- **Chequeo y loops:** `isitmyisp doctor` (también una vez por día, y en el panel) revisa cómo está armada tu red aunque no haya cortes: CGNAT, doble NAT, IPv6, velocidad e intercepción del DNS, MTU, reinicios del router, velocidad del enlace. Los loops y las tormentas de broadcast en tu LAN tienen su propio veredicto.
+- **Chequear desde este equipo:** abrí `/check` en una PC o un celular y mide desde ahí, cruzado con lo que vio la sonda en el mismo momento: ¿es el Wi-Fi de ese equipo o la conexión de todos?
 - **Túneles:** ¿se cayó tu túnel IPsec/L2TP/WireGuard por su configuración o por el camino? Mide afuera y adentro a la vez, y detecta los cortes que se repiten con horario fijo (timers de rekey distintos).
 - **Alertas e informes:** Telegram, email o webhook, solo para problemas que duran, diciendo de quién es la culpa y qué hacer; retenidas con el local cerrado si querés, con un resumen al abrir. El informe de evidencia en HTML o PDF, cuando lo pidas o por mail cada mes.
-- **Varios usuarios y seguro en tu red:** administradores y lectores, contraseñas con Argon2id, protección CSRF, una CSP estricta (sin código inline; el único script es el zoom arrastrando del gráfico, opcional), o inicio de sesión único con Authelia, Authentik, oauth2-proxy o Tailscale. `/metrics` para Prometheus y una API JSON.
+- **Varios usuarios y seguro en tu red:** administradores y lectores, contraseñas con Argon2id, protección CSRF, una CSP estricta (sin código inline; los únicos scripts son el zoom arrastrando del gráfico ampliado, opcional, y la medición de `/check`), o inicio de sesión único con Authelia, Authentik, oauth2-proxy o Tailscale. `/metrics` para Prometheus y una API JSON.
 
 <img src="docs/screenshots/es/report.png" alt="El informe de evidencia: resumen para vos, línea de tiempo, dónde estuvieron los problemas, incidentes" width="70%">
 
@@ -103,7 +105,7 @@ isitmyisp está pensado para correr meses en tu red, y por defecto **nunca manda
 
 ## Estado y próximos pasos
 
-La versión 0.2 es la primera publicada ([cambios](CHANGELOG.md)). Corre todos los días en las redes del autor, pero todavía no se probó en muchas otras: si el veredicto se equivoca con la tuya, una [issue](https://github.com/21Enzo17/isitmyisp/issues) con una captura del panel y la salida de `isitmyisp discover` ayuda mucho. Las capturas usan datos de ejemplo.
+La versión 0.3 es la última publicada ([cambios](CHANGELOG.md)). Corre todos los días en las redes del autor, pero todavía no se probó en muchas otras: si el veredicto se equivoca con la tuya, una [issue](https://github.com/21Enzo17/isitmyisp/issues) con una captura del panel y la salida de `isitmyisp discover` ayuda mucho. Las capturas usan datos de ejemplo.
 
 Lo próximo, en las [issues](https://github.com/21Enzo17/isitmyisp/issues): cuánto le cuesta un corte a un comercio, alertas por WhatsApp, un panel central para varias sedes, distinguir un corte de luz de uno de internet, la calidad del Wi-Fi alrededor de la sonda, y qué equipos llenan el enlace.
 

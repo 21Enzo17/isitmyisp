@@ -10,7 +10,7 @@ Todo se configura desde **Configuración** en el navegador y se aplica en el mom
 
 "¿Es mi internet o está caído el banco?" Agregá cualquier servicio HTTP(S) o TCP y se chequea cada 30 segundos. Si falla mientras tu conexión anda bien, el veredicto dice que es ese servicio.
 
-Para Argentina hay servicios listos para tildar: ARCA (Clave Fiscal, facturación electrónica WSFEv1, WSAA), Rentas Jujuy, Banco Macro, Banco Nación, Galicia, Santander, Mercado Pago, Payway, Google Workspace, Microsoft 365, WhatsApp Web y Zoom.
+Para Argentina hay servicios listos para tildar: ARCA (Clave Fiscal, facturación electrónica WSFEv1, WSAA), Rentas Jujuy, Banco Macro, Banco Nación, Galicia, Santander, BBVA Argentina, Mercado Pago, Payway, Google Workspace, Microsoft 365, WhatsApp Web y Zoom.
 
 Cada uno dice qué chequea exactamente. Algunos se chequean por TCP porque su HTTPS no se puede evaluar de forma justa: el servidor de facturación de ARCA usa una configuración TLS que los clientes modernos rechazan, y Santander bloquea a los clientes automáticos.
 
@@ -75,9 +75,10 @@ Con un router con dos proveedores, isitmyisp nota en alrededor de un minuto cuá
 
 Cuando está activado:
 
-- Corre semanalmente (por defecto, el domingo a las 3) o cuando apretás "probar ahora".
+- Corre semanalmente (por defecto, el domingo a las 3), todos los días a la hora que elijas, o solo cuando apretás "probar ahora".
 - Respeta un presupuesto mensual de datos (5 GB por defecto).
-- No corre en el enlace de respaldo, durante un incidente ni con el enlace ocupado (más del 30 % por defecto).
+- Nunca corre en el enlace de respaldo ni pasado el presupuesto.
+- La prueba programada además espera si hay un incidente o el enlace está ocupado (más del 30 % por defecto). "Probar ahora" corre igual: la pediste vos.
 - Mide contra speed.cloudflare.com, que ve tu IP pública.
 - Mide también la latencia con el enlace lleno (bufferbloat) y avisa cuando el resultado lo limita tu Wi-Fi y no el ISP.
 - Mientras corre, esas ventanas no cuentan para el veredicto.
@@ -96,7 +97,7 @@ Con un servidor de cada lado, el panel y el informe comparan la mejor bajada de 
 | **El acceso** | Adentro y afuera dan parecido, pero aun dentro del ISP llegás a menos del 60 % de tu plan. El límite es tu acceso. |
 | **Sin cuello de botella en la salida** | Adentro y afuera dan parecido. |
 
-Las protecciones siguen valiendo: el tope de datos por prueba se reparte entre Cloudflare y tus servidores, y no corre en el enlace de respaldo ni durante un incidente. Necesita el programa `iperf3` en la máquina (la imagen de Docker lo trae), y cada servidor ve tu IP pública.
+Las protecciones siguen valiendo: el tope de datos por prueba se reparte entre Cloudflare y tus servidores, no corre en el enlace de respaldo, y la prueba programada sigue esperando si hay un incidente. Necesita el programa `iperf3` en la máquina (la imagen de Docker lo trae), y cada servidor ve tu IP pública.
 
 ## El router por SNMP
 

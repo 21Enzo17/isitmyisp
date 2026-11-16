@@ -15,7 +15,7 @@ The report puts everything that happened in a period into one file: what failed,
 
 - A plain-language summary: "3 incidents, 1 h 6 min in total; 2 were inside your ISP's network".
 - A timeline and where each problem was: your network, the ISP or others.
-- Time on the backup link, call quality and measured speed against your plan.
+- Time on the backup link, call quality and measured speed against your plan. With iperf3 servers on each side, the **Inside and outside the ISP** section says where the bottleneck was.
 
 **For the ISP's support and NOC:**
 

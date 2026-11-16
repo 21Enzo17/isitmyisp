@@ -289,7 +289,7 @@
       {% if not readonly %}
       <form method="post" action="{{ url_for('speedtest_run') }}" class="run-now">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="back" value="dashboard">
-        <label class="check"><input type="checkbox" name="confirm" value="1" required> {{ t.speed_confirm.format(size=sp.expected|size) }}</label>
+        <label class="check"><input type="checkbox" name="confirm" value="1" required> {{ t.speed_confirm.format(size=sp.expected|size, secs=sp.seconds) }}</label>
         <button class="btn" type="submit">{{ t.speed_run }}</button>
       </form>
       {% endif %}
