@@ -758,6 +758,8 @@ label.check input { width: 17px; height: 17px; accent-color: var(--accent); }
 }
 @media (max-width: 1100px) {   /* sidebar + two columns leaves each card too narrow for its meters */
   .dash-row.mid, .dash-row.low { grid-template-columns: minmax(0, 1fr); }
+  /* one column: drop the two-column placement, or column 2 comes back as an implicit, zero-width track */
+  .dash-row.low > .linkc, .dash-row.low > .calls, .dash-row.low > .svc { grid-column: auto; grid-row: auto; }
 }
 @media (max-width: 1400px) {
   .dash-row.first { grid-template-columns: repeat(3, minmax(0, 1fr)); }
