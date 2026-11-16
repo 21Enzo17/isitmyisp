@@ -28,7 +28,7 @@ REPO = "https://github.com/21Enzo17/isitmyisp"
 # (group, [slugs]); the first page of the first group is the docs home
 NAV = [
     ("start", ["index", "install", "raspberry-pi", "first-steps"]),
-    ("use", ["dashboard", "features", "alerts", "report"]),
+    ("use", ["dashboard", "features", "doctor", "alerts", "report"]),
     ("inside", ["verdict", "privacy", "security"]),
     ("help", ["faq"]),
 ]

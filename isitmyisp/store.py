@@ -66,6 +66,12 @@ CREATE TABLE IF NOT EXISTS networks (
     data TEXT NOT NULL           -- JSON
 );
 
+-- `isitmyisp doctor` results (doctor.to_dict), newest wins
+CREATE TABLE IF NOT EXISTS doctor_runs (
+    ts REAL NOT NULL,
+    data TEXT NOT NULL           -- JSON
+);
+
 -- WAN usage read from the router (SNMP), one row per window
 CREATE TABLE IF NOT EXISTS link_usage (
     ts REAL NOT NULL,
@@ -225,6 +231,12 @@ class Store:
     def add_network(self, data: dict, ts: float | None = None) -> None:
         with self._lock:
             self.db.execute("INSERT INTO networks VALUES (?,?)", (ts or time.time(), json.dumps(data)))
+            self.db.commit()
+
+    def add_doctor(self, data: dict) -> None:
+        with self._lock:
+            self.db.execute("INSERT INTO doctor_runs VALUES (?,?)", (data.get("ts") or time.time(), json.dumps(data)))
+            self.db.execute("DELETE FROM doctor_runs WHERE ts < ?", (time.time() - 400 * 86400,))
             self.db.commit()
 
     def commit(self) -> None:
@@ -419,6 +431,13 @@ class Store:
             row = self.db.execute("SELECT data FROM networks WHERE ts <= ? ORDER BY ts DESC LIMIT 1", (ts,)).fetchone()
             if not row:
                 row = self.db.execute("SELECT data FROM networks ORDER BY ts LIMIT 1").fetchone()
+        return json.loads(row[0]) if row else None
+
+    def last_doctor(self, until: float | None = None) -> dict | None:
+        """The latest doctor run (up to ``until``), as doctor.to_dict() wrote it."""
+        with self._lock:
+            row = self.db.execute("SELECT data FROM doctor_runs WHERE ts <= ? ORDER BY ts DESC LIMIT 1",
+                                  (until if until is not None else time.time() + 1,)).fetchone()
         return json.loads(row[0]) if row else None
 
     # ------------------------------------------------------------ settings & users

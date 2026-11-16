@@ -213,11 +213,28 @@ def add_speed_result(store: Store, now: float | None = None) -> None:
                                   bytes_used=412_000_000, seconds=15.2, wan_down_mbps=281.0, trigger="scheduled"))
 
 
+def add_doctor_run(store: Store, now: float | None = None) -> None:
+    """One check-up of the demo network: on Wi-Fi and with a slow DNS, the rest fine."""
+    from . import doctor
+    from .discovery import Network, PathHop
+    from .probes.mtr import Hop
+    now = now or time.time()
+    net = Network(gateway="192.168.1.1", interface="wlan0", wireless=True, dns_servers=["192.168.1.1"],
+                  home_routers=["192.168.1.1"], isp_hop="203.0.113.1",
+                  path=[PathHop(Hop(1, "192.168.1.1", 0.0, 5, 2.1, 1.8, 3.0, 0.3), "home"),
+                        PathHop(Hop(2, "203.0.113.1", 0.0, 5, 6.4, 5.9, 7.2, 0.4), "isp")])
+    facts = doctor.Facts(net=net, dns_ms={"192.168.1.1": [182.0, 171.0, 210.0]},
+                         dns_trapped=False, mtu=doctor.Mtu(1500, 1500), plan_mbps=300, router_uptime_s=12 * 86400,
+                         lan=LanStats(0, 15, ["04:18:92:7a:44:73"], 0, 5.0, 5.0), seconds=15)
+    store.add_doctor(doctor.to_dict(doctor.run_checks(facts), ts=now - 5 * 3600))
+
+
 def build(path, hours: float = 24.0, seed: int = 7, scenario: str = "healthy", lang: str = "en",
           speed: bool = False) -> Simulator:
     store = Store(path)
     sim = Simulator(store, lang=lang, seed=seed)
     sim.history(hours, scenario)
+    add_doctor_run(store)
     if speed:
         add_speed_result(store)
     return sim

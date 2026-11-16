@@ -49,7 +49,7 @@
     <a class="brand" href="{{ url_for('dashboard') }}"><svg class="mark" aria-hidden="true"><use href="#i-mark"/></svg><span>isitmyisp</span></a>
     <nav class="nav" aria-label="{{ t.nav_label }}">
       {% for key, endpoint, icon in [('dashboard', 'dashboard', 'panel'), ('incidents', 'incidents', 'incidents'),
-                                    ('tunnels', 'tunnels', 'tunnels'), ('reports', 'reports', 'reports'),
+                                    ('tunnels', 'tunnels', 'tunnels'), ('reports', 'reports', 'reports'), ('doctor', 'doctor', 'check'),
                                     ('settings', 'settings_page', 'settings')] %}
       <a href="{{ url_for(endpoint) }}"{% if active == key %} class="active" aria-current="page"{% endif %}>
         <svg class="ico" aria-hidden="true"><use href="#i-{{ icon }}"/></svg>{{ t.nav[key] }}</a>

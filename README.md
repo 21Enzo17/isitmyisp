@@ -110,6 +110,7 @@ The measuring core is plain Python with no dependencies; the web UI and the PDF 
 pip install -e '.[web,pdf]'
 isitmyisp discover          # gateway, ISP, DNS, CGNAT, IPv6, path segments
 isitmyisp status -s 30      # measure 30 s and get a verdict
+isitmyisp doctor            # network check-up: CGNAT, DNS, MTU, loops and more
 isitmyisp mtr 8.8.8.8       # mtr with real loss vs ICMP noise
 isitmyisp monitor           # measure continuously, with the web UI on 127.0.0.1:8080
 isitmyisp report --since 7d # self-contained HTML evidence report (--pdf for PDF)

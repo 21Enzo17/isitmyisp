@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ t.doctor_title }}{% endblock %}
+{% block content %}
+<div class="topbar"><h1>{{ t.doctor_title }}</h1><div class="right">
+  {% if not readonly %}<form class="inline" method="post" action="{{ url_for('doctor_run') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn primary" type="submit"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>{{ t.doctor_run }}</button></form>{% endif %}
+  {% include "_theme.html" %}</div></div>
+<p class="muted lead-narrow">{{ t.doctor_intro }}</p>
+{% if doc.pending %}<div class="flash ok" role="status">{{ t.doctor_pending }}</div>{% endif %}
+{% if not doc.run %}
+<div class="card hero"><h3>{{ t.doctor_title }}</h3><p class="muted">{{ t.doctor_none }}</p></div>
+{% else %}
+<div class="card doctor-sum">
+  <p class="doctor-grade g-{{ doc.grade|lower }}" aria-label="{{ t.doctor_grade.format(g=doc.grade) }}">{{ doc.grade }}</p>
+  <div><p><strong>{{ t.doctor_counts.format(**doc.counts) }}</strong></p>
+    <p class="muted">{{ t.doctor_when.format(when=doc.ts|dt) }} · {{ t.doctor_grade_note }}</p></div>
+</div>
+{% for grp in doc.groups %}
+<div class="card mt-16"><h3>{{ grp.title }}</h3>
+  <ul class="doctor-list">
+    {% for r in grp.rows %}
+    <li class="st-{{ r.status }}">
+      <span class="badge {{ {'ok': 'ok', 'warn': 'warn', 'bad': 'bad', 'skip': 'muted'}[r.status] }}">{{ t.doctor_status[r.status] }}</span>
+      <div><p class="doctor-name">{{ r.name }}</p><p>{{ r.text }}</p>
+        {% if r.advice %}<p class="doctor-todo"><strong>{{ t.doctor_todo }}:</strong> {{ r.advice }}</p>{% endif %}</div>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

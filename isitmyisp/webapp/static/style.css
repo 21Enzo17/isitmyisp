@@ -968,3 +968,22 @@ tr.bad-row td { background: color-mix(in srgb, var(--isp) 7%, transparent); }
 @media (max-width: 640px) { .range-menu .rp { grid-template-columns: minmax(0, 1fr); right: auto; left: 0; }
                             .range-menu .rp-abs { border-right: 0; border-bottom: 1px solid var(--line); } }
 .js .zoomable .hv a.c { -webkit-user-drag: none; user-select: none; }
+
+/* network check (isitmyisp doctor) */
+.lead-narrow { max-width: 70ch; }
+.doctor-sum { display: flex; gap: 20px; align-items: center; }
+.doctor-sum p { margin: 2px 0; }
+.doctor-grade { font-size: 44px; font-weight: 700; line-height: 1; margin: 0; width: 72px; height: 72px; flex: none;
+                display: grid; place-items: center; border-radius: var(--r);
+                background: color-mix(in srgb, var(--good) 18%, transparent); }
+.doctor-grade.g-b, .doctor-grade.g-c { background: color-mix(in srgb, var(--you) 22%, transparent); }
+.doctor-grade.g-d, .doctor-grade.g-f { background: color-mix(in srgb, var(--isp) 24%, transparent); }
+.doctor-list { list-style: none; margin: 0; padding: 0; }
+.doctor-list li { display: grid; grid-template-columns: 112px 1fr; gap: 14px; padding: 12px 0; border-top: 1px solid var(--line); }
+.doctor-list li:first-child { border-top: 0; padding-top: 0; }
+.doctor-list .badge { justify-self: start; align-self: start; }
+.doctor-list p { margin: 0 0 4px; }
+.doctor-list .doctor-name { font-weight: 600; }
+.doctor-list .st-skip p { color: var(--ink-2); }
+.doctor-todo { color: var(--ink-2); }
+@media (max-width: 560px) { .doctor-list li { grid-template-columns: 1fr; gap: 6px; } }

@@ -292,6 +292,18 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     def reports():
         return render_template("reports.html", active="reports")
 
+    @app.get("/doctor")
+    def doctor():
+        return render_template("doctor.html", active="doctor", doc=views.doctor_view(store, g.lang))
+
+    @app.post("/doctor/run")
+    def doctor_run():
+        """'Check now': the monitor picks it up within one window (the web UI may be another process)."""
+        _guard_write()
+        store.set_settings({"_doctor_request": time.time()}, bump=False)
+        flash(g.t["doctor_requested"])
+        return redirect(url_for("doctor"))
+
     def _period() -> tuple[float, float]:
         now = time.time()
         try:

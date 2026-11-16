@@ -727,3 +727,28 @@ def chart_view(store: Store, settings: Settings, span: str = "24h", k: int = 0,
                    for b in (tl.buckets if tl else [])]
     rows = [b for b in (tl.buckets if tl else []) if b.group != "none" or b.loss is not None]
     return ChartView(span, k, start, end, tl, zoom_in, nav, rows, spans, who, who_kind, first, now, custom)
+
+
+def doctor_view(store: Store, lang: str, now: float | None = None) -> dict | None:
+    """The latest `isitmyisp doctor` run, grouped by scope, with each check's text in ``lang``."""
+    from ..doctor import from_dict
+    from ..texts import DOCTOR_NAME, DOCTOR_SCOPE, doctor_text
+    run = store.last_doctor()
+    now = now or time.time()
+    requested = store.get_setting("_doctor_request") or 0
+    if run is None:
+        return {"run": None, "pending": requested > now - 600}
+    names, scopes = DOCTOR_NAME.get(lang, DOCTOR_NAME["en"]), DOCTOR_SCOPE.get(lang, DOCTOR_SCOPE["en"])
+    groups = []
+    checks = from_dict(run)
+    for scope in ("network", "probe"):
+        rows = []
+        for c in checks:
+            if c.scope == scope:
+                text, advice = doctor_text(c.key, c.params, lang)
+                rows.append({"id": c.id, "name": names.get(c.id, c.id), "status": c.status, "text": text,
+                             "advice": advice if c.status in ("warn", "bad") else ""})
+        groups.append({"scope": scope, "title": scopes[scope], "rows": rows})
+    counts = {s: sum(c.status == s for c in checks) for s in ("ok", "warn", "bad", "skip")}
+    return {"run": run, "ts": run["ts"], "grade": run["grade"], "counts": counts, "groups": groups,
+            "pending": requested > run["ts"] and requested > now - 600}

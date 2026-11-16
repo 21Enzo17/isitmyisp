@@ -86,6 +86,9 @@ R = {
         "ongoing": "ongoing", "capture": "mtr",
         "message": "Message for your ISP",
         "message_hint": "Copy and paste this into your support ticket. It only includes incidents inside the ISP's network.",
+        "doc_title": "Checked on the customer side",
+        "doc_intro": "What isitmyisp checked in the customer's own network ({when}), so it can be ruled out before looking at the ISP.",
+        "doc_status": {"ok": "Fine", "warn": "Look at it", "bad": "Wrong", "skip": "Not measured"},
         "msg_none": "In this period there were no incidents attributable to the ISP's network.",
         "msg_intro": ("Hello. Between {start} and {end} my connection had {n} {incidents} that the evidence places "
                       "in your network, {dur} in total. They were measured continuously from my premises with isitmyisp: "
@@ -199,6 +202,9 @@ R = {
         "ongoing": "en curso", "capture": "mtr",
         "message": "Mensaje para tu ISP",
         "message_hint": "Copialo y pegalo en tu reclamo. Solo incluye los incidentes dentro de la red del ISP.",
+        "doc_title": "Revisado del lado del cliente",
+        "doc_intro": "Lo que isitmyisp revisó en la red del propio cliente ({when}), para descartarlo antes de mirar al ISP.",
+        "doc_status": {"ok": "Bien", "warn": "Para mirar", "bad": "Mal", "skip": "Sin medir"},
         "msg_none": "En este período no hubo incidentes atribuibles a la red del ISP.",
         "msg_intro": ("Hola. Entre el {start} y el {end} mi conexión tuvo {n} {incidents} que la evidencia ubica "
                       "en su red, {dur} en total. Los medí de forma continua desde mis instalaciones con isitmyisp: la "
@@ -731,6 +737,25 @@ nav.bar a:hover { text-decoration: underline; }
 """
 
 
+DOC_COLOR = {"ok": COLORS["ok"], "warn": COLORS["local"], "bad": COLORS["access"], "skip": COLORS["no_data"]}
+
+
+def doctor_section(run: dict | None, t: dict, lang: str) -> str:
+    """The latest `isitmyisp doctor` run: the customer's side, checked line by line (empty if never run)."""
+    if not run:
+        return ""
+    from .doctor import from_dict
+    from .texts import DOCTOR_NAME, DOCTOR_SCOPE, doctor_text
+    names, scopes = DOCTOR_NAME.get(lang, DOCTOR_NAME["en"]), DOCTOR_SCOPE.get(lang, DOCTOR_SCOPE["en"])
+    rows = []
+    for c in sorted(from_dict(run), key=lambda c: c.scope != "network"):
+        text, _ = doctor_text(c.key, c.params, lang)
+        rows.append(f'<tr><td><span class="dot" style="background:{DOC_COLOR[c.status]}"></span>{_e(t["doc_status"][c.status])}</td>'
+                    f'<td>{_e(names.get(c.id, c.id))}</td><td>{_e(text)}</td><td class="muted">{_e(scopes[c.scope])}</td></tr>')
+    return (f'<h2>{_e(t["doc_title"])}</h2><p class="muted">{_e(t["doc_intro"].format(when=_dt(run["ts"])))}</p>'
+            f'<table><tbody>{"".join(rows)}</tbody></table>')
+
+
 def call_periods(store: Store, start: float, end: float, min_seconds: float = 120,
                  limit: int = 12) -> tuple[float, list[tuple[float, float, float]]] | None:
     """(% of windows fit for calls, [(start, end, worst MOS)] stretches that weren't, longest first).
@@ -893,6 +918,7 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
     out.append(f'<section class="part annex"><h2 class="part-h">{_e(t["annex_title"])}</h2><p class="muted">{_e(t["annex_sub"])}</p>')
     out.append(f'<h2>{_e(t["message"])}</h2><p class="muted">{_e(t["message_hint"])}</p>'
                f'<pre class="message">{_e(isp_message(incidents, captures, t, start, end, now, drops))}</pre>')
+    out.append(doctor_section(store.last_doctor(until=end), t, lang))
 
     # ---- by segment
     if incidents:
