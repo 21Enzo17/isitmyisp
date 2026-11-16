@@ -726,6 +726,7 @@ label.check input { width: 17px; height: 17px; accent-color: var(--accent); }
 .ev-t { font-weight: 500; font-size: 14.5px; }
 .ev-w { font-size: 13px; color: var(--ink-3); margin-top: 2px; font-variant-numeric: tabular-nums; }
 .ev-int { color: var(--ink-2); font-weight: 500; }
+.ev-sum { margin: 0 0 4px; color: var(--ink); }
 .ev-list li.now .ev-t { color: var(--ink); font-weight: 600; }
 
 /* three columns only when the 24-hour chart (and its table) gets real width: on a 1366 or 1440 laptop
