@@ -82,6 +82,22 @@ When it's on:
 - It also measures latency with the link full (bufferbloat) and warns when the result is limited by your Wi-Fi rather than the ISP.
 - While it runs, those windows don't count towards the verdict.
 
+### Inside and outside your ISP
+
+Cloudflare alone can't tell a slow access from a slow exit. In **Settings → Speed test against your plan** you can add up to three [iperf3](https://iperf.fr/) servers of your own: a VPS, another branch, or a server inside your ISP's network. One per line, as `host[:port]` (5201 by default).
+
+Each server is marked **inside** or **outside** your ISP by its autonomous system (ASN), against your ISP's. An address in the ISP's CGNAT space counts as inside. A LAN or VPN address can't be told apart, so write `inside` or `outside` after it (`10.8.0.1 outside`). Marking by ASN needs the ASN data (**Settings → Main ISP and backup link → ISP names**) or `--asn-online`.
+
+With one server on each side, the dashboard and the report compare the best download of each:
+
+| Result | What it means |
+|---|---|
+| **The ISP's exit** | Outside is under 60 % of inside, for example 300 Mbps up to the ISP and 40 to the rest of the internet. The bottleneck is its peering or transit, not your access. |
+| **The access** | Inside and outside are alike, but even inside the ISP you get under 60 % of your plan. The limit is your access link. |
+| **No bottleneck at the exit** | Inside and outside are alike. |
+
+The guards still hold: the data cap per test is shared between Cloudflare and your servers, and it doesn't run on the backup link or during an incident. It needs the `iperf3` program on the machine (the Docker image ships it), and each server sees your public IP.
+
 ## The router over SNMP
 
 Every ISP's favourite objection is "you saturated your own link". Connect your router over SNMP (v2c, read-only) and isitmyisp reads the WAN interface usage and CPU every window. That rules out the objection, or tells you they were right. It needs your plan's speeds to know when the link is full.

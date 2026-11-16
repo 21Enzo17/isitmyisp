@@ -20,6 +20,7 @@ isitmyisp está pensado para correr meses en tu red. Por defecto **nunca manda t
 | api.ipify.org | solo con `--public-ip` | un pedido HTTPS (les revela tu IP pública) | **no** |
 | Tus servicios | solo los que agregues | un GET HTTP (o conexión TCP) cada 30 s | **no** |
 | speed.cloudflare.com | solo si activás el test de velocidad | descargas y subidas de unos 15 s; Cloudflare ve tu IP pública | **no** |
+| Tus servidores iperf3 | solo los que agregues al test de velocidad | descargas y subidas de unos 15 s cada uno; cada servidor ve tu IP pública | **no** |
 | Tu router por SNMP | solo si lo conectás | lectura de los contadores de la WAN y la CPU | **no** |
 | Telegram, tu servidor SMTP o tu webhook | solo si activás alertas | el texto de la alerta | **no** |
 

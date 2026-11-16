@@ -20,6 +20,7 @@ isitmyisp is meant to run on your network for months. By default it **never send
 | api.ipify.org | only with `--public-ip` | one HTTPS request (reveals your public IP to them) | **off** |
 | Your services | only the ones you add | an HTTP GET (or TCP connect) every 30 s | **off** |
 | speed.cloudflare.com | only if you turn on the speed test | ~15 s of downloads and uploads; Cloudflare sees your public IP | **off** |
+| Your iperf3 servers | only the ones you add to the speed test | ~15 s of downloads and uploads each; each server sees your public IP | **off** |
 | Your router over SNMP | only if you connect it | reads of the WAN counters and CPU | **off** |
 | Telegram, your SMTP server or your webhook | only if you enable alerts | the alert text | **off** |
 

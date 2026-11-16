@@ -68,7 +68,7 @@ Al arrancar por primera vez, el registro (`docker logs isitmyisp`) muestra un **
 
 ## Sin Docker
 
-Hace falta Linux, `fping` (recomendado) o el `ping` de iputils, y `mtr`. El núcleo que mide no tiene dependencias de Python; el panel web y el PDF son extras.
+Hace falta Linux, `fping` (recomendado) o el `ping` de iputils, y `mtr` (`iperf3` solo si agregás servidores propios al test de velocidad). El núcleo que mide no tiene dependencias de Python; el panel web y el PDF son extras.
 
 ```bash
 pip install 'isitmyisp[web,pdf] @ git+https://github.com/21Enzo17/isitmyisp.git'

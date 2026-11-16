@@ -293,6 +293,20 @@
         {{ t.speed_when.format(when=r.ts|dt, trigger=t.speed_trigger[r.trigger], size=r.bytes_used|size) }}
         {% if r.wan_down_mbps %}{{ t.speed_wan.format(wan='%.0f'|format(r.wan_down_mbps)) }}{% endif %}
       </p>
+      {% if r.servers %}
+      <table class="speed-where">
+        <thead><tr><th>{{ t.speed_server }}</th><th>{{ t.speed_side }}</th><th class="num">{{ t.link_down }}</th><th class="num">{{ t.link_up }}</th></tr></thead>
+        <tbody>
+          <tr><td>speed.cloudflare.com</td><td>{{ speed_side(r.where, lang) }}</td><td class="num">{{ '%.0f'|format(r.down_mbps or 0) }}</td><td class="num">{{ '%.0f'|format(r.up_mbps or 0) }}</td></tr>
+          {% for s in r.servers %}
+          <tr><td>{{ s.name }}{% if s.asn %} <span class="muted small">{{ s.asn }}</span>{% endif %}</td><td>{{ speed_side(s.where, lang) }}</td>
+            {% if s.error %}<td colspan="2" class="muted small">{{ s.error }}</td>
+            {% else %}<td class="num">{{ '%.0f'|format(s.down_mbps or 0) }}</td><td class="num">{{ '%.0f'|format(s.up_mbps or 0) }}</td>{% endif %}</tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if sp.where %}<p class="speed-where-says{{ ' bad' if sp.where.code != 'even' }}">{{ speed_where_text(sp.where, lang) }}</p>{% endif %}
+      {% endif %}
       {% if r.wireless %}<p class="speed-warn">{{ t.speed_wifi_result }}</p>{% endif %}
       {% endif %}
       {% endif %}

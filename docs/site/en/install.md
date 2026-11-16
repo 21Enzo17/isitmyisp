@@ -68,7 +68,7 @@ On first start, the log (`docker logs isitmyisp`) prints a **one-time setup toke
 
 ## Without Docker
 
-You need Linux, `fping` (recommended) or iputils `ping`, and `mtr`. The measuring core has no Python dependencies; the web UI and PDF are extras.
+You need Linux, `fping` (recommended) or iputils `ping`, and `mtr` (`iperf3` only if you add your own servers to the speed test). The measuring core has no Python dependencies; the web UI and PDF are extras.
 
 ```bash
 pip install 'isitmyisp[web,pdf] @ git+https://github.com/21Enzo17/isitmyisp.git'

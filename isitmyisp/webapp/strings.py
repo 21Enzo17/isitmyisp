@@ -76,6 +76,13 @@ S = {
         "speed_budget": "Monthly data budget (GB)", "speed_busy": "Skip if the link is busier than (%)",
         "speed_budget_hint": "Cap per test: {per} (with your plan a test uses about {exp}). Used this month: {used} of {budget}.",
         "speed_on_backup": "Also run on the backup link (careful with data caps)",
+        "speed_servers": "Your own iperf3 servers (optional, one per line)",
+        "speed_servers_hint": ("Up to {max}: your VPS, another branch, or a server inside your ISP's network. Format: host[:port], "
+                               "and add inside or outside if the ASN can't tell (a VPN address, say). Each one is marked inside or "
+                               "outside your ISP by its ASN, and comparing both tells whether the bottleneck is your access or the "
+                               "ISP's exit. The data cap per test is shared between all of them, Cloudflare included."),
+        "speed_no_iperf": "iperf3 is not installed on this machine: those servers will show an error until you install it.",
+        "speed_server": "Server", "speed_side": "Where",
         "speed_confirm": "Yes, fill my link for about 15 seconds and use up to {size}",
         "speed_run": "Test the speed now", "speed_confirm_needed": "Tick the box to confirm the test.",
         "dev_title": "Check from this device",
@@ -439,6 +446,14 @@ S = {
         "speed_budget": "Presupuesto mensual de datos (GB)", "speed_busy": "No correr si el enlace está ocupado más de (%)",
         "speed_budget_hint": "Tope por prueba: {per} (con tu plan una prueba usa unos {exp}). Usado este mes: {used} de {budget}.",
         "speed_on_backup": "Correr también en el enlace de respaldo (cuidado con los topes de datos)",
+        "speed_servers": "Tus servidores iperf3 (opcional, uno por línea)",
+        "speed_servers_hint": ("Hasta {max}: tu VPS, otra sucursal o un servidor dentro de la red de tu ISP. Formato: host[:puerto], "
+                               "y agregá inside u outside si el ASN no alcanza para saberlo (una dirección de VPN, por ejemplo). "
+                               "Cada uno se marca dentro o fuera de tu ISP por su ASN, y comparar los dos dice si el cuello de "
+                               "botella es tu acceso o la salida del ISP. El tope de datos por prueba se reparte entre todos, "
+                               "Cloudflare incluido."),
+        "speed_no_iperf": "iperf3 no está instalado en esta máquina: esos servidores van a dar error hasta que lo instales.",
+        "speed_server": "Servidor", "speed_side": "Dónde",
         "speed_confirm": "Sí, llenar mi enlace unos 15 segundos y usar hasta {size}",
         "speed_run": "Medir la velocidad ahora", "speed_confirm_needed": "Marcá la casilla para confirmar la prueba.",
         "dev_title": "Chequear desde este equipo",
