@@ -218,3 +218,43 @@ def doctor_text(key: str, params: dict, lang: str = "en") -> tuple[str, str]:
         return text.format(**params), advice.format(**params)
     except (KeyError, IndexError):
         return text, advice
+
+
+# "Check from this device" (#66): per verdict, (headline, what to do); {probe} is the probe's verdict name
+DEVCHECK = {
+    "en": {
+        "fine": ("The network is fine from this device too.",
+                 "If an app or a site still fails, it's that app or that service, not your connection."),
+        "device_link": ("The problem is between this device and the router: the probe, with the same router, was fine.",
+                        ("Get closer to the router or use a cable; try another cable or switch port; restart the device. "
+                        "The ISP is not to blame.")),
+        "device_path": ("This device reaches the router fine but not the internet, while the probe did.",
+                        ("Look at this device: a VPN, a firewall or antivirus, a proxy or a browser extension. "
+                        "The network and the ISP are fine.")),
+        "shared": ("The probe saw the same at the same time ({probe}): it's not this device.",
+                   "Follow the probe's verdict on the dashboard."),
+        "no_probe": ("The probe wasn't measuring at that time, so there is nothing to compare with.",
+                     "Check that the monitor is running and try again."),
+    },
+    "es": {
+        "fine": ("Desde este equipo la red también anda bien.",
+                 "Si una app o una página sigue fallando, es esa app o ese servicio, no tu conexión."),
+        "device_link": ("El problema está entre este equipo y el router: la sonda, con el mismo router, andaba bien.",
+                        ("Acercate al router o usá un cable; probá otro cable u otro puerto del switch; reiniciá el equipo. "
+                        "La culpa no es del ISP.")),
+        "device_path": ("Este equipo llega bien al router pero no a internet, y la sonda sí.",
+                        ("Revisá este equipo: una VPN, un firewall o antivirus, un proxy o una extensión del navegador. "
+                        "La red y el ISP andan.")),
+        "shared": ("La sonda vio lo mismo al mismo tiempo ({probe}): no es este equipo.",
+                   "Seguí el veredicto de la sonda en el panel."),
+        "no_probe": ("La sonda no estaba midiendo en ese momento, así que no hay con qué comparar.",
+                     "Fijate que el monitor esté corriendo y probá de nuevo."),
+    },
+}
+
+
+def devcheck_text(rec: dict, lang: str = "en") -> tuple[str, str]:
+    """(headline, what to do) for one device check, in ``lang``."""
+    text, advice = DEVCHECK.get(lang, DEVCHECK["en"])[rec["code"]]
+    probe = (rec.get("probe") or {}).get("bad")
+    return text.format(probe=VERDICT.get(lang, VERDICT["en"]).get(probe, probe or "")), advice

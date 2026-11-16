@@ -229,12 +229,29 @@ def add_doctor_run(store: Store, now: float | None = None) -> None:
     store.add_doctor(doctor.to_dict(doctor.run_checks(facts), ts=now - 5 * 3600))
 
 
+def add_device_checks(store: Store, now: float | None = None) -> None:
+    """Two "Check from this device" results: a phone with weak Wi-Fi, and a PC where all is fine."""
+    from . import devcheck
+    now = now or time.time()
+    ok = [(now, 30.0, "ok")] * 2
+    tcp = [{"role": "tcp", "target": f"tcp://{a}:443", "received": 10} for a in ("1.1.1.1", "8.8.8.8", "9.9.9.9")]
+    phone = {"lan": [38, 210, None, 95, 160, None, 44, 300, 120, None, 80, 260, 52, 140, None, 70, 230, 99, 180, 61],
+             "down_mbps": 3.2, "up_mbps": 1.4, "inet": {a: [140, 260, None, 190, 220] for a in ("1.1.1.1", "8.8.8.8")}}
+    pc = {"lan": [2.1, 1.8, 2.4, 2.0, 1.9] * 4, "down_mbps": 912.0, "up_mbps": 880.0,
+          "inet": {a: [9.8, 10.4, 9.9, 11.0, 10.1] for a in ("1.1.1.1", "8.8.8.8", "9.9.9.9")}}
+    for ago, label, dev in ((26 * 60, "Android · Chrome", phone), (3 * 3600, "Windows · Edge", pc)):
+        rec = devcheck.cross(dev, ok, tcp)
+        rec.update(ts=now - ago, seconds=15.0, device=label, key=label, user="demo")
+        store.add_device_check(rec)
+
+
 def build(path, hours: float = 24.0, seed: int = 7, scenario: str = "healthy", lang: str = "en",
           speed: bool = False) -> Simulator:
     store = Store(path)
     sim = Simulator(store, lang=lang, seed=seed)
     sim.history(hours, scenario)
     add_doctor_run(store)
+    add_device_checks(store)
     if speed:
         add_speed_result(store)
     return sim

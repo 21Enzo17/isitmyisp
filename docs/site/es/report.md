@@ -23,6 +23,7 @@ El informe junta en un archivo todo lo que pasó en un período: qué falló, cu
 - Para cada uno, el salto y el sistema autónomo (AS) donde empieza la pérdida, que es la forma en que ellos ubican una falla.
 - Cada captura de `mtr` que se tomó durante el incidente.
 - La metodología: qué se midió, cómo y qué se descartó.
+- Si lo usaste, el [chequeo desde tus equipos](device-check.md): "Probado desde 3 equipos", con lo que dio cada uno.
 
 ## Lo que prueba y lo que no
 

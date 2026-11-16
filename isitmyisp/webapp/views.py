@@ -734,3 +734,27 @@ def doctor_view(store: Store, lang: str, now: float | None = None) -> dict | Non
     counts = {s: sum(c.status == s for c in checks) for s in ("ok", "warn", "bad", "skip")}
     return {"run": run, "ts": run["ts"], "grade": run["grade"], "counts": counts, "groups": groups,
             "pending": requested > run["ts"] and requested > now - 600}
+
+
+def _device_row(rec: dict, lang: str) -> dict:
+    from ..texts import VERDICT, devcheck_text
+    text, advice = devcheck_text(rec, lang)
+    p = rec.get("probe") or {}
+    return {"id": rec.get("id"), "ts": rec["ts"], "device": rec.get("device", "?"), "code": rec["code"],
+            "text": text, "advice": advice if rec["code"] != "fine" else "",
+            "status": {"fine": "ok", "device_link": "bad", "device_path": "bad", "shared": "warn"}.get(rec["code"], "skip"),
+            "lan": rec.get("lan") or {}, "inet": rec.get("inet") or {}, "why": rec.get("why") or [],
+            "down": rec.get("down_mbps"), "up": rec.get("up_mbps"),
+            "probe_n": p.get("windows", 0), "probe_bad_n": p.get("bad_windows", 0),
+            "probe_bad": VERDICT.get(lang, VERDICT["en"]).get(p.get("bad"), p.get("bad")) if p.get("bad") else None}
+
+
+def device_check_view(store: Store, lang: str, check_id: int = 0, now: float | None = None,
+                      latest: bool = False) -> dict:
+    """One device check (``check_id``, just run; the newest with ``latest``, for the demo) and the
+    latest ones, with their texts in ``lang``."""
+    now = now or time.time()
+    recent = store.device_checks_between(now - 30 * 86400, now + 60, limit=10)
+    current = store.device_check(check_id) if check_id else (recent[0] if latest and recent else None)
+    return {"current": _device_row(current, lang) if current else None,
+            "recent": [_device_row(r, lang) for r in recent if not current or r["id"] != current["id"]]}

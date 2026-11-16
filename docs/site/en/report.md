@@ -23,6 +23,7 @@ The report puts everything that happened in a period into one file: what failed,
 - For each one, the hop and the autonomous system (AS) where loss starts, which is how they locate a fault.
 - Every `mtr` capture taken during the incident.
 - The methodology: what was measured, how, and what was ruled out.
+- If you used it, the [check from your devices](device-check.md): "Tested from 3 devices", with what each one found.
 
 ## What it proves and what it doesn't
 
