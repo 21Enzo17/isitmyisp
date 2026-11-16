@@ -14,12 +14,21 @@ Why it can hurt, which is why it ships disabled and asks you to accept the risks
 
 Scheduled tests also skip when an incident is open or the router (SNMP) shows the link busy:
 a test on a busy link measures the leftovers, and makes the busy users' problem worse.
+
+Inside and outside the ISP: besides Cloudflare you can add up to MAX_SERVERS iperf3 servers (your
+own VPS, another branch, or one inside the ISP's network). Each one is marked inside or outside the
+ISP by its ASN, and comparing both says where the bottleneck is: 300 Mbps up to the ISP and 40 to
+the rest of the internet is its exit (peering, transit), not your access. The test's data cap is
+shared between all the servers, and the other guards (budget, incidents, backup link) still hold.
 """
 
 from __future__ import annotations
 
 import calendar
+import json
 import re
+import shutil
+import socket
 import statistics
 import subprocess
 import threading
@@ -29,6 +38,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from . import __version__
+from .netutil import ip_kind
 from .probes.icmp import C_ENV
 
 DOWN_URL = "https://speed.cloudflare.com/__down?bytes={n}"
@@ -43,8 +53,14 @@ UA = f"isitmyisp/{__version__} (+speed test)"
 SCHEDULES = ("weekly", "daily", "manual")
 PER_TEST_MAX = 2_000_000_000  # enough for 1 Gbps down for 8 s plus the upload; never more per test
 
+CLOUDFLARE_ASN = "AS13335"
+IPERF_PORT = 5201
+MAX_SERVERS = 3
+WHERE = ("auto", "inside", "outside")   # auto: by the server's ASN against your ISP's
+SLOW_RATIO = 0.6   # outside below 60 % of inside: the exit is the bottleneck (inside below 60 % of the plan: the access)
+
 DEFAULTS = {"enabled": False, "accepted": False, "schedule": "weekly", "weekday": 6, "hour": 3,
-            "budget_gb": 5.0, "run_on_backup": False, "max_busy_pct": 30}
+            "budget_gb": 5.0, "run_on_backup": False, "max_busy_pct": 30, "servers": []}
 
 
 class SpeedError(RuntimeError):
@@ -65,6 +81,8 @@ class Result:
     trigger: str = "manual"           # manual | scheduled
     error: str | None = None
     notes: list[str] = field(default_factory=list)
+    where: str = "outside"            # Cloudflare's side of the ISP (inside only if your ISP is Cloudflare)
+    servers: list[dict] = field(default_factory=list)  # the iperf3 servers: see run_server()
 
 
 # ------------------------------------------------------------------ measuring
@@ -161,8 +179,28 @@ def run(max_bytes: int, *, wireless: bool = False, trigger: str = "manual",
         counters: Callable[[], tuple[int, int] | None] | None = None,
         opener=urllib.request.urlopen, ping: Callable[[str, int, float], list[float]] = _ping,
         clock: Callable[[], float] = time.monotonic, down_seconds: float = DOWN_SECONDS,
-        up_seconds: float = UP_SECONDS) -> Result:
-    """One test. Download gets 70 % of the byte cap, upload 30 %; each stops at its time or its cap."""
+        up_seconds: float = UP_SECONDS, servers: list[dict] | None = None,
+        mark: Callable[[str], dict] | None = None, isp_asn: str | None = None,
+        iperf: Callable[..., tuple[float | None, int]] | None = None) -> Result:
+    """One test. Cloudflare first, then each iperf3 server; the byte cap is split evenly between them.
+    Download gets 70 % of each share, upload 30 %; each stops at its time or its cap."""
+    servers = servers or []
+    share = max_bytes // (1 + len(servers))
+    res = _run_cloudflare(share, wireless=wireless, trigger=trigger, counters=counters, opener=opener,
+                          ping=ping, clock=clock, down_seconds=down_seconds, up_seconds=up_seconds)
+    if isp_asn == CLOUDFLARE_ASN:
+        res.where = "inside"
+    started = clock()
+    for srv in servers:
+        one = run_server(srv, share, mark=mark, iperf=iperf, down_seconds=down_seconds, up_seconds=up_seconds)
+        res.servers.append(one)
+        res.bytes_used += one["bytes"]
+    res.seconds = round(res.seconds + clock() - started, 1)
+    return res
+
+
+def _run_cloudflare(max_bytes: int, *, wireless, trigger, counters, opener, ping, clock,
+                    down_seconds, up_seconds) -> Result:
     res = Result(ts=time.time(), wireless=wireless, trigger=trigger)
     started = clock()
     idle = ping("1.1.1.1", 5, 0.2)
@@ -193,6 +231,114 @@ def run(max_bytes: int, *, wireless: bool = False, trigger: str = "manual",
         res.error = str(exc)
     res.seconds = round(clock() - started, 1)
     return res
+
+
+# ------------------------------------------------------------------ iperf3 servers, inside or outside the ISP
+
+def iperf_available() -> bool:
+    return shutil.which("iperf3") is not None
+
+
+def _iperf3(host: str, port: int, max_bytes: int, *, reverse: bool, seconds: float,
+            runner=subprocess.run) -> tuple[float | None, int]:
+    """One direction against an iperf3 server: (Mbps, bytes moved). The rate cap (-b, per stream)
+    is what keeps it within its bytes: iperf3 can stop at a time or at a size, not at whichever
+    comes first. The first second (TCP slow start) is omitted from the result, like Cloudflare's."""
+    secs = max(1, int(seconds))
+    rate = max(8_000, int(max_bytes * 8 / (secs + 1) / STREAMS))
+    cmd = ["iperf3", "-c", host, "-p", str(port), "-J", "-t", str(secs), "-O", "1", "-P", str(STREAMS),
+           "-b", str(rate), "--connect-timeout", "5000"] + (["-R"] if reverse else [])
+    try:
+        out = runner(cmd, capture_output=True, text=True, timeout=secs + 25, env=C_ENV).stdout
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise SpeedError(f"{host}: {exc}") from exc
+    try:
+        data = json.loads(out or "{}")
+    except ValueError as exc:
+        raise SpeedError(f"{host}: unreadable iperf3 output") from exc
+    if data.get("error"):
+        raise SpeedError(f"{host}: {data['error']}")
+    end = data.get("end") or {}
+    recv, sent = end.get("sum_received") or {}, end.get("sum_sent") or {}
+    bps = recv.get("bits_per_second")
+    moved = max(int(recv.get("bytes") or 0), int(sent.get("bytes") or 0))
+    moved = int(moved * (secs + 1) / secs)       # plus the omitted second, which also used data
+    return (round(bps / 1e6, 1) if bps else None), moved
+
+
+def label(srv: dict) -> str:
+    host = f"[{srv['host']}]" if ":" in srv["host"] else srv["host"]
+    return host if srv.get("port", IPERF_PORT) == IPERF_PORT else f"{host}:{srv['port']}"
+
+
+def run_server(srv: dict, max_bytes: int, *, mark: Callable[[str], dict] | None = None,
+               iperf: Callable[..., tuple[float | None, int]] | None = None,
+               down_seconds: float = DOWN_SECONDS, up_seconds: float = UP_SECONDS) -> dict:
+    """Download (-R) and upload against one iperf3 server, and which side of the ISP it is on."""
+    out = {"name": label(srv), "where": None, "forced": srv.get("where", "auto") != "auto", "asn": None,
+           "as_name": None, "down_mbps": None, "up_mbps": None, "bytes": 0, "error": None}
+    info = (mark or (lambda host: {}))(srv["host"]) or {}
+    out.update({k: info.get(k) for k in ("asn", "as_name", "where")})
+    if out["forced"]:
+        out["where"] = srv["where"]
+    if iperf is None:
+        if not iperf_available():
+            out["error"] = "iperf3 is not installed"
+            return out
+        iperf = _iperf3
+    port = int(srv.get("port", IPERF_PORT))
+    try:
+        out["down_mbps"], down = iperf(srv["host"], port, int(max_bytes * 0.7), reverse=True, seconds=down_seconds)
+        out["bytes"] += down
+        out["up_mbps"], up = iperf(srv["host"], port, int(max_bytes * 0.3), reverse=False, seconds=up_seconds)
+        out["bytes"] += up
+    except SpeedError as exc:
+        out["error"] = str(exc)
+    return out
+
+
+def mark(host: str, *, isp_asn: str | None, data_dir=None, online: bool = False,
+         resolve=socket.getaddrinfo, lookup=None) -> dict:
+    """Which side of the ISP a server is on: 'inside' (same ASN as your ISP, or in its CGNAT space),
+    'outside' (another ASN), 'private' (a LAN or VPN address: can't tell) or None (no ASN data)."""
+    try:
+        ip = resolve(host, None, type=socket.SOCK_STREAM)[0][4][0]
+    except (OSError, IndexError, UnicodeError):
+        return {"where": None, "asn": None, "as_name": None}
+    kind = ip_kind(ip)
+    if kind == "cgnat":
+        return {"where": "inside", "asn": isp_asn, "as_name": None}
+    if kind != "public":
+        return {"where": "private", "asn": None, "as_name": None}
+    if lookup is None:
+        from .asn import lookup
+    asn_, name = lookup([ip], data_dir=data_dir, online=online).get(ip) or (None, None)
+    where = None if not (asn_ and isp_asn) else ("inside" if asn_ == isp_asn else "outside")
+    return {"where": where, "asn": asn_, "as_name": name}
+
+
+def locate(res: dict, plan_down: float = 0.0) -> dict | None:
+    """Where the bottleneck is, comparing the best download inside the ISP with the best outside.
+    None when one of the two sides wasn't measured. Codes:
+      exit:   outside < 60 % of inside: the ISP's exit (peering, transit) is the limit, not your access;
+      access: both alike, but under 60 % of the plan even inside the ISP: the access itself;
+      even:   inside and outside alike, and near the plan (or no plan to compare with)."""
+    sides: dict[str, list[tuple[float, str]]] = {"inside": [], "outside": []}
+    if not res.get("error") and res.get("down_mbps"):
+        sides[res.get("where") or "outside"].append((res["down_mbps"], SERVER))
+    for s in res.get("servers") or []:
+        if not s.get("error") and s.get("down_mbps") and s.get("where") in sides:
+            sides[s["where"]].append((s["down_mbps"], s["name"]))
+    if not (sides["inside"] and sides["outside"]):
+        return None
+    (inside, in_name), (outside, out_name) = max(sides["inside"]), max(sides["outside"])
+    if outside < SLOW_RATIO * inside:
+        code = "exit"
+    elif plan_down and inside < SLOW_RATIO * plan_down:
+        code = "access"
+    else:
+        code = "even"
+    return {"code": code, "inside": inside, "outside": outside, "inside_name": in_name, "outside_name": out_name}
 
 
 # ------------------------------------------------------------------ scheduling and safety
@@ -270,6 +416,40 @@ def validate(raw: dict, current: dict) -> dict:
     if not 5 <= out["max_busy_pct"] <= 100:
         raise ValueError("the busy limit must be between 5 and 100 %")
     out["run_on_backup"] = bool(raw.get("run_on_backup"))
+    if "servers" in raw:
+        out["servers"] = parse_servers(raw["servers"])
+    return out
+
+
+_HOST = re.compile(r"^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,62}[A-Za-z0-9])?\.)*[A-Za-z0-9](?:[A-Za-z0-9-]{0,62}[A-Za-z0-9])?$")
+
+
+def parse_servers(text: str | list) -> list[dict]:
+    """One iperf3 server per line: `host[:port] [inside|outside]` (IPv6 in brackets). Without
+    inside/outside, the side is told by the server's ASN."""
+    lines = text if isinstance(text, list) else str(text or "").splitlines()
+    out = []
+    for line in lines:
+        if isinstance(line, dict):
+            line = f"{label(line)} {line.get('where', 'auto')}"
+        parts = line.split("#", 1)[0].split()
+        if not parts:
+            continue
+        if len(parts) > 2 or (len(parts) == 2 and parts[1].lower() not in WHERE):
+            raise ValueError(f"iperf3 server: {line.strip()!r} (host[:port] and, optionally, inside or outside)")
+        where = parts[1].lower() if len(parts) == 2 else "auto"
+        m = re.fullmatch(r"\[([0-9A-Fa-f:.]+)\](?::(\d+))?|([^:\s]+)(?::(\d+))?", parts[0])
+        if not m:
+            raise ValueError(f"iperf3 server: {parts[0]!r}")
+        host, port = (m.group(1), m.group(2)) if m.group(1) else (m.group(3), m.group(4))
+        if not m.group(1) and not _HOST.match(host):
+            raise ValueError(f"iperf3 server: {host!r} is not a host name or address")
+        port = int(port or IPERF_PORT)
+        if not 1 <= port <= 65535:
+            raise ValueError(f"iperf3 server: port {port}")
+        out.append({"host": host, "port": port, "where": where})
+    if len(out) > MAX_SERVERS:
+        raise ValueError(f"at most {MAX_SERVERS} iperf3 servers")
     return out
 
 
@@ -283,8 +463,9 @@ class Runner:
 
     REQUEST_TTL = 600  # a "test now" press older than this (monitor was down) is ignored
 
-    def __init__(self, store, run_fn=run):
+    def __init__(self, store, run_fn=run, data_dir=None, asn_online: bool = False):
         self.store, self.run_fn = store, run_fn
+        self.data_dir, self.asn_online = data_dir, asn_online
         self.thread: threading.Thread | None = None
         self.started: float | None = None
         self.ended: float | None = None
@@ -301,7 +482,7 @@ class Runner:
         return self.running() or (self.ended is not None and self.ended > now - window)
 
     def tick(self, cfg: dict, now: float, *, wireless: bool, on_backup: bool, incident: bool,
-             link_busy_pct: float | None, counters=None) -> str | None:
+             link_busy_pct: float | None, counters=None, isp_asn: str | None = None) -> str | None:
         """Start a test if one is due or was requested. Returns what happened: 'started', a blocking
         reason, or None (nothing to do)."""
         if self.running():
@@ -323,10 +504,14 @@ class Runner:
             return reason
         cap = per_test_bytes(cfg)
         trigger = "manual" if manual else "scheduled"
+        extra = {}
+        if cfg.get("servers"):
+            extra = {"servers": cfg["servers"], "isp_asn": isp_asn,
+                     "mark": lambda host: mark(host, isp_asn=isp_asn, data_dir=self.data_dir, online=self.asn_online)}
 
         def job():
             try:
-                res = self.run_fn(cap, wireless=wireless, trigger=trigger, counters=counters)
+                res = self.run_fn(cap, wireless=wireless, trigger=trigger, counters=counters, **extra)
             except Exception as exc:  # noqa: BLE001 - recorded, never kills the monitor
                 res = Result(ts=time.time(), wireless=wireless, trigger=trigger, error=str(exc))
             self.store.add_speedtest(res)

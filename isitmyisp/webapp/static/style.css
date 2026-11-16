@@ -349,6 +349,11 @@ table.kv .badge { margin-left: 8px; }
 .speed-warn { margin-top: 8px; font-size: 14px; padding: 8px 12px; border-radius: var(--r-sm);
               background: color-mix(in srgb, var(--you) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--you) 40%, var(--line)); }
 .speed .muted.small { margin-top: 8px; }
+.speed-where { margin-top: 12px; font-size: 14px; max-width: 640px; }
+.speed-where td:first-child { overflow-wrap: anywhere; }
+.speed-where-says { margin-top: 8px; font-size: 14px; max-width: 75ch; }
+.speed-where-says.bad { padding: 8px 12px; border-radius: var(--r-sm);
+                        background: color-mix(in srgb, var(--isp) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--isp) 40%, var(--line)); }
 
 /* ---------- demo mode */
 .demo-banner { margin: 0 0 20px; padding: 12px 16px; border-radius: var(--r); font-size: 14px; color: var(--ink-2);

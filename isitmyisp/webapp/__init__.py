@@ -220,6 +220,8 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
 
     from ..mos import band_of
     app.jinja_env.globals["band_of"] = band_of
+    from ..texts import speed_side, speed_where_text
+    app.jinja_env.globals.update(speed_side=speed_side, speed_where_text=speed_where_text)
 
     @app.template_filter("size")
     def _size(n) -> str:
@@ -607,7 +609,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         raw = {"enabled": bool(f.get("enabled")), "accepted": bool(f.get("accepted")),
                "schedule": f.get("schedule", "weekly"), "weekday": f.get("weekday", 6), "hour": f.get("hour", 3),
                "budget_gb": f.get("budget_gb", 5), "max_busy_pct": f.get("max_busy_pct", 30),
-               "run_on_backup": bool(f.get("run_on_backup"))}
+               "run_on_backup": bool(f.get("run_on_backup")), "servers": f.get("servers", "")[:2000]}
         return _save({"speedtest": raw, "_speed_current": g.settings.speedtest})
 
     @app.post("/speedtest/run")

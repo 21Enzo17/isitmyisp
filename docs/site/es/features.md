@@ -82,6 +82,22 @@ Cuando está activado:
 - Mide también la latencia con el enlace lleno (bufferbloat) y avisa cuando el resultado lo limita tu Wi-Fi y no el ISP.
 - Mientras corre, esas ventanas no cuentan para el veredicto.
 
+### Dentro y fuera de tu ISP
+
+Cloudflare solo no distingue un acceso lento de una salida lenta. En **Configuración → Prueba de velocidad contra tu plan** podés agregar hasta tres servidores [iperf3](https://iperf.fr/) propios: un VPS, otra sucursal o un servidor dentro de la red de tu ISP. Uno por línea, como `host[:puerto]` (5201 por defecto).
+
+Cada servidor se marca **dentro** o **fuera** de tu ISP por su sistema autónomo (ASN), comparado con el de tu ISP. Una dirección en el espacio CGNAT del ISP cuenta como dentro. Una dirección de la LAN o de una VPN no se puede distinguir, así que escribí `inside` u `outside` después (`10.8.0.1 outside`). Marcar por ASN necesita los datos de ASN (**Configuración → ISP principal y enlace de respaldo → Nombres de los ISP**) o `--asn-online`.
+
+Con un servidor de cada lado, el panel y el informe comparan la mejor bajada de cada uno:
+
+| Resultado | Qué significa |
+|---|---|
+| **La salida del ISP** | Afuera da menos del 60 % de adentro, por ejemplo 300 Mbps hasta el ISP y 40 al resto de internet. El cuello de botella es su peering o su tránsito, no tu acceso. |
+| **El acceso** | Adentro y afuera dan parecido, pero aun dentro del ISP llegás a menos del 60 % de tu plan. El límite es tu acceso. |
+| **Sin cuello de botella en la salida** | Adentro y afuera dan parecido. |
+
+Las protecciones siguen valiendo: el tope de datos por prueba se reparte entre Cloudflare y tus servidores, y no corre en el enlace de respaldo ni durante un incidente. Necesita el programa `iperf3` en la máquina (la imagen de Docker lo trae), y cada servidor ve tu IP pública.
+
 ## El router por SNMP
 
 La objeción favorita de cualquier ISP es "saturaste tu propio enlace". Si conectás tu router por SNMP (versión 2c, solo lectura), isitmyisp lee el uso de la interfaz WAN y la CPU en cada ventana. Así descarta esa objeción, o te dice que tenía razón. Necesita las velocidades contratadas para saber cuándo el enlace está lleno.

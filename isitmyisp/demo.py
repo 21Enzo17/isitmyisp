@@ -208,9 +208,19 @@ def add_speed_result(store: Store, now: float | None = None) -> None:
     """One finished speed test, so the demo shows that section (it never runs a real one)."""
     from . import speedtest as sp
     now = now or time.time()
-    settings_mod.save(store, {"speedtest": {"enabled": True, "accepted": True}})
+    servers = [{"host": "speedtest.example-isp.net", "port": 5201, "where": "auto"},
+               {"host": "vps.example.org", "port": 5201, "where": "auto"}]
+    settings_mod.save(store, {"speedtest": {"enabled": True, "accepted": True, "servers": servers}})
     store.add_speedtest(sp.Result(ts=now - 2 * 86400, down_mbps=262.4, up_mbps=91.8, idle_ms=29.6, loaded_ms=71.2,
                                   bytes_used=412_000_000, seconds=15.2, wan_down_mbps=281.0, trigger="scheduled"))
+    # the next evening: fine up to the ISP, slow past it (its exit, not the access)
+    store.add_speedtest(sp.Result(
+        ts=now - 86400, down_mbps=58.3, up_mbps=44.1, idle_ms=31.2, loaded_ms=64.8, bytes_used=731_000_000,
+        seconds=46.8, wan_down_mbps=72.5, trigger="manual", servers=[
+            {"name": "speedtest.example-isp.net", "where": "inside", "forced": False, "asn": "AS64500",
+             "as_name": "Example ISP S.A.", "down_mbps": 286.9, "up_mbps": 94.2, "bytes": 402_000_000, "error": None},
+            {"name": "vps.example.org", "where": "outside", "forced": False, "asn": "AS64510",
+             "as_name": "Example Hosting", "down_mbps": 41.7, "up_mbps": 38.9, "bytes": 77_000_000, "error": None}]))
 
 
 def add_doctor_run(store: Store, now: float | None = None) -> None:

@@ -258,3 +258,39 @@ def devcheck_text(rec: dict, lang: str = "en") -> tuple[str, str]:
     text, advice = DEVCHECK.get(lang, DEVCHECK["en"])[rec["code"]]
     probe = (rec.get("probe") or {}).get("bad")
     return text.format(probe=VERDICT.get(lang, VERDICT["en"]).get(probe, probe or "")), advice
+
+
+# Where the speed bottleneck is: speedtest.locate() compares the best download inside the ISP's
+# network with the best one outside it. Shared by the dashboard and the report.
+SPEEDWHERE = {
+    "en": {
+        "exit": ("Up to the ISP {inside} Mbps, to the rest of the internet {outside}: the bottleneck is the ISP's exit "
+                 "(its peering or transit), not your access."),
+        "access": ("Even inside the ISP's network the speed is {inside} Mbps, well under the plan: the limit is the access "
+                   "link, not the rest of the internet."),
+        "even": "Up to the ISP {inside} Mbps, to the rest of the internet {outside}: about the same, no bottleneck at its exit.",
+    },
+    "es": {
+        "exit": ("Hasta el ISP {inside} Mbps, al resto de internet {outside}: el cuello de botella es la salida del ISP "
+                 "(su peering o su tránsito), no el acceso."),
+        "access": ("Aun dentro de la red del ISP la velocidad es {inside} Mbps, bastante menos que el plan: el límite es "
+                   "el acceso, no el resto de internet."),
+        "even": "Hasta el ISP {inside} Mbps, al resto de internet {outside}: parecido, no hay cuello de botella en su salida.",
+    },
+}
+
+SPEEDSIDE = {"en": {"inside": "inside your ISP", "outside": "outside your ISP", "private": "LAN or VPN", None: "unknown"},
+             "es": {"inside": "dentro de tu ISP", "outside": "fuera de tu ISP", "private": "LAN o VPN", None: "sin saber"}}
+
+
+def speed_where_text(where: dict | None, lang: str = "en") -> str:
+    """One sentence on where the speed bottleneck is, or "" when only one side was measured."""
+    if not where:
+        return ""
+    text = SPEEDWHERE.get(lang, SPEEDWHERE["en"])[where["code"]]
+    return text.format(inside=f"{where['inside']:.0f}", outside=f"{where['outside']:.0f}")
+
+
+def speed_side(where: str | None, lang: str = "en") -> str:
+    sides = SPEEDSIDE.get(lang, SPEEDSIDE["en"])
+    return sides.get(where, sides[None])

@@ -128,6 +128,11 @@ R = {
         "speed_intro": "Tests against speed.cloudflare.com with several parallel streams. A test over Wi-Fi measures the Wi-Fi as well.",
         "speed_down": "Download", "speed_up": "Upload", "speed_loaded": "Latency under load", "speed_via": "Measured over",
         "speed_wifi": "Wi-Fi", "speed_cable": "cable",
+        "sw_title": "Inside and outside the ISP",
+        "sw_intro": ("Each test also measured iperf3 servers chosen by the user, each one marked inside or outside the ISP's "
+                     "network by its autonomous system (ASN): comparing both shows whether the limit is the access or the ISP's exit."),
+        "sw_server": "Server", "sw_side": "Where",
+        "sw_exits": "In {n} of {m} tests the ISP's exit was the bottleneck.",
         "back": "Back to the dashboard", "pdf_dl": "Download PDF",
         "demo_banner": "Synthetic demo data: this is not a measurement of any real network and is not evidence.",
         "demo_page": "SYNTHETIC DEMO DATA - NOT EVIDENCE",
@@ -244,6 +249,11 @@ R = {
         "speed_intro": "Pruebas contra speed.cloudflare.com con varias conexiones en paralelo. Una prueba por Wi-Fi mide también el Wi-Fi.",
         "speed_down": "Bajada", "speed_up": "Subida", "speed_loaded": "Latencia con carga", "speed_via": "Medido por",
         "speed_wifi": "Wi-Fi", "speed_cable": "cable",
+        "sw_title": "Dentro y fuera del ISP",
+        "sw_intro": ("Cada prueba midió también servidores iperf3 elegidos por el usuario, cada uno marcado dentro o fuera de la red "
+                     "del ISP por su sistema autónomo (ASN): comparar los dos muestra si el límite es el acceso o la salida del ISP."),
+        "sw_server": "Servidor", "sw_side": "Dónde",
+        "sw_exits": "En {n} de {m} pruebas el cuello de botella fue la salida del ISP.",
         "back": "Volver al panel", "pdf_dl": "Descargar PDF",
         "demo_banner": "Datos sintéticos de demostración: no es una medición de ninguna red real ni sirve como evidencia.",
         "demo_page": "DATOS SINTÉTICOS DE DEMOSTRACIÓN - NO ES EVIDENCIA",
@@ -676,6 +686,39 @@ DOC_COLOR = {"ok": COLORS["ok"], "warn": COLORS["local"], "bad": COLORS["access"
 DEV_STATUS = {"fine": "ok", "device_link": "bad", "device_path": "bad", "shared": "warn", "no_probe": "skip"}
 
 
+def speed_where_section(tests: list[dict], t: dict, lang: str, plan_down: float = 0.0) -> str:
+    """The tests that also measured iperf3 servers: each server inside or outside the ISP, and
+    where the bottleneck was. Empty when no test used a server of its own."""
+    from .speedtest import SERVER, locate
+    from .texts import speed_side, speed_where_text
+    with_servers = [r for r in tests if r.get("servers")]
+    if not with_servers:
+        return ""
+    rows = []
+    for r in with_servers:
+        cells = [(SERVER, r.get("where"), None, r.get("down_mbps"), r.get("up_mbps"), None)]
+        cells += [(x["name"], x.get("where"), x.get("asn"), x.get("down_mbps"), x.get("up_mbps"), x.get("error"))
+                  for x in r["servers"]]
+        for i, (name, where, asn_, down, up, err) in enumerate(cells):
+            when = f'<td class="dt" rowspan="{len(cells)}">{_dt_html(r["ts"])}</td>' if i == 0 else ""
+            speeds = (f'<td colspan="2" class="muted">{_e(err)}</td>' if err else
+                      f'<td class="num">{(down or 0):.0f} Mbps</td><td class="num">{(up or 0):.0f} Mbps</td>')
+            rows.append(f'<tr>{when}<td>{_e(name)}{(" " + _e(asn_)) if asn_ else ""}</td>'
+                        f'<td>{_e(speed_side(where, lang))}</td>{speeds}</tr>')
+    located = [w for r in with_servers if (w := locate(r, plan_down))]
+    says = ""
+    if located:
+        says = f'<p>{_e(speed_where_text(located[-1], lang))}'
+        exits = sum(1 for w in located if w["code"] == "exit")
+        if exits and len(located) > 1:
+            says += " " + _e(t["sw_exits"].format(n=exits, m=len(located)))
+        says += "</p>"
+    return (f'<h3>{_e(t["sw_title"])}</h3><p class="muted">{_e(t["sw_intro"])}</p>{says}'
+            f'<table><thead><tr><th class="num">{t["start"]}</th><th>{_e(t["sw_server"])}</th><th>{_e(t["sw_side"])}</th>'
+            f'<th class="num">{t["speed_down"]}</th><th class="num">{t["speed_up"]}</th></tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table>')
+
+
 def device_section(checks: list[dict], t: dict, lang: str, limit: int = 20) -> str:
     """'Tested from N devices': the "Check from this device" results of the period (empty if none)."""
     if not checks:
@@ -991,6 +1034,7 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
                    f'<table><thead><tr><th class="num">{t["start"]}</th><th class="num">{t["speed_down"]}</th>'
                    f'<th class="num">{t["speed_up"]}</th><th class="num">{t["speed_loaded"]}</th><th>{t["speed_via"]}</th></tr>'
                    f'</thead><tbody>{rows}</tbody></table>')
+        out.append(speed_where_section(tests, t, lang, cd))
 
     # ---- backup link (failover): the main ISP was not carrying the traffic
     fo_incidents = store.incidents_between(start, end, scope="failover")

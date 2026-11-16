@@ -8,11 +8,12 @@ LABEL org.opencontainers.image.title="isitmyisp" \
       org.opencontainers.image.version="${VERSION}"
 
 # fping: main probe engine (one process, many targets). mtr: evidence on incidents.
+# iperf3: speed test against your own servers (only if you add them).
 # iputils-ping: fallback prober. iproute2: route/addr discovery. iw: Wi-Fi signal (optional).
 # libpango + fonts: PDF reports via WeasyPrint. tzdata: local times in reports (set TZ).
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      fping mtr-tiny iputils-ping iproute2 iw ca-certificates tzdata \
+      fping mtr-tiny iperf3 iputils-ping iproute2 iw ca-certificates tzdata \
       libpango-1.0-0 libpangoft2-1.0-0 fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/*
 
