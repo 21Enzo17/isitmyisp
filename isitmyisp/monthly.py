@@ -13,7 +13,7 @@ import threading
 import time
 from datetime import datetime
 
-from .report import union
+from .report import availability, fmt_pct, union
 from .store import Store
 
 KEY = "monthly_report"
@@ -138,9 +138,7 @@ def summary(store: Store, start: float, end: float, lang: str, public_url: str =
         return t["subject"].format(month=month, headline=t["no_data"].rstrip(".").lower()), "\n".join(lines), month
     # count only the stretch that was actually measured (a probe installed mid-month)
     start, end = max(start, windows[0][0] - windows[0][1]), min(end, windows[-1][0])
-    measured = sum(w[1] for w in windows if w[2] != "speedtest")
-    healthy = sum(w[1] for w in windows if w[2] == "ok")
-    pct = f"{100 * healthy / measured:.1f}%" if measured else "—"
+    pct = fmt_pct(availability(windows))
     incs = store.incidents_between(start, end)
     bad = union(incs, start, end)            # every minute with a problem counts once
     total = sum(b - a for a, b in bad)

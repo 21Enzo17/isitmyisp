@@ -302,7 +302,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
 
     @app.get("/incidents")
     def incidents():
-        return render_template("incidents.html", active="incidents", rows=views.incident_rows(store, g.t))
+        return render_template("incidents.html", active="incidents", rows=views.incident_rows(store, g.t, lang=g.get("lang", "en")))
 
     @app.get("/tunnels")
     def tunnels():
