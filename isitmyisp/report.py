@@ -15,6 +15,7 @@ from collections import defaultdict
 
 from . import __version__
 from .store import Capture, Incident, Store
+from .texts import remote_summary
 from .tunnels import periodic_interval
 
 ISP_CODES = ("access", "isp")
@@ -259,6 +260,22 @@ R = {
 
 
 # ------------------------------------------------------------------ helpers
+
+# Windows in which your internet worked: all fine, or only some destinations failing (that's on them,
+# not on your connection). A DNS failure isn't here: with no resolver answering, nothing loads.
+AVAILABLE = ("ok", "remote")
+
+
+def availability(windows) -> float | None:
+    """Share (0-100) of the measured time in which your internet worked; None if nothing was measured.
+    `windows` are (ts, seconds, code) rows; a speed test is neither available nor a problem."""
+    measured = sum(w[1] for w in windows if w[2] != "speedtest")
+    return 100 * sum(w[1] for w in windows if w[2] in AVAILABLE) / measured if measured else None
+
+
+def fmt_pct(p: float | None) -> str:
+    return f"{p:.1f}%" if p is not None else "—"
+
 
 def union(incidents, start: float, end: float) -> list[tuple[float, float]]:
     """The stretches with at least one problem, clipped to [start, end]: overlapping incidents count once."""
@@ -695,8 +712,7 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
         start = max(start, windows[0][0] - windows[0][1])
         end = min(end, windows[-1][0])
     measured = sum(w[1] for w in windows if w[2] != "speedtest")  # a speed test is neither healthy nor a problem
-    healthy = sum(w[1] for w in windows if w[2] == "ok")
-    pct = f"{100 * healthy / measured:.1f}%" if measured else "—"
+    pct = fmt_pct(availability(windows))
     total_bad = sum(i.duration(now) for i in incidents)
     from . import hours as hours_mod
     bh = hours_mod.load(store)
@@ -773,7 +789,7 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
     if p_measured >= .5 * measured > 0:
         p_inc = store.incidents_between(start - span, start)
         p_bad = sum(b - a for a, b in union(p_inc, start - span, start))
-        p_pct = 100 * sum(w[1] for w in p_windows if w[2] == "ok") / p_measured
+        p_pct = availability(p_windows)
         trend = (t["cmp_better"] if total_bad < p_bad * .8 else t["cmp_worse"] if total_bad > p_bad * 1.2 + 60
                  else t["cmp_same"])
         out.append(f'<p class="cmp">{_e(t["cmp"].format(span=fmt_duration(span), n=len(p_inc), dur=fmt_duration(p_bad), pct=f"{p_pct:.1f}%"))} '
@@ -871,6 +887,8 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
             ev = "<br>".join(_e(localize_evidence(e, lang)) for e in compress_evidence(inc.evidence)[:3])
             if drops.get(inc.id):
                 ev = f'<b>{_e(t["intermittent"].format(n=drops[inc.id]))}</b><br>' + ev
+            if inc.code == "remote" and (summary := remote_summary(inc.evidence, lang)):
+                ev = f'<b>{_e(summary)}</b><br>' + ev
             ev += ruled_out_html(inc, lang)
             rows.append(
                 f'<tr><td class="num">{idx}</td><td class="dt">{_dt_html(inc.opened)}</td>'

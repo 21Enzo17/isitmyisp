@@ -106,3 +106,32 @@ class Monthly(unittest.TestCase):
         with self.assertRaises(monthly.MonthlyError) as e:
             monthly.send(self.store, monthly.load(self.store), "en")
         self.assertIn("email server", str(e.exception))
+
+
+class Availability(unittest.TestCase):
+    """A destination failing on its own (Quad9 down, the others fine) isn't your internet down (#62)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Store(Path(self.tmp.name) / "a.db")
+        t0 = ts("2026-10-14 00:00")
+        for k, code in enumerate(["ok"] * 46 + ["remote"] * 2):
+            self.store.add_window_verdict(code, 1800, ts=t0 + 1800 * (k + 1))
+
+    def tearDown(self):
+        self.store.close()
+        self.tmp.cleanup()
+
+    def test_only_some_destinations_failing_keeps_the_month_at_100(self):
+        body = monthly.summary(self.store, ts("2026-10-01 00:00"), ts("2026-11-01 00:00"), "en")[1]
+        self.assertIn("healthy 100.0% of the time", body)
+
+
+class RemoteSummary(unittest.TestCase):
+    def test_names_who_failed_and_says_the_connection_worked(self):
+        from isitmyisp.texts import remote_summary
+        ev = ["9.9.9.9: 100.0% loss (15/15)", "1.1.1.1: OK", "8.8.8.8: OK"]
+        self.assertEqual(remote_summary(ev, "es"), "Quad9 (9.9.9.9) tuvo problemas. Cloudflare (1.1.1.1) y "
+                                                   "Google (8.8.8.8) respondieron bien: tu conexión funcionó.")
+        self.assertIn("your connection worked", remote_summary(ev, "en"))
+        self.assertEqual(remote_summary(["9.9.9.9: 100.0% loss (15/15)"], "es"), "")   # nobody said OK

@@ -6,7 +6,7 @@ import statistics
 import time
 from dataclasses import dataclass, field
 
-from ..report import _anchor_series, fmt_duration
+from ..report import _anchor_series, availability, fmt_duration, fmt_pct
 from ..settings import Settings
 from ..store import Store
 from ..api import is_stale
@@ -174,9 +174,7 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
     windows = store.windows_between(start, now)
     if windows:
         start = max(start, windows[0][0] - windows[0][1])
-        measured = sum(w[1] for w in windows if w[2] != "speedtest")
-        healthy = sum(w[1] for w in windows if w[2] == "ok")
-        d.healthy_pct = f"{100 * healthy / measured:.1f}%" if measured else "—"
+        d.healthy_pct = fmt_pct(availability(windows))
         incs = store.incidents_between(start, now)
         d.incidents_24h = len(incs)
         d.worst_24h = f"{max((i.peak_loss for i in incs), default=0.0):.1f}%"
@@ -324,9 +322,12 @@ class IncidentRow:
     duration: str
     evidence: list[str]
     drops: int = 0      # an intermittent one: how many times it dropped and came back
+    summary: str = ""   # one plain sentence, for "only some destinations failed"
 
 
-def incident_rows(store: Store, t: dict, days: int = 30, now: float | None = None) -> list[IncidentRow]:
+def incident_rows(store: Store, t: dict, days: int = 30, now: float | None = None,
+                  lang: str = "en") -> list[IncidentRow]:
+    from ..texts import remote_summary
     now = now or time.time()
     rows = []
     for i in reversed(store.incidents_between(now - days * 86400, now, scope=None)):
@@ -335,7 +336,8 @@ def incident_rows(store: Store, t: dict, days: int = 30, now: float | None = Non
                                 CAUSE_CLASS.get(i.code, "muted"), i.opened, i.closed,
                                 fmt_duration(i.duration(now)), i.evidence[:3],
                                 store.drops(i.opened, i.closed or now)
-                                if (i.details or {}).get("intermittent") and i.scope == "internet" else 0))
+                                if (i.details or {}).get("intermittent") and i.scope == "internet" else 0,
+                                remote_summary(i.evidence, lang) if i.code == "remote" else ""))
     return rows
 
 
@@ -371,11 +373,6 @@ def service_cards(store: Store, settings: Settings, now: float | None = None) ->
     return cards
 
 
-def _healthy(windows) -> float | None:
-    measured = sum(w[1] for w in windows if w[2] != "speedtest")
-    return 100 * sum(w[1] for w in windows if w[2] == "ok") / measured if measured else None
-
-
 def kpis(store: Store, windows, series, start: float, now: float) -> dict:
     """The three figures next to the verdict, each with the last 24 h as a small line and the change
     against the 24 h before (None when there's nothing to compare with)."""
@@ -384,11 +381,11 @@ def kpis(store: Store, windows, series, start: float, now: float) -> dict:
     hourly = []
     for h in range(24):
         a, b = now - 86400 + h * 3600, now - 86400 + (h + 1) * 3600
-        v = _healthy([w for w in windows if a <= w[0] < b])
+        v = availability([w for w in windows if a <= w[0] < b])
         if v is not None:
             hourly.append(((a + b) / 2, v))
-    pct = _healthy(windows)
-    prev = _healthy(store.windows_between(now - 2 * 86400, now - 86400))
+    pct = availability(windows)
+    prev = availability(store.windows_between(now - 2 * 86400, now - 86400))
     out["avail"] = {"value": pct, "delta": (pct - prev) if pct is not None and prev is not None else None,
                     # scaled to the day's own range, so a good day still shows its dips
                     "spark": charts.plot(hourly, now - 86400, now, unit="%", ymax=100, floor=10,

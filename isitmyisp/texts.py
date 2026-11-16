@@ -79,3 +79,44 @@ ADVICE = {
         "saturation": "Tu propio tráfico está llenando el enlace (una descarga grande, un backup, video). Buscá quién lo usa (tu router lo muestra), programá los backups de noche o priorizá el tráfico crítico (QoS). Acá la culpa no es del ISP.",
     },
 }
+
+
+# The default internet destinations, by name: "Quad9 (9.9.9.9)" says more than the address alone.
+ANCHOR_NAMES = {"1.1.1.1": "Cloudflare", "1.0.0.1": "Cloudflare", "2606:4700:4700::1111": "Cloudflare",
+                "8.8.8.8": "Google", "8.8.4.4": "Google", "2001:4860:4860::8888": "Google",
+                "9.9.9.9": "Quad9", "149.112.112.112": "Quad9", "2620:fe::fe": "Quad9"}
+
+REMOTE_SUMMARY = {
+    "en": {"one": "{bad} had trouble.", "many": "{bad} had trouble.",
+           "fine": " {ok} answered fine: your connection worked.", "and": "and"},
+    "es": {"one": "{bad} tuvo problemas.", "many": "{bad} tuvieron problemas.",
+           "fine": " {ok} respondieron bien: tu conexión funcionó.", "and": "y"},
+}
+
+
+def anchor_label(target: str) -> str:
+    name = ANCHOR_NAMES.get(target)
+    return f"{name} ({target})" if name else target
+
+
+def remote_summary(evidence: list[str], lang: str) -> str:
+    """One plain sentence for "only some destinations failed", from the evidence lines
+    ('9.9.9.9: 100.0% loss (15/15)', '1.1.1.1: OK'): who failed, who didn't, and that your
+    connection worked. Empty when the lines don't say who answered."""
+    t = REMOTE_SUMMARY.get(lang, REMOTE_SUMMARY["en"])
+    bad, ok = [], []
+    for line in evidence:
+        target, sep, why = line.partition(": ")
+        if not sep or " " in target:
+            continue
+        (ok if why.strip() == "OK" else bad).append(target)
+    if not bad or not ok:
+        return ""
+
+    def join(xs: list[str]) -> str:
+        xs = [anchor_label(x) for x in xs]
+        return xs[0] if len(xs) == 1 else f"{', '.join(xs[:-1])} {t['and']} {xs[-1]}"
+    fine = t["fine"].format(ok=join(ok))
+    if len(ok) == 1:       # "respondió bien" / "answered fine" reads the same for one in English
+        fine = fine.replace("respondieron", "respondió")
+    return t["one" if len(bad) == 1 else "many"].format(bad=join(bad)) + fine
