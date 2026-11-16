@@ -106,3 +106,84 @@ class Monthly(unittest.TestCase):
         with self.assertRaises(monthly.MonthlyError) as e:
             monthly.send(self.store, monthly.load(self.store), "en")
         self.assertIn("email server", str(e.exception))
+
+
+class Availability(unittest.TestCase):
+    """A destination failing on its own (Quad9 down, the others fine) isn't your internet down (#62)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Store(Path(self.tmp.name) / "a.db")
+        t0 = ts("2026-10-14 00:00")
+        for k, code in enumerate(["ok"] * 46 + ["remote"] * 2):
+            self.store.add_window_verdict(code, 1800, ts=t0 + 1800 * (k + 1))
+
+    def tearDown(self):
+        self.store.close()
+        self.tmp.cleanup()
+
+    def test_only_some_destinations_failing_keeps_the_month_at_100(self):
+        body = monthly.summary(self.store, ts("2026-10-01 00:00"), ts("2026-11-01 00:00"), "en")[1]
+        self.assertIn("healthy 100.0% of the time", body)
+
+
+class RemoteSummary(unittest.TestCase):
+    def test_names_who_failed_and_says_the_connection_worked(self):
+        from isitmyisp.texts import remote_summary
+        ev = ["9.9.9.9: 100.0% loss (15/15)", "1.1.1.1: OK", "8.8.8.8: OK"]
+        self.assertEqual(remote_summary(ev, "es"), "Quad9 (9.9.9.9) tuvo problemas. Cloudflare (1.1.1.1) y "
+                                                   "Google (8.8.8.8) respondieron bien: tu conexión funcionó.")
+        self.assertIn("your connection worked", remote_summary(ev, "en"))
+        self.assertEqual(remote_summary(["9.9.9.9: 100.0% loss (15/15)"], "es"), "")   # nobody said OK
+
+
+class Daily(unittest.TestCase):
+    """Availability day by day (#63): over measured time only, the first day partial, gaps in grey."""
+
+    def setUp(self):
+        self.tz = os.environ.get("TZ")
+        os.environ["TZ"] = "America/Argentina/Jujuy"
+        time.tzset()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Store(Path(self.tmp.name) / "d.db")
+        # measuring starts on the 10th at noon; the 11th has an hour of ISP trouble and one of Quad9 alone;
+        # the 12th wasn't measured; the 13th is fine
+        def day(at, codes):
+            for k, code in enumerate(codes):
+                self.store.add_window_verdict(code, 1800, ts=ts(at) + 1800 * (k + 1))
+        day("2026-10-10 12:00", ["ok"] * 24)
+        day("2026-10-11 00:00", ["ok"] * 44 + ["isp"] * 2 + ["remote"] * 2)
+        day("2026-10-13 00:00", ["ok"] * 48)
+
+    def tearDown(self):
+        self.store.close()
+        self.tmp.cleanup()
+        if self.tz is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = self.tz
+        time.tzset()
+
+    def test_each_day_on_its_own(self):
+        from isitmyisp.report import daily
+        days = daily(self.store, ts("2026-10-09 00:00"), ts("2026-10-14 00:00"))
+        self.assertEqual([time.localtime(d.start).tm_mday for d in days], [9, 10, 11, 12, 13])
+        before, first, bad, gap, fine = days
+        self.assertTrue(before.before)
+        self.assertIsNone(before.internet)
+        self.assertTrue(first.partial)
+        self.assertEqual(first.internet, 100)
+        self.assertFalse(bad.partial)
+        self.assertAlmostEqual(bad.internet, 100 * 46 / 48)       # Quad9 alone isn't your internet down
+        self.assertAlmostEqual(bad.isp, 100 * 46 / 48)
+        self.assertEqual((bad.down, bad.culprit), (3600, "isp"))
+        self.assertFalse(gap.before)
+        self.assertIsNone(gap.internet)                            # a gap, after measuring began
+        self.assertEqual((fine.internet, fine.partial, fine.culprit), (100, False, None))
+
+    def test_today_counts_only_what_has_gone(self):
+        from isitmyisp.report import daily
+        today = daily(self.store, ts("2026-10-13 00:00"), ts("2026-10-13 06:00"))
+        self.assertEqual(len(today), 1)
+        self.assertEqual(today[0].measured, 6 * 3600)
+        self.assertFalse(today[0].partial)

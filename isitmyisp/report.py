@@ -12,9 +12,12 @@ import html
 import statistics
 import time
 from collections import defaultdict
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta
 
 from . import __version__
 from .store import Capture, Incident, Store
+from .texts import remote_summary
 from .tunnels import periodic_interval
 
 ISP_CODES = ("access", "isp")
@@ -73,6 +76,7 @@ R = {
                 "saturation": "Link full: your own traffic",
                 "loop": "Loop or broadcast storm on your LAN"},
         "count": "Count", "duration": "Duration",
+        "daily": "Availability day by day", "daily_hint": "Out of each day's measured time: how much of it your internet worked, and how much of it the ISP's network had no trouble.", "col_day": "Day", "col_internet": "Your internet", "col_isp": "ISP network", "col_down": "Without internet", "col_cause": "Mostly", "not_measured": "Not measured", "partial": "partial", "seg_other": {"no_data": "No measurement", "stale": "No measurement"},
         "timeline": "Timeline", "status": "Status per window", "loss_chart": "Packet loss to the internet (%)",
         "lat_chart": "Latency to the internet (median, ms)",
         "legend": {"ok": "healthy", "local": "your side", "access": "ISP access", "isp": "ISP backbone",
@@ -195,6 +199,7 @@ R = {
                 "saturation": "Enlace lleno: tu propio tráfico",
                 "loop": "Loop o tormenta de broadcast en tu red"},
         "count": "Cantidad", "duration": "Duración",
+        "daily": "Disponibilidad por día", "daily_hint": "Sobre el tiempo medido de cada día: cuánto funcionó tu internet y cuánto estuvo sin problemas la red del ISP.", "col_day": "Día", "col_internet": "Tu internet", "col_isp": "Red del ISP", "col_down": "Sin internet", "col_cause": "Sobre todo", "not_measured": "Sin medir", "partial": "parcial", "seg_other": {"no_data": "Sin medición", "stale": "Sin medición"},
         "timeline": "Línea de tiempo", "status": "Estado por ventana", "loss_chart": "Pérdida de paquetes hacia internet (%)",
         "lat_chart": "Latencia hacia internet (mediana, ms)",
         "legend": {"ok": "sana", "local": "tu lado", "access": "acceso ISP", "isp": "troncal ISP",
@@ -283,6 +288,22 @@ R = {
 
 # ------------------------------------------------------------------ helpers
 
+# Windows in which your internet worked: all fine, or only some destinations failing (that's on them,
+# not on your connection). A DNS failure isn't here: with no resolver answering, nothing loads.
+AVAILABLE = ("ok", "remote")
+
+
+def availability(windows) -> float | None:
+    """Share (0-100) of the measured time in which your internet worked; None if nothing was measured.
+    `windows` are (ts, seconds, code) rows; a speed test is neither available nor a problem."""
+    measured = sum(w[1] for w in windows if w[2] != "speedtest")
+    return 100 * sum(w[1] for w in windows if w[2] in AVAILABLE) / measured if measured else None
+
+
+def fmt_pct(p: float | None) -> str:
+    return f"{p:.1f}%" if p is not None else "—"
+
+
 def union(incidents, start: float, end: float) -> list[tuple[float, float]]:
     """The stretches with at least one problem, clipped to [start, end]: overlapping incidents count once."""
     spans = sorted((max(i.opened, start), min(i.closed or end, end)) for i in incidents)
@@ -295,6 +316,56 @@ def union(incidents, start: float, end: float) -> list[tuple[float, float]]:
         else:
             out.append([a, b])
     return [(a, b) for a, b in out]
+
+
+@dataclass
+class Day:
+    """One calendar day (local time) of availability: over the measured time only."""
+    start: float
+    end: float
+    measured: float = 0.0
+    internet: float | None = None      # % of the measured time your internet worked (see availability())
+    isp: float | None = None           # % of it without trouble in the ISP's network (access/isp windows)
+    down: float = 0.0                  # seconds your internet didn't work
+    culprit: str | None = None         # the code with most of that time
+    partial: bool = False              # measured for less than the day (or the part of it already gone)
+    before: bool = False               # before measuring began: not a gap, there was nothing yet
+
+
+def _midnight(ts: float, days: int = 0) -> float:
+    d = date.fromtimestamp(ts) + timedelta(days=days)
+    return datetime(d.year, d.month, d.day).timestamp()   # local midnight, right across DST changes
+
+
+def daily(store: Store, start: float, end: float) -> list[Day]:
+    """Availability day by day for the days touching [start, end], oldest first. A window counts on
+    the day its middle fell on."""
+    first = store.first_and_last_window()[0]
+    windows = [w for w in store.windows_between(_midnight(start), end) if w[0] - w[1] / 2 >= _midnight(start)]
+    out, a, i = [], _midnight(start), 0
+    while a < end:
+        b = _midnight(a, 1)
+        day = Day(a, b, before=first is None or b <= first - 1)
+        mine = []
+        while i < len(windows) and windows[i][0] - windows[i][1] / 2 < b:
+            mine.append(windows[i])
+            i += 1
+        bad: dict[str, float] = defaultdict(float)
+        for _, s, code in mine:
+            if code != "speedtest":
+                day.measured += s
+                if code not in AVAILABLE:
+                    bad[code] += s
+        if day.measured:
+            day.internet = availability(mine)
+            day.isp = 100 * (day.measured - sum(bad.get(c, 0) for c in ISP_CODES)) / day.measured
+            day.down = sum(bad.values())
+            day.culprit = max(bad, key=bad.get) if bad else None
+            day.partial = day.measured < .9 * (min(b, end) - max(a, first or a))
+            day.partial |= first is not None and first > a + 600    # measuring began that day
+        out.append(day)
+        a = b
+    return out
 
 
 def _day(ts: float, t: dict) -> str:
@@ -788,12 +859,12 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
     net = store.network_at(end) or {}
     tz = time.strftime("%Z (UTC%z)", time.localtime(end))
 
+    asked = end - start      # the period asked for, before it's clipped to what was measured
     if windows:
         start = max(start, windows[0][0] - windows[0][1])
         end = min(end, windows[-1][0])
     measured = sum(w[1] for w in windows if w[2] != "speedtest")  # a speed test is neither healthy nor a problem
-    healthy = sum(w[1] for w in windows if w[2] == "ok")
-    pct = f"{100 * healthy / measured:.1f}%" if measured else "—"
+    pct = fmt_pct(availability(windows))
     total_bad = sum(i.duration(now) for i in incidents)
     from . import hours as hours_mod
     bh = hours_mod.load(store)
@@ -870,7 +941,7 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
     if p_measured >= .5 * measured > 0:
         p_inc = store.incidents_between(start - span, start)
         p_bad = sum(b - a for a, b in union(p_inc, start - span, start))
-        p_pct = 100 * sum(w[1] for w in p_windows if w[2] == "ok") / p_measured
+        p_pct = availability(p_windows)
         trend = (t["cmp_better"] if total_bad < p_bad * .8 else t["cmp_worse"] if total_bad > p_bad * 1.2 + 60
                  else t["cmp_same"])
         out.append(f'<p class="cmp">{_e(t["cmp"].format(span=fmt_duration(span), n=len(p_inc), dur=fmt_duration(p_bad), pct=f"{p_pct:.1f}%"))} '
@@ -939,6 +1010,31 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
         lat = [(ts, v) for ts, _, v in series if v is not None]
         out.append(f'<div class="label">{_e(t["lat_chart"])}</div>' + svg_line(lat, start, end, COLORS["dns"]))
 
+    # ---- day by day, for a period of a few days up to a quarter
+    days = daily(store, start, end) if 2 * 86400 <= asked and end - start <= 92 * 86400 else []
+    if len(days) > 1:
+        rows = []
+        for x in reversed(days):
+            if x.before:
+                continue
+            part = f' <small class="muted">({_e(t["partial"])})</small>' if x.partial else ""
+            if x.internet is None:
+                rows.append(f'<tr><td>{_e(_day(x.start, t))}</td><td class="num">—</td><td class="num">—</td>'
+                            f'<td class="num">—</td><td class="muted">{_e(t["not_measured"])}</td></tr>')
+                continue
+            hit = x.down >= 60
+            cause = ""
+            if hit:
+                c = x.culprit or ""
+                cause = (f'<span class="dot" style="background:{COLORS.get(c, COLORS["no_data"])}"></span>'
+                         f'{_e(t["seg"].get(c) or t["seg_other"].get(c, c))}')
+            rows.append(f'<tr><td>{_e(_day(x.start, t))}{part}</td><td class="num">{x.internet:.1f}%</td>'
+                        f'<td class="num">{x.isp:.1f}%</td><td class="num">{_e(fmt_duration(x.down)) if hit else "—"}</td>'
+                        f'<td>{cause}</td></tr>')
+        out.append(f'<h2>{_e(t["daily"])}</h2><p class="muted">{_e(t["daily_hint"])}</p><table><thead><tr>'
+                   f'<th>{_e(t["col_day"])}</th><th class="num">{_e(t["col_internet"])}</th><th class="num">{_e(t["col_isp"])}</th>'
+                   f'<th class="num">{_e(t["col_down"])}</th><th>{_e(t["col_cause"])}</th></tr></thead><tbody>{"".join(rows)}</tbody></table>')
+
     # ---- call quality (E-model estimate)
     calls = call_periods(store, start, end, limit=1000)
     if calls:
@@ -970,6 +1066,8 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
             ev = "<br>".join(_e(localize_evidence(e, lang)) for e in compress_evidence(inc.evidence)[:3])
             if drops.get(inc.id):
                 ev = f'<b>{_e(t["intermittent"].format(n=drops[inc.id]))}</b><br>' + ev
+            if inc.code == "remote" and (summary := remote_summary(inc.evidence, lang)):
+                ev = f'<b>{_e(summary)}</b><br>' + ev
             ev += ruled_out_html(inc, lang)
             rows.append(
                 f'<tr><td class="num">{idx}</td><td class="dt">{_dt_html(inc.opened)}</td>'
