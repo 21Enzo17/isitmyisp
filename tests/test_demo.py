@@ -6,12 +6,7 @@ from pathlib import Path
 from isitmyisp.demo import SCENARIOS, build
 from isitmyisp.report import build_report
 from isitmyisp.store import Store
-
-try:
-    import flask  # noqa: F401
-    HAVE_WEB = True
-except ImportError:
-    HAVE_WEB = False
+from tests._web import HAVE_WEB
 
 
 class Scenarios(unittest.TestCase):

@@ -5,17 +5,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-try:
-    import flask  # noqa: F401
-    HAVE_WEB = True
-except ImportError:  # pragma: no cover
-    HAVE_WEB = False
-
 from isitmyisp import settings as settings_mod
 from isitmyisp.classifier import Measurements
 from isitmyisp.monitor import Monitor
 from isitmyisp.probes.icmp import WindowStats
 from isitmyisp.store import Store
+from tests._web import HAVE_WEB
 
 PASSWORD = "correct horse battery"
 T0 = 1_794_000_000.0

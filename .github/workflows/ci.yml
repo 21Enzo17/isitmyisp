@@ -21,6 +21,8 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: core only (no extras)
+        env:
+          ISITMYISP_CORE_ONLY: "1"   # skip the web tests on purpose; without it they fail
         run: python -m unittest discover -s tests -t .
       - name: with the web UI
         run: |
