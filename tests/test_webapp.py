@@ -764,7 +764,7 @@ class DashboardLook(WebAppBase):
         self.create_admin()
         page = self.client.get("/?lang=en").get_data(as_text=True)
         for part in ('class="status-pill g-good"', "Connection stable", 'class="card kpi"', "Availability, 24 h",
-                     'class="theme-btn to-dark"', 'class="theme-btn to-light"', 'class="sys', "Monitor running"):
+                     'class="theme-btn to-dark"', 'class="theme-btn to-light"', 'class="sys', "Monitoring", 'class="acct"', "Sign out"):
             self.assertIn(part, page)
 
 
