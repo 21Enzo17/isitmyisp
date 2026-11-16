@@ -5,6 +5,8 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-16
+
 ### Added
 - **Loops and broadcast storms on your LAN** get a verdict of their own: duplicate replies, broadcast
   well above normal, or the router's MAC moving. With the router over SNMP, its broadcast and
@@ -26,6 +28,12 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 - Docs and README brought in line with the code: the speed test's incident and busy-link guards
   apply only to scheduled tests, the "Measurement" settings card, BBVA in the presets, and every new
   outgoing connection listed in Privacy (#75).
+- The dashboard grid no longer squashes the link, calls and services cards between 761 and 1100 px
+  wide (#77).
+
+### Changed
+- The sidebar's bottom: the "System active" box is now one quiet status line, and the account,
+  language and version live in a menu (#78).
 
 ## [0.3.0] - 2026-11-12
 
@@ -170,5 +178,7 @@ and to prove it.
 ### Install
 - One-line installer (`install.sh`) that shows every Docker command before running it, and a Raspberry Pi guide.
 
+[0.4.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.4.0
+[0.3.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.3.0
 [0.2.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.2.0
 [0.1.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.1.0
