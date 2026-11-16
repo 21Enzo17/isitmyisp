@@ -37,7 +37,7 @@ Sale con código 1 si alguna revisión dio rojo, así sirve en un script.
 | DNS interceptado | Una consulta a una dirección que no existe recibe respuesta: alguien (el router o el ISP) contesta por tus DNS. |
 | Tamaño de paquete (MTU) | Los paquetes grandes se pierden sin aviso. Un MTU menor avisado (1492 en PPPoE) está bien. |
 | Reinicios del router | El router se reinició en las últimas 24 horas (se lee por SNMP, si lo configuraste). |
-| Loops y tormentas | Respuestas duplicadas, broadcast fuera de lo normal o la MAC del router que cambia (ver [loops](/es/verdict/#loops-y-tormentas-de-broadcast)). |
+| Loops y tormentas | Respuestas duplicadas, broadcast fuera de lo normal o la MAC del router que cambia (ver [loops](verdict.md#loops-y-tormentas-de-broadcast)). |
 
 **Solo esta máquina** (la que corre isitmyisp):
 
@@ -53,4 +53,4 @@ Al lado de la lista sale una nota de la A a la F: cada amarillo suma 1 y cada ro
 
 ## En el informe
 
-El [informe para el ISP](/es/report/) suma el último chequeo del período como **Revisado del lado del cliente**. Así el soporte ve que ya miraste tu red antes de reclamar.
+El [informe para el ISP](report.md) suma el último chequeo del período como **Revisado del lado del cliente**. Así el soporte ve que ya miraste tu red antes de reclamar.

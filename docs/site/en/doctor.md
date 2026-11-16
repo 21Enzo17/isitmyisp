@@ -37,7 +37,7 @@ It exits with code 1 if any check is red, so it works in a script.
 | DNS interception | A query to an address that doesn't exist gets an answer: someone (the router or the ISP) answers in place of your DNS. |
 | Packet size (MTU) | Large packets are dropped silently. A smaller MTU that is signalled (1492 on PPPoE) is fine. |
 | Router restarts | The router restarted in the last 24 hours (read over SNMP, if you set it up). |
-| Loops and storms | Duplicate replies, unusual broadcast or a router MAC that keeps changing (see [loops](/en/verdict/#loops-and-broadcast-storms)). |
+| Loops and storms | Duplicate replies, unusual broadcast or a router MAC that keeps changing (see [loops](verdict.md#loops-and-broadcast-storms)). |
 
 **This machine only** (the one running isitmyisp):
 
@@ -53,4 +53,4 @@ Next to the list there is a grade from A to F: each yellow adds 1 and each red 2
 
 ## In the report
 
-The [report for your ISP](/en/report/) includes the last check-up of the period as **Checked on the customer side**. Support can see you already looked at your network before filing the claim.
+The [report for your ISP](report.md) includes the last check-up of the period as **Checked on the customer side**. Support can see you already looked at your network before filing the claim.
