@@ -928,6 +928,44 @@ class IntermittentOnDashboard(WebAppBase):
         self.assertIn("comes and goes (3 drops)", self.client.get("/incidents?lang=en").get_data(as_text=True))
 
 
+@unittest.skipUnless(HAVE_WEB, "web extra not installed")
+class RemoteIncident(WebAppBase):
+    def test_only_some_destinations_failing_says_who_and_that_your_connection_worked(self):
+        import time as _t
+        self.create_admin()
+        now = _t.time()
+        iid = self.store.open_incident("remote", ["9.9.9.9: 100.0% loss (15/15)", "1.1.1.1: OK", "8.8.8.8: OK"],
+                                       ts=now - 300)
+        self.store.close_incident(iid, ts=now - 180)
+        html = self.client.get("/incidents?lang=es").get_data(as_text=True)
+        self.assertIn("Quad9 (9.9.9.9) tuvo problemas.", html)
+        self.assertIn("tu conexión funcionó", html)
+        self.assertIn("Quad9 (9.9.9.9) had trouble.", self.client.get("/report?since=1d&lang=en").get_data(as_text=True))
+
+
+
+class ThirtyDays(WebAppBase):
+    """The last 30 days, a square a day (#63): since when it measures until there are 30 of them."""
+
+    def test_dashboard_and_report_show_each_day(self):
+        import time as _t
+        self.create_admin()
+        now = _t.time()
+        for k in range(3 * 48):                               # three days of half-hour windows, an hour of ISP trouble
+            code = "isp" if k in (100, 101) else "ok"
+            self.store.add_window_verdict(code, 1800, ts=now - 1800 * k)
+        html = self.client.get("/?lang=es").get_data(as_text=True)
+        self.assertIn("Disponibilidad · 30 días", html)
+        self.assertIn("Midiendo desde el", html)
+        self.assertEqual(html.count('<li class="g-before'), 30 - len({
+            _t.strftime("%Y-%m-%d", _t.localtime(now - 1800 * k - 900)) for k in range(3 * 48)}))
+        self.assertIn('class="g-isp', html)
+        self.assertIn("1 h sin internet", html)
+        rep = self.client.get("/report?since=7d&lang=en").get_data(as_text=True)
+        self.assertIn("Availability day by day", rep)
+        self.assertIn("ISP backbone / upstream", rep)
+
+
 class TvPairing(WebAppBase):
     """/tv: a short code on the TV, typed by an admin in Settings, and the screen stays paired."""
 

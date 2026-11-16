@@ -692,6 +692,22 @@ label.check input { width: 17px; height: 17px; accent-color: var(--accent); }
 .kpi-spark .area { opacity: .2; }
 
 .where { margin-top: 18px; }
+/* availability day by day, the last 30 days (#63) */
+.month { margin-top: 18px; }
+.month .card-head { flex-wrap: wrap; }
+.month-since { margin: 0; font-size: 13px; color: var(--ink-3); }
+.month-figs { display: flex; flex-wrap: wrap; gap: 8px 32px; margin: 4px 0 14px; }
+.month-figs p { margin: 0; display: flex; flex-direction: column; }
+.month-figs span { font-size: 13px; color: var(--ink-2); }
+.month-figs b { font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.days { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); gap: 3px; }
+.days li { height: 30px; border-radius: 3px; background: var(--c, var(--track)); }
+.days li.g-none { background: var(--track); box-shadow: inset 0 0 0 1px var(--line-2); }
+.days li.g-before { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
+.days li.partial { background: repeating-linear-gradient(135deg, var(--c) 0 3px, color-mix(in srgb, var(--c) 45%, transparent) 3px 6px); }
+.days-x { display: flex; justify-content: space-between; margin: 4px 0 0; font-size: 11.5px; color: var(--ink-3); }
+.month-hint { margin: 10px 0 0; font-size: 13px; }
+@media (max-width: 640px) { .days { gap: 2px; } .days li { height: 22px; border-radius: 2px; } }
 .dash-row .card .meter { grid-template-columns: 70px 6.5rem minmax(60px, 1fr); }
 .dash-row .card .meter .m-pct { grid-column: 2 / -1; margin-top: -4px; }
 .dash-row .card .meter.cpu { grid-template-columns: 70px 6.5rem; }
@@ -726,6 +742,7 @@ label.check input { width: 17px; height: 17px; accent-color: var(--accent); }
 .ev-t { font-weight: 500; font-size: 14.5px; }
 .ev-w { font-size: 13px; color: var(--ink-3); margin-top: 2px; font-variant-numeric: tabular-nums; }
 .ev-int { color: var(--ink-2); font-weight: 500; }
+.ev-sum { margin: 0 0 4px; color: var(--ink); }
 .ev-list li.now .ev-t { color: var(--ink); font-weight: 600; }
 
 /* three columns only when the 24-hour chart (and its table) gets real width: on a 1366 or 1440 laptop
