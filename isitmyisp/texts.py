@@ -11,6 +11,7 @@ VERDICT = {
            "service_down": "Service unreachable (your internet is fine)",
            "device_down": "Device not answering (your network is fine)",
            "saturation": "Link full: your own traffic", "failover": "Running on the backup link",
+           "loop": "Loop or broadcast storm on your network",
            "speedtest": "Speed test running"},
     "es": {"ok": "Sana", "local": "Problema de tu lado", "access": "Problema en el acceso del ISP",
            "isp": "Problema en la red del ISP", "remote": "Solo algunos destinos fallan",
@@ -20,6 +21,7 @@ VERDICT = {
            "service_down": "Servicio inaccesible (tu internet anda bien)",
            "device_down": "El dispositivo no responde (tu red anda bien)",
            "saturation": "Enlace lleno: tu propio tráfico", "failover": "Funcionando por el enlace de respaldo",
+           "loop": "Loop o tormenta de broadcast en tu red",
            "speedtest": "Midiendo la velocidad"},
 }
 
@@ -29,12 +31,14 @@ RULED = {
            "icmp_noise": "Real TCP connections were affected too (not just ping being deprioritized)",
            "single_destination": "Several independent networks were affected at once (not one website)",
            "saturation": "Your link was not full (read from your router: {link})",
-           "router_overload": "Your router's CPU was not overloaded ({cpu}%)"},
+           "router_overload": "Your router's CPU was not overloaded ({cpu}%)",
+           "loop": "No sign of a loop or broadcast storm on your network (no duplicate replies, normal broadcast)"},
     "es": {"home": "Tu router y tu red local respondían normal al mismo tiempo",
            "icmp_noise": "Las conexiones TCP reales también fallaban (no es solo ping despriorizado)",
            "single_destination": "Fallaban varias redes independientes a la vez (no un sitio puntual)",
            "saturation": "Tu enlace no estaba lleno (leído de tu router: {link})",
-           "router_overload": "La CPU de tu router no estaba sobrecargada ({cpu}%)"},
+           "router_overload": "La CPU de tu router no estaba sobrecargada ({cpu}%)",
+           "loop": "Sin señales de loop ni tormenta de broadcast en tu red (sin respuestas duplicadas, broadcast normal)"},
 }
 NOT_RULED = {
     "en": {"saturation": "Saturation by your own traffic (downloads, backups): connect isitmyisp to your router (SNMP) to rule it out",
@@ -61,6 +65,7 @@ ADVICE = {
         "service_down": "Your internet works: the problem is that service (its servers or its own provider). Check its status page or contact it; there is nothing to fix on your network.",
         "failover": "Your router moved the traffic to the backup link: the office still has internet, but your main ISP is down or failing. File a complaint with your main ISP; the report shows since when. Watch the backup's data plan if it has one.",
         "saturation": "Your own traffic is filling the link (a big download, a backup, video). Find who's using it (your router shows it), schedule backups at night, or prioritize critical traffic (QoS). Your ISP is not at fault.",
+        "loop": "Something on your local network is sending frames round in a circle: usually a cable closing a loop between two switches (or both ends of a cable in the same switch), or a switch without STP. Unplug the switches or recent cables one by one until it stops, and turn on STP/loop protection if your switches have it. Your ISP is not at fault.",
     },
     "es": {
         "local": "Revisá primero el Wi-Fi: acercate al router o conectá un cable. Si es por cable, probá otro cable o puerto y reiniciá el router. Acá la culpa no es del ISP.",
@@ -77,5 +82,6 @@ ADVICE = {
         "service_down": "Tu internet anda: el problema es ese servicio (sus servidores o su proveedor). Mirá su página de estado o contactalo; no hay nada que arreglar en tu red.",
         "failover": "Tu router pasó el tráfico al enlace de respaldo: la oficina sigue con internet, pero tu ISP principal está caído o fallando. Reclamale a tu ISP principal; el informe muestra desde cuándo. Si el respaldo tiene tope de datos, cuidalo.",
         "saturation": "Tu propio tráfico está llenando el enlace (una descarga grande, un backup, video). Buscá quién lo usa (tu router lo muestra), programá los backups de noche o priorizá el tráfico crítico (QoS). Acá la culpa no es del ISP.",
+        "loop": "Algo en tu red local está mandando tramas en círculo: casi siempre un cable que cierra un loop entre dos switches (o las dos puntas de un cable en el mismo switch), o un switch sin STP. Desconectá los switches o los cables nuevos de a uno hasta que pare, y activá STP o la protección de loops si tus switches la tienen. Acá la culpa no es del ISP.",
     },
 }

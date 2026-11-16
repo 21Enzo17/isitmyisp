@@ -86,6 +86,8 @@ When it's on:
 
 Every ISP's favourite objection is "you saturated your own link". Connect your router over SNMP (v2c, read-only) and isitmyisp reads the WAN interface usage and CPU every window. That rules out the objection, or tells you they were right. It needs your plan's speeds to know when the link is full.
 
+It also reads the broadcast and multicast each router interface receives: a storm on the LAN (a loop between switches) shows up there, next to the CPU. See [loops and broadcast storms](/docs/en/verdict/#loops-and-broadcast-storms).
+
 ## TV mode
 
 A board for a screen on the office wall: large type, refreshes by itself, no menus or login. See it in the [demo](/en/isp/tv/).

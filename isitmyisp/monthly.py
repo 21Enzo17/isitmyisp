@@ -128,7 +128,7 @@ def summary(store: Store, start: float, end: float, lang: str, public_url: str =
     from . import hours as hours_mod
     from .report import fmt_duration
     # whose side (same grouping as the dashboard; the core can't import the web extra)
-    group = lambda code: "isp" if code in ("access", "isp") else ("you" if code in ("local", "saturation") else "other")  # noqa: E731
+    group = lambda code: "isp" if code in ("access", "isp") else ("you" if code in ("local", "loop", "saturation") else "other")  # noqa: E731
     t = T[lang]
     month = month_name(datetime.fromtimestamp(start).strftime("%Y-%m"), lang)
     windows = store.windows_between(start, end)

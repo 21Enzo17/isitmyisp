@@ -20,6 +20,8 @@ OID_SYS_DESCR = "1.3.6.1.2.1.1.1.0"
 OID_SYS_UPTIME = "1.3.6.1.2.1.1.3.0"
 OID_IF_NAME = "1.3.6.1.2.1.31.1.1.1.1"
 OID_IF_HC_IN = "1.3.6.1.2.1.31.1.1.1.6"
+OID_IF_HC_IN_MCAST = "1.3.6.1.2.1.31.1.1.1.8"
+OID_IF_HC_IN_BCAST = "1.3.6.1.2.1.31.1.1.1.9"
 OID_IF_HC_OUT = "1.3.6.1.2.1.31.1.1.1.10"
 OID_IF_HIGH_SPEED = "1.3.6.1.2.1.31.1.1.1.15"
 OID_HR_PROCESSOR_LOAD = "1.3.6.1.2.1.25.3.3.1.2"
@@ -189,6 +191,8 @@ class LinkUsage:
     down_pct: float | None   # of the contracted speed (None if not configured)
     up_pct: float | None
     cpu_pct: float | None    # router CPU, if exposed (HOST-RESOURCES-MIB)
+    bcast_pps: float | None = None   # broadcast + multicast received on the busiest LAN-side interface
+    bcast_if: str | None = None      # ...and which interface that was
 
     @property
     def peak_pct(self) -> float | None:
@@ -212,11 +216,14 @@ class LinkMonitor:
         self.down_c, self.up_c = down_contract_mbps, up_contract_mbps
         self.if_index: int | None = None
         self._last: tuple[float, int, int, int] | None = None  # (time, uptime, in, out)
+        self._names: dict[int, str] = {}
+        self._bc_last: tuple[float, dict[int, int]] | None = None
         self.error: str | None = None
 
     def _resolve(self) -> int:
         if self.if_index is None:
-            for idx, name in interfaces(self.client):
+            self._names = dict(interfaces(self.client))
+            for idx, name in self._names.items():
                 if name == self.interface:
                     self.if_index = idx
                     break
@@ -235,6 +242,7 @@ class LinkMonitor:
             if not all(isinstance(v, int) for v in (uptime, rx, tx)):
                 raise SnmpError("router does not expose 64-bit interface counters (IF-MIB ifHC*)")
             cpu = self._cpu()
+            bcast, bcast_if = self._bcast(now)
         except SnmpError as exc:
             self.error = str(exc)
             return None
@@ -249,7 +257,7 @@ class LinkMonitor:
         up = (tx - prev[3]) * 8 / dt / 1e6
         return LinkUsage(round(down, 2), round(up, 2),
                          round(100 * down / self.down_c, 1) if self.down_c else None,
-                         round(100 * up / self.up_c, 1) if self.up_c else None, cpu)
+                         round(100 * up / self.up_c, 1) if self.up_c else None, cpu, bcast, bcast_if)
 
     def counters(self) -> tuple[int, int] | None:
         """Raw WAN octet counters (in, out), for an average over an arbitrary span (the speed test)."""
@@ -260,6 +268,29 @@ class LinkMonitor:
         except SnmpError:
             return None
         return (rx, tx) if isinstance(rx, int) and isinstance(tx, int) else None
+
+    def _bcast(self, now: float) -> tuple[float | None, str | None]:
+        """Broadcast + multicast packets/s on the busiest interface other than the WAN (a LAN storm
+        shows up here, next to the CPU). None when the router doesn't expose IF-MIB ifHCIn*castPkts."""
+        counts: dict[int, int] = {}
+        try:
+            for base in (OID_IF_HC_IN_BCAST, OID_IF_HC_IN_MCAST):
+                for oid, v in self.client.walk(base, limit=128):
+                    if isinstance(v, int):
+                        idx = int(oid.rsplit(".", 1)[1])
+                        counts[idx] = counts.get(idx, 0) + v
+        except SnmpError:
+            return None, None
+        prev, self._bc_last = self._bc_last, (now, counts)
+        if not prev or now <= prev[0]:
+            return None, None
+        dt = now - prev[0]
+        rates = {i: (c - prev[1][i]) / dt for i, c in counts.items()
+                 if i != self.if_index and i in prev[1] and c >= prev[1][i]}
+        if not rates:
+            return None, None
+        busiest = max(rates, key=rates.get)
+        return round(rates[busiest], 1), self._names.get(busiest, str(busiest))
 
     def _cpu(self) -> float | None:
         try:

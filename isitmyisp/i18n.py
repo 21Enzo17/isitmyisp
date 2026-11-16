@@ -8,6 +8,8 @@ MSG = {
     "en": {
         "ok": "✅ Your connection looks healthy.",
         "local": "🏠 The problem is on YOUR side: between this device and your router(s).",
+        "loop": "🔁 There's a loop or a broadcast storm on YOUR local network: it isn't your ISP. Look for a cable closing a circle between two switches (or a switch plugged into itself) and for switches without STP; unplug them one by one until it stops.",
+        "saturation": "📶 Your link is full of your own traffic (downloads, backups): it isn't your ISP.",
         "access": "📡 The problem is in your ISP's access network (its first hop after your router).",
         "isp": "🌐 The problem is inside your ISP's network or its upstream: every destination is affected.",
         "remote": "🎯 Only some destinations are affected: that's not your ISP's fault.",
@@ -20,6 +22,7 @@ MSG = {
         "dns_partial": "One of your DNS resolvers is failing; the others are fine.",
         "jitter": "High jitter: calls and games may suffer even without packet loss.",
         "router_icmp": "Your router doesn't answer pings reliably, but traffic through it is fine: it filters ICMP (normal on firewalls).",
+        "lan_loop": "Signs of a loop on your local network (duplicate replies or a flood of broadcast), though nothing is failing yet: check for a cable closing a circle between two switches.",
         "measuring": "Measuring for {s}s",
         "net": "Network", "gateway": "Gateway (your router)", "iface": "Interface", "wireless": "Wi-Fi",
         "wired": "cable", "dns_srv": "DNS servers", "pubip": "Public IPv4", "isp_name": "ISP", "isphop": "ISP first hop",
@@ -52,6 +55,8 @@ MSG = {
     "es": {
         "ok": "✅ Tu conexión se ve sana.",
         "local": "🏠 El problema está de TU lado: entre este equipo y tu(s) router(s).",
+        "loop": "🔁 Hay un loop o una tormenta de broadcast en TU red local: no es tu ISP. Buscá un cable que cierre un círculo entre dos switches (o un switch conectado a sí mismo) y switches sin STP; desconectalos de a uno hasta que pare.",
+        "saturation": "📶 Tu enlace está lleno de tu propio tráfico (descargas, backups): no es tu ISP.",
         "access": "📡 El problema está en la red de acceso de tu ISP (su primer salto después de tu router).",
         "isp": "🌐 El problema está dentro de la red de tu ISP o en su salida: afecta a todos los destinos.",
         "remote": "🎯 Solo algunos destinos fallan: no es culpa de tu ISP.",
@@ -64,6 +69,7 @@ MSG = {
         "dns_partial": "Uno de tus servidores DNS falla; los demás andan bien.",
         "jitter": "Jitter alto: las llamadas y los juegos pueden sufrir aunque no haya pérdida.",
         "router_icmp": "Tu router no responde bien los pings, pero el tráfico que pasa por él anda bien: filtra ICMP (normal en firewalls).",
+        "lan_loop": "Hay señales de un loop en tu red local (respuestas duplicadas o una avalancha de broadcast), aunque todavía no falla nada: buscá un cable que cierre un círculo entre dos switches.",
         "measuring": "Midiendo durante {s}s",
         "net": "Red", "gateway": "Gateway (tu router)", "iface": "Interfaz", "wireless": "Wi-Fi",
         "wired": "cable", "dns_srv": "Servidores DNS", "pubip": "IPv4 pública", "isp_name": "ISP", "isphop": "Primer salto del ISP",

@@ -29,7 +29,7 @@ The report puts everything that happened in a period into one file: what failed,
 The report doesn't exaggerate, and that's what makes it hard to ignore:
 
 - **It proves** there was loss or abnormal latency, when, for how long and in which segment of the path it started, with ICMP and TCP agreeing.
-- **It rules out** your LAN when the router was answering fine; ICMP noise, because only loss that reaches the destination counts; a single site being down, because it measures several destinations; and, if you connected the router over SNMP, a link full of your own traffic.
+- **It rules out** your LAN when the router was answering fine; ICMP noise, because only loss that reaches the destination counts; a single site being down, because it measures several destinations; a loop or broadcast storm on your network, when there were no duplicate replies and broadcast was normal; and, if you connected the router over SNMP, a link full of your own traffic.
 - **It doesn't prove** what it didn't measure. Without router data, it says it can't rule out a saturated link.
 
 ## Using it in a claim
