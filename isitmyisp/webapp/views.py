@@ -553,6 +553,8 @@ def speed_status(store: Store, settings: Settings, now: float | None = None) -> 
     pending = bool(requested and now - requested < 120 and not any(r["ts"] >= requested for r in month))
     return {"cfg": cfg, "on": on, "last": history[0] if history else None, "history": history,
             "used": used, "budget": cfg["budget_gb"] * 1e9, "per_test": per_test, "expected": expected,
+            # about 15 s for Cloudflare, then as much for each iperf3 server, one after the other
+            "seconds": 15 * (1 + len(cfg.get("servers") or [])),
             "next": nxt, "contract_down": contract_down, "contract_up": contract_up,
             "blocked": blocked, "pending": pending, "weekdays": sp.WEEKDAYS,
             "servers_text": "\n".join(sp.label(x) + ("" if x.get("where", "auto") == "auto" else f" {x['where']}")

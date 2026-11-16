@@ -199,6 +199,7 @@ class Web(WebAppBase):
         self.assertEqual([s["where"] for s in saved], ["auto", "outside"])
         page = self.client.get("/settings?lang=en").get_data(as_text=True)
         self.assertIn("vps.example.org:5202 outside", page)
+        self.assertIn("about 45 seconds", page)            # Cloudflare plus two servers, one after the other
         r = self.client.post("/settings/speedtest", data={**form, "servers": "evil; rm -rf /"})
         self.assertEqual(r.status_code, 400)
 

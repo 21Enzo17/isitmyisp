@@ -35,6 +35,8 @@ That's normal for many routers and business firewalls: they deprioritise pings a
 
 It can be the ISP or something on your side: other devices using the internet at that moment, or the Wi-Fi of the machine measuring. The result warns when your Wi-Fi seems to be the limit. If you connected the router over SNMP, it also shows everything the WAN carried during the test.
 
+Cloudflare alone can't say whether the slow part is your access or the ISP's exit to the rest of the internet. With an iperf3 server of your own inside your ISP and another outside, the result says where the bottleneck is. See [Inside and outside your ISP](features.md#inside-and-outside-your-isp).
+
 ## Alerts don't arrive
 
 Press **Send test** in **Settings → Alerts** and look at each channel's result. See [Alerts](alerts.md#if-an-alert-doesnt-arrive).
@@ -90,7 +92,7 @@ docker start isitmyisp
 - **"Operation not permitted" when pinging:** the container lacks the permission to ping. Run the [installer](install.md) again or add `--cap-add=NET_RAW`.
 - **It sees one odd address instead of your router:** `--net=host` is missing. Without it, it measures Docker's internal network, not yours.
 - **On Docker Desktop (Mac or Windows):** `--net=host` doesn't see the machine's real network, so the path and the router come out wrong. Run it on Linux: a Raspberry Pi, a mini PC or a server.
-- **It measures a DNS server that isn't yours** (`100.100.100.100`, `127.0.0.53`): those are local forwarders from Tailscale or systemd-resolved, and isitmyisp no longer uses them; if it finds nothing else, it measures your router. If your devices use another DNS, such as AdGuard Home or Pi-hole, set it in **Settings → General → DNS servers** (for example `192.168.1.22`, or `127.0.0.1` if it runs on the same machine).
+- **It measures a DNS server that isn't yours** (`100.100.100.100`, `127.0.0.53`): those are local forwarders from Tailscale or systemd-resolved, and isitmyisp no longer uses them; if it finds nothing else, it measures your router. If your devices use another DNS, such as AdGuard Home or Pi-hole, set it in **Settings → Measurement → DNS servers** (for example `192.168.1.22`, or `127.0.0.1` if it runs on the same machine).
 - **The dashboard doesn't open from another device:** if you installed with `--local`, it only answers on that machine. Run the installer again without that option.
 
 ## How much does it cost?

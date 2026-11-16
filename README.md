@@ -49,7 +49,7 @@ Everything runs on one small box on your network (a Raspberry Pi is enough). No 
 ```bash
 docker run --rm -p 127.0.0.1:8090:8080 21enzo03/isitmyisp --lang en demo --scenario isp --bind 0.0.0.0:8080
 ```
-Then open **http://127.0.0.1:8090**. Scenarios: `healthy`, `isp`, `failover`, `wifi`.
+Then open **http://127.0.0.1:8090**. Scenarios: `healthy`, `isp`, `failover`, `wifi`, `loop`.
 
 ## Install (one line)
 
@@ -81,10 +81,12 @@ They work well together: Uptime Kuma for your services, isitmyisp for the connec
 - **Dashboard:** the verdict beside availability, time without outages and latency; the last 24 hours (who was at fault, loss, latency, call quality, backup link) with hover readouts and a table view; every destination; latest events; where on the path the problem is and what to do. Light and dark. Everything works without JavaScript.
 - **TV mode:** open `/tv` on the TV, type the short code it shows in Settings, and it stays paired. A board that fits any screen from 720p to 4K, or a simple view for a shop counter.
 - **Your services and devices:** your bank, your ERP or the tax agency (with one-click presets for Argentina), and devices on your network (card terminals, printers, cameras, phone systems), so "is it my internet or is it them?" has an answer.
-- **Failover, calls and speed:** notices within about a minute when traffic moves to the backup link; an estimated call quality (ITU-T G.107 E-model, labelled as an estimate); an optional speed test against your plan, off by default, with a data budget.
+- **Failover, calls and speed:** notices within about a minute when traffic moves to the backup link; an estimated call quality (ITU-T G.107 E-model, labelled as an estimate); an optional speed test against your plan, off by default, with a data budget; add your own iperf3 servers inside and outside your ISP and it says whether the bottleneck is your access or the ISP's exit to the rest of the internet.
+- **Check-up and loops:** `isitmyisp doctor` (also daily, and on the dashboard) reviews how your network is set up even when nothing is down: CGNAT, double NAT, IPv6, DNS speed and hijacking, MTU, router reboots, link speed. Loops and broadcast storms on your LAN get a verdict of their own.
+- **Check from this device:** open `/check` on a PC or phone and it measures from there, crossed with what the probe saw at the same time: is it that device's Wi-Fi or everyone's connection?
 - **Tunnels:** did your IPsec/L2TP/WireGuard tunnel drop because of its configuration or because of the path? It measures outside and inside at once, and spots drops that repeat on a schedule (mismatched rekey timers).
 - **Alerts and reports:** Telegram, email or webhook, only for problems that last, each saying whose fault it is and what to do; held while you're closed if you want, with one summary at opening time. The evidence report in HTML or PDF, on demand or monthly by email.
-- **Multi-user and safe on your LAN:** admins and viewers, Argon2id passwords, CSRF protection, a strict CSP (no inline code; the only script is the chart's optional drag-to-zoom), or single sign-on through Authelia, Authentik, oauth2-proxy or Tailscale. Prometheus `/metrics` and a JSON API.
+- **Multi-user and safe on your LAN:** admins and viewers, Argon2id passwords, CSRF protection, a strict CSP (no inline code; the only scripts are the enlarged chart's optional drag-to-zoom and the measurement on `/check`), or single sign-on through Authelia, Authentik, oauth2-proxy or Tailscale. Prometheus `/metrics` and a JSON API.
 
 <img src="docs/screenshots/report.png" alt="The evidence report: summary for you, timeline, where the problems were, incidents" width="70%">
 
@@ -131,7 +133,7 @@ $ isitmyisp discover
 
 ## Status and roadmap
 
-Version 0.2 is the first published release ([changelog](CHANGELOG.md)). It runs every day on the author's networks but hasn't been tested on many others yet: if the verdict is wrong for yours, an [issue](https://github.com/21Enzo17/isitmyisp/issues) with a dashboard screenshot and the output of `isitmyisp discover` helps a lot. Screenshots use synthetic data.
+Version 0.3 is the latest published release ([changelog](CHANGELOG.md)). It runs every day on the author's networks but hasn't been tested on many others yet: if the verdict is wrong for yours, an [issue](https://github.com/21Enzo17/isitmyisp/issues) with a dashboard screenshot and the output of `isitmyisp discover` helps a lot. Screenshots use synthetic data.
 
 Next, in the [issues](https://github.com/21Enzo17/isitmyisp/issues): the cost of downtime for a business, WhatsApp alerts, a hub for several sites, telling a power cut from an internet outage, Wi-Fi quality around the probe, and which devices are filling the link.
 

@@ -35,6 +35,8 @@ Es normal en muchos routers y firewalls de empresa: le dan baja prioridad a los 
 
 Puede ser el ISP o algo de tu lado: otros equipos usando internet en ese momento, o el Wi-Fi del equipo que mide. El resultado avisa cuando el límite parece ser tu Wi-Fi. Si conectaste el router por SNMP, también muestra todo lo que pasaba por la WAN durante el test.
 
+Cloudflare solo no dice si lo lento es tu acceso o la salida del ISP al resto de internet. Con un servidor iperf3 propio dentro de tu ISP y otro fuera, el resultado dice dónde está el cuello de botella. Ver [Dentro y fuera de tu ISP](features.md#dentro-y-fuera-de-tu-isp).
+
 ## No me llegan las alertas
 
 Apretá **Mandar prueba** en **Configuración → Alertas** y mirá el resultado de cada canal. Ver [Alertas](alerts.md#si-una-alerta-no-llega).
@@ -90,7 +92,7 @@ docker start isitmyisp
 - **"Operation not permitted" al hacer ping:** al contenedor le falta el permiso para hacer ping. Corré el [instalador](install.md) de nuevo o agregá `--cap-add=NET_RAW`.
 - **Ve una sola dirección rara en lugar de tu router:** falta `--net=host`. Sin eso mide la red interna de Docker, no la tuya.
 - **En Docker Desktop (Mac o Windows):** `--net=host` no ve la red real del equipo, así que el camino y el router salen mal. Usalo en Linux: una Raspberry Pi, una mini PC o un servidor.
-- **Mide un DNS que no es el tuyo** (`100.100.100.100`, `127.0.0.53`): son reenviadores locales de Tailscale o de systemd-resolved, y isitmyisp ya no los usa; si no encuentra otro, mide tu router. Si tus equipos usan otro DNS, como un AdGuard Home o un Pi-hole, ponelo en **Configuración → General → Servidores DNS** (por ejemplo `192.168.1.22`, o `127.0.0.1` si corre en el mismo equipo).
+- **Mide un DNS que no es el tuyo** (`100.100.100.100`, `127.0.0.53`): son reenviadores locales de Tailscale o de systemd-resolved, y isitmyisp ya no los usa; si no encuentra otro, mide tu router. Si tus equipos usan otro DNS, como un AdGuard Home o un Pi-hole, ponelo en **Configuración → Medición → Servidores DNS** (por ejemplo `192.168.1.22`, o `127.0.0.1` si corre en el mismo equipo).
 - **El panel no se abre desde otro equipo:** si lo instalaste con `--local`, solo responde en ese equipo. Volvé a correr el instalador sin esa opción.
 
 ## ¿Cuánto cuesta?

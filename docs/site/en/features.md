@@ -10,7 +10,7 @@ Everything is set up from **Settings** in the browser and applied at once: nothi
 
 "Is it my internet, or is the bank down?" Add any HTTP(S) or TCP service and it's checked every 30 seconds. When it fails while your connection is healthy, the verdict says it's that service.
 
-For Argentina there are ready-made checks to tick: the tax agency ARCA (Clave Fiscal, e-invoicing WSFEv1, WSAA), Rentas Jujuy, Banco Macro, Banco Nación, Galicia, Santander, Mercado Pago, Payway, plus Google Workspace, Microsoft 365, WhatsApp Web and Zoom.
+For Argentina there are ready-made checks to tick: the tax agency ARCA (Clave Fiscal, e-invoicing WSFEv1, WSAA), Rentas Jujuy, Banco Macro, Banco Nación, Galicia, Santander, BBVA Argentina, Mercado Pago, Payway, plus Google Workspace, Microsoft 365, WhatsApp Web and Zoom.
 
 Each one says exactly what it checks. Some use TCP because their HTTPS can't be checked fairly: ARCA's e-invoicing server uses a TLS setup modern clients reject, and Santander blocks automated clients.
 
@@ -75,9 +75,10 @@ Would a call sound good right now? An estimated MOS from 1 to 5 (ITU-T G.107 E-m
 
 When it's on:
 
-- It runs weekly (Sunday at 3 a.m. by default) or when you press "test now".
+- It runs weekly (Sunday at 3 a.m. by default), daily at the hour you pick, or only when you press "test now".
 - It keeps to a monthly data budget (5 GB by default).
-- It never runs on the backup link, during an incident or while the link is busy (above 30 % by default).
+- It never runs on the backup link or over the budget.
+- A scheduled test also waits out an incident and a busy link (above 30 % by default). "Test now" runs anyway: you asked for it.
 - It measures against speed.cloudflare.com, which sees your public IP.
 - It also measures latency with the link full (bufferbloat) and warns when the result is limited by your Wi-Fi rather than the ISP.
 - While it runs, those windows don't count towards the verdict.
@@ -96,7 +97,7 @@ With one server on each side, the dashboard and the report compare the best down
 | **The access** | Inside and outside are alike, but even inside the ISP you get under 60 % of your plan. The limit is your access link. |
 | **No bottleneck at the exit** | Inside and outside are alike. |
 
-The guards still hold: the data cap per test is shared between Cloudflare and your servers, and it doesn't run on the backup link or during an incident. It needs the `iperf3` program on the machine (the Docker image ships it), and each server sees your public IP.
+The guards still hold: the data cap per test is shared between Cloudflare and your servers, it doesn't run on the backup link, and a scheduled test still waits out an incident. It needs the `iperf3` program on the machine (the Docker image ships it), and each server sees your public IP.
 
 ## The router over SNMP
 

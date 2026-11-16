@@ -116,7 +116,7 @@
     </form>
     {% if speed.on and not readonly %}
     <form method="post" action="{{ url_for('speedtest_run') }}" class="run-now">{{ csrf() }}
-      <label class="check"><input type="checkbox" name="confirm" value="1" required> {{ t.speed_confirm.format(size=speed.expected|size) }}</label>
+      <label class="check"><input type="checkbox" name="confirm" value="1" required> {{ t.speed_confirm.format(size=speed.expected|size, secs=speed.seconds) }}</label>
       <button class="btn" type="submit">{{ t.speed_run }}</button>
     </form>
     {% endif %}

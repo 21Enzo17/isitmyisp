@@ -11,10 +11,15 @@ The dashboard holds your network's settings and the evidence of your incidents, 
 | **Accounts** | Flask-Login sessions, **Argon2id** password hashes and a login rate limit |
 | **First admin** | Created with a one-time token printed in the log, so nobody on your network can claim the instance before you |
 | **CSRF** | A token on every form plus a same-origin check |
-| **Headers** | Strict CSP (no inline code, and scripts only on the enlarged chart), `X-Frame-Options: DENY`, `HttpOnly` and `SameSite` cookies |
+| **Headers** | Strict CSP (no inline code, and scripts only on the enlarged chart and `/check`), `X-Frame-Options: DENY`, `HttpOnly` and `SameSite` cookies |
 | **Server** | Waitress, a production WSGI server; `X-Forwarded-*` headers that don't come from a trusted proxy are ignored |
 
-The dashboard works with **no JavaScript**: the charts' hover is pure CSS, and zooming and moving through time are plain links. The one script is optional, `/static/chart.js` on the enlarged chart, for dragging across it to zoom like in Grafana; it builds a link and nothing else. Every other page's security policy forbids every script, and none allows inline code.
+The dashboard works with **no JavaScript**: the charts' hover is pure CSS, and zooming and moving through time are plain links. There are two scripts, each only on its own page:
+
+- `/static/chart.js` on the enlarged chart, optional, for dragging across it to zoom like in Grafana; it builds a link and nothing else.
+- `/static/check.js` on [Check from this device](device-check.md), which measures from your browser. That page also allows HTTPS connections (`connect-src 'self' https:`) to reach the internet destinations.
+
+Every other page's security policy forbids every script, and none allows inline code.
 
 ## Access modes
 

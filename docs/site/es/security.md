@@ -11,10 +11,15 @@ El panel tiene la configuración de tu red y la evidencia de tus incidentes, as�
 | **Cuentas** | Sesiones de Flask-Login, contraseñas con **Argon2id** y límite de intentos de inicio de sesión |
 | **Primer administrador** | Se crea con un token de un solo uso que aparece en el registro, así nadie en tu red puede adueñarse de la instancia antes que vos |
 | **CSRF** | Token en cada formulario y control de que el pedido venga del mismo origen |
-| **Encabezados** | CSP estricta (sin código inline, y scripts solo en el gráfico ampliado), `X-Frame-Options: DENY`, cookies `HttpOnly` y `SameSite` |
+| **Encabezados** | CSP estricta (sin código inline, y scripts solo en el gráfico ampliado y en `/check`), `X-Frame-Options: DENY`, cookies `HttpOnly` y `SameSite` |
 | **Servidor** | Waitress, un servidor WSGI de producción; ignora los `X-Forwarded-*` que no vienen de un proxy de confianza |
 
-El panel funciona **sin JavaScript**: el hover de los gráficos es CSS puro, y el zoom y el paso del tiempo son links comunes. El único script es opcional, `/static/chart.js` en el gráfico ampliado, para arrastrar sobre él y hacer zoom como en Grafana; solo arma un link. En todas las demás páginas la política de seguridad prohíbe cualquier script, y en ninguna se permite código inline.
+El panel funciona **sin JavaScript**: el hover de los gráficos es CSS puro, y el zoom y el paso del tiempo son links comunes. Hay dos scripts, cada uno solo en su página:
+
+- `/static/chart.js` en el gráfico ampliado, opcional, para arrastrar sobre él y hacer zoom como en Grafana; solo arma un link.
+- `/static/check.js` en [Chequear desde este equipo](device-check.md), que mide desde tu navegador. Esa página permite además conexiones HTTPS (`connect-src 'self' https:`) para llegar a los destinos de internet.
+
+En todas las demás páginas la política de seguridad prohíbe cualquier script, y en ninguna se permite código inline.
 
 ## Modos de acceso
 
