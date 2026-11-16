@@ -24,7 +24,7 @@ from pathlib import Path
 from .demo import SCENARIOS, build
 
 LANGS = ("es", "en")
-PAGES = [("", "/"), ("incidents/", "/incidents"), ("tunnels/", "/tunnels"), ("reports/", "/reports"),
+PAGES = [("", "/"), ("incidents/", "/incidents"), ("tunnels/", "/tunnels"), ("doctor/", "/doctor"), ("reports/", "/reports"),
          ("settings/", "/settings"), ("report/", "/report?since=1d"),
          ("tv/", "/tv/demo"), ("tv/simple/", "/tv/demo?layout=simple")]   # the wall screen, both layouts
 # the enlarged chart at every zoom the demo's day has: 24 h, its four 6 h, its twenty-four hours
@@ -37,7 +37,7 @@ WHO_CHARTS = [("24h", 0)] + [("6h", k) for k in range(4)]
 def who_pages(store) -> list[tuple[str, str]]:
     whos = sorted({s["target"] for s in store.latest_samples() if s["role"] in ("home", "isp", "anchor")}) + ["dns"]
     return [(f"chart/{w}/{span}-{k}/", f"/chart?span={span}&k={k}&who={w}") for w in whos for span, k in WHO_CHARTS]
-ROUTES = {"/": "", "/incidents": "incidents/", "/tunnels": "tunnels/", "/reports": "reports/",
+ROUTES = {"/": "", "/incidents": "incidents/", "/tunnels": "tunnels/", "/doctor": "doctor/", "/reports": "reports/",
           "/settings": "settings/", "/report": "report/", "/report.pdf": "report/"}
 DEFAULT = ("es", "isp")
 

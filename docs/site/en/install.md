@@ -80,6 +80,7 @@ It's also handy for a quick look from the terminal:
 ```bash
 isitmyisp discover          # router, ISP, DNS, CGNAT, IPv6 and the path's segments
 isitmyisp status -s 30      # measure 30 seconds and give a verdict
+isitmyisp doctor            # network check-up: CGNAT, DNS, MTU, loops and more
 isitmyisp mtr 8.8.8.8       # mtr that tells real loss from ICMP noise
 isitmyisp report --since 7d # the HTML report
 ```

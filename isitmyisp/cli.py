@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
+import threading
 import time
 
 from . import __version__, asn
@@ -208,6 +210,70 @@ def cmd_discover(args, t) -> int:
     return 0
 
 
+DOCTOR_ICON = {"ok": "✓", "warn": "!", "bad": "✗", "skip": "·"}
+
+
+def print_doctor(checks, t: dict, lang: str) -> None:
+    from .doctor import grade
+    from .texts import DOCTOR_NAME, DOCTOR_SCOPE, doctor_text
+    names = DOCTOR_NAME.get(lang, DOCTOR_NAME["en"])
+    for scope in ("network", "probe"):
+        print(f"\n{DOCTOR_SCOPE.get(lang, DOCTOR_SCOPE['en'])[scope]}")
+        for c in (c for c in checks if c.scope == scope):
+            text, advice = doctor_text(c.key, c.params, lang)
+            print(f"  {DOCTOR_ICON[c.status]} {names[c.id]:<26} {text}")
+            if advice and c.status in ("warn", "bad"):
+                print(f"    {'':<26} → {advice}")
+    counts = {s: sum(c.status == s for c in checks) for s in ("ok", "warn", "bad", "skip")}
+    print(f"\n{t['doctor_grade'].format(g=grade(checks), **counts)}")
+
+
+def cmd_doctor(args, t) -> int:
+    from .doctor import gather, run_checks, to_dict
+    store = Store(args.db) if args.db or default_db_exists() else None
+    cfg = _settings(args, store)
+    net = _discover(args, cfg)
+    lang = _lang_code(args, t)
+    if not args.json:
+        print(f"⏱  {t['measuring'].format(s=args.seconds)} …", flush=True)
+    checks = run_checks(gather(net, cfg.link, seconds=args.seconds))
+    if args.json:
+        print(json.dumps(to_dict(checks), ensure_ascii=False, indent=2))
+    else:
+        print_doctor(checks, t, lang)
+    if store is not None and args.save:
+        store.add_doctor(to_dict(checks))
+    return 1 if any(c.status == "bad" for c in checks) else 0
+
+
+DOCTOR_EVERY_S = 86400
+_doctor_running = threading.Event()
+
+
+def _doctor_if_due(store: Store, net: Network, link: dict, now: float | None = None):
+    """Once a day the monitor runs the doctor in the background, for the web page and the report."""
+    now = now or time.time()
+    last = store.last_doctor()
+    last_ts = last.get("ts", 0) if last else 0
+    requested = store.get_setting("_doctor_request") or 0     # "Check now" in the web UI
+    if _doctor_running.is_set() or (last and now - last_ts < DOCTOR_EVERY_S and requested <= last_ts):
+        return None
+    _doctor_running.set()
+
+    def run():
+        from .doctor import gather, run_checks, to_dict
+        try:
+            store.add_doctor(to_dict(run_checks(gather(net, link))))
+        except Exception as exc:  # noqa: BLE001 - never take the monitor down for a health check
+            print(f"\ndoctor: {exc}", file=sys.stderr)
+        finally:
+            _doctor_running.clear()
+
+    th = threading.Thread(target=run, daemon=True, name="doctor")
+    th.start()
+    return th
+
+
 def cmd_status(args, t) -> int:
     cfg = _settings(args, Store(args.db) if args.db or default_db_exists() else None)
     net = _discover(args, cfg)
@@ -299,6 +365,7 @@ def cmd_monitor(args, t) -> int:
             snapshot["dns_detected"] = net.dns_detected
             snapshot["tunnels"] = [tun.name for tun in cfg.tunnels]
             store.add_network(snapshot)
+            _doctor_if_due(store, net, cfg.link)
             was_on_backup = any(i.scope == "failover" for i in store.active_incidents())
             change = mon.observe_network(snapshot)
             if change.kind == "learn":
@@ -337,6 +404,7 @@ def cmd_monitor(args, t) -> int:
                         print(f"\n{t['speed_done'].format(down=r.get('down_mbps') or 0, up=r.get('up_mbps') or 0, err=r.get('error') or '')}")
                     alerter.tick()
                     monthly.tick()
+                    _doctor_if_due(store, net, cfg_now.link)
                     stamp = time.strftime("%Y-%m-%d %H:%M:%S")
                     if res.transition.closed:
                         print(f"\n[{stamp}] {t['closed']}: {res.transition.closed}")
@@ -533,6 +601,12 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("-i", "--interval", type=float, default=0.5)
     s.add_argument("--db", help="SQLite path for your settings (default: ~/.local/share/isitmyisp/data.db, if it exists)")
 
+    doc = sub.add_parser("doctor", help="check the network once (CGNAT, DNS, MTU, IPv6, loops, cable…) without the monitor")
+    doc.add_argument("-s", "--seconds", type=float, default=15, help="how long to watch the LAN (default 15)")
+    doc.add_argument("--json", action="store_true", help="print the result as JSON")
+    doc.add_argument("--db", help="SQLite path for your settings (default: ~/.local/share/isitmyisp/data.db, if it exists)")
+    doc.add_argument("--save", action="store_true", help="store the result so the web UI and the report show it")
+
     m = sub.add_parser("mtr", help="run mtr and separate real loss from ICMP noise")
     m.add_argument("target")
     m.add_argument("-c", "--cycles", type=int, default=20)
@@ -575,7 +649,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     t = pick(args.lang)
-    handlers = {"discover": cmd_discover, "status": cmd_status, "mtr": cmd_mtr,
+    handlers = {"discover": cmd_discover, "doctor": cmd_doctor, "status": cmd_status, "mtr": cmd_mtr,
                 "monitor": cmd_monitor, "report": cmd_report, "web": cmd_web, "admin": cmd_admin,
                 "update-asn": cmd_update_asn, "demo": cmd_demo}
     return handlers[args.cmd](args, t)
