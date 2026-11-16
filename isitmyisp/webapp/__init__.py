@@ -35,8 +35,22 @@ from ..api import metrics_text, status_json
 from .strings import S
 
 PUBLIC_ENDPOINTS = {"static", "healthz", "favicon", "tv", "tv_screen"}   # both check their own credentials
+DEVICE_MAX_BYTES = 64 * 1024 * 1024   # one download or upload of "Check from this device"
+
+
+class _Request(Flask.request_class):
+    """The 64 KB body limit, except for the upload of "Check from this device". Decided by the
+    matched endpoint, so it already holds when CSRF reads the form, before the view runs."""
+
+    @property
+    def max_content_length(self) -> int | None:
+        if self.endpoint == "device_check_up":
+            # with some slack: under waitress (wsgi.input_terminated) a body exactly at the limit is refused
+            return DEVICE_MAX_BYTES + (1 << 16)
+        return super().max_content_length
 AUTH_ENDPOINTS = {"login", "setup", "invite", "theme"}
-VIEWER_WRITES = {"logout", "settings_password"}   # the only POSTs a read-only user may make
+VIEWER_WRITES = {"logout", "settings_password",   # the only POSTs a read-only user may make
+                 "device_check_up", "device_check_result"}   # "it fails for me" is anyone's question
 INVITE_TTL = 48 * 3600
 
 
@@ -65,6 +79,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         DEMO=demo,
         LOOPBACK=auth.is_loopback(host),
     )
+    app.request_class = _Request
     CSRFProtect(app)
     limiter = Limiter(get_remote_address, app=app, storage_uri="memory://", default_limits=[])
     login_manager = LoginManager(app)
@@ -136,9 +151,12 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     def security_headers(resp: Response) -> Response:
         # Reports are standalone documents with an inline <style>; everything else uses /static.
         style = "'self' 'unsafe-inline'" if request.endpoint in ("report",) else "'self'"
-        # one page runs a script, the enlarged chart's drag-to-zoom (/static/chart.js, never inline);
-        # every other page allows none at all
-        script = " script-src 'self';" if request.endpoint == "chart" else ""
+        # two pages run a script, the enlarged chart's drag-to-zoom (/static/chart.js) and "Check from
+        # this device" (/static/check.js), never inline; every other page allows none at all
+        script = " script-src 'self';" if request.endpoint in ("chart", "device_check") else ""
+        # "Check from this device" times HTTPS requests to the internet anchors from the browser
+        if request.endpoint == "device_check":
+            script += " connect-src 'self' https:;"
         resp.headers.setdefault("Content-Security-Policy",
                                 f"default-src 'none';{script} style-src {style}; img-src 'self' data:; font-src 'self'; manifest-src 'self'; "
                                 "form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
@@ -227,6 +245,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     import hashlib
     css_v = hashlib.sha256((Path(__file__).parent / "static" / "style.css").read_bytes()).hexdigest()[:10]
     js_v = hashlib.sha256((Path(__file__).parent / "static" / "chart.js").read_bytes()).hexdigest()[:10]
+    check_v = hashlib.sha256((Path(__file__).parent / "static" / "check.js").read_bytes()).hexdigest()[:10]
 
     @app.context_processor
     def inject():
@@ -234,6 +253,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                 "readonly": g.get("readonly", False), "version": __version__, "demo": app.config["DEMO"],
                 "demo_static": app.config.get("DEMO_STATIC"),
                 "auth_mode": g.settings.auth_mode if g.get("settings") else "local", "css_v": css_v, "js_v": js_v,
+                "check_v": check_v,
                 "theme": request.cookies.get("theme") if request.cookies.get("theme") in ("light", "dark") else None,
                 "live": _live()}
 
@@ -295,6 +315,61 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     @app.get("/doctor")
     def doctor():
         return render_template("doctor.html", active="doctor", doc=views.doctor_view(store, g.lang))
+
+    # ------------------------------------------------ check from this device (#66, static/check.js)
+
+    @app.get("/check")
+    def device_check():
+        try:
+            check_id = int(request.args.get("id", 0))
+        except ValueError:
+            check_id = 0
+        anchors = [a for a in g.settings.anchors if ":" not in a]   # CSP and URLs: IPv4 literals only
+        return render_template("check.html", active="device", anchors=anchors,
+                               dc=views.device_check_view(store, g.lang, check_id, latest=app.config["DEMO"]))
+
+    @app.get("/check/ping")
+    @limiter.limit("600 per minute")
+    def device_check_ping():
+        return Response(b"", 204, {"Cache-Control": "no-store"})
+
+    @app.get("/check/down")
+    @limiter.limit("30 per minute")
+    def device_check_down():
+        """Bytes for the device to download, timed by the browser (inside the LAN, never the internet)."""
+        size = min(max(request.args.get("bytes", 1 << 20, type=int), 1024), DEVICE_MAX_BYTES)
+        chunk = secrets.token_bytes(1 << 16)
+
+        def gen():
+            left = size
+            while left > 0:
+                yield chunk[:left]
+                left -= len(chunk)
+        return Response(gen(), 200, {"Content-Type": "application/octet-stream", "Content-Length": str(size),
+                                     "Cache-Control": "no-store"})
+
+    @app.post("/check/up")
+    @limiter.limit("30 per minute")
+    def device_check_up():
+        """Bytes the device uploads, timed by the browser: read and thrown away."""
+        n = 0
+        while chunk := request.stream.read(1 << 16):
+            n += len(chunk)
+        return {"bytes": n}
+
+    @app.post("/check/result")
+    @limiter.limit("10 per minute")
+    def device_check_result():
+        from .. import devcheck
+        try:
+            dev = devcheck.parse(request.get_json(silent=True) or {}, g.settings.anchors)
+        except ValueError:
+            abort(400)
+        ua = request.headers.get("User-Agent", "")
+        rec = devcheck.run(store, dev, time.time(), devcheck.device_label(ua),
+                           devcheck.device_key(request.remote_addr, ua), getattr(g.user, "username", None))
+        check_id = store.add_device_check(rec)
+        return {"id": check_id, "url": url_for("device_check", id=check_id)}
 
     @app.post("/doctor/run")
     def doctor_run():

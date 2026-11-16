@@ -987,3 +987,13 @@ tr.bad-row td { background: color-mix(in srgb, var(--isp) 7%, transparent); }
 .doctor-list .st-skip p { color: var(--ink-2); }
 .doctor-todo { color: var(--ink-2); }
 @media (max-width: 560px) { .doctor-list li { grid-template-columns: 1fr; gap: 6px; } }
+/* check from this device (check.js) */
+.dev-run { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+html:not(.js) .dev-run { display: none; }
+.dev-run progress { flex: 1 1 200px; height: 8px; accent-color: var(--accent); }
+.dev-run #dev-step { margin: 0; flex-basis: 100%; }
+.dev-run #dev-step:empty { display: none; }
+.dev-head { display: flex; gap: 12px; align-items: baseline; font-weight: 600; margin: 8px 0; }
+.dev-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px 20px; margin: 16px 0 8px; }
+.dev-facts dt { color: var(--ink-2); font-size: 13px; }
+.dev-facts dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; }

@@ -72,6 +72,14 @@ CREATE TABLE IF NOT EXISTS doctor_runs (
     data TEXT NOT NULL           -- JSON
 );
 
+-- "Check from this device" results (devcheck.run), one row per check
+CREATE TABLE IF NOT EXISTS device_checks (
+    id INTEGER PRIMARY KEY,
+    ts REAL NOT NULL,
+    data TEXT NOT NULL           -- JSON
+);
+CREATE INDEX IF NOT EXISTS device_checks_ts ON device_checks(ts);
+
 -- WAN usage read from the router (SNMP), one row per window
 CREATE TABLE IF NOT EXISTS link_usage (
     ts REAL NOT NULL,
@@ -439,6 +447,25 @@ class Store:
             row = self.db.execute("SELECT data FROM doctor_runs WHERE ts <= ? ORDER BY ts DESC LIMIT 1",
                                   (until if until is not None else time.time() + 1,)).fetchone()
         return json.loads(row[0]) if row else None
+
+    def add_device_check(self, data: dict) -> int:
+        with self._lock:
+            cur = self.db.execute("INSERT INTO device_checks (ts, data) VALUES (?,?)", (data["ts"], json.dumps(data)))
+            self.db.execute("DELETE FROM device_checks WHERE ts < ?", (time.time() - 400 * 86400,))
+            self.db.commit()
+            return cur.lastrowid
+
+    def device_check(self, check_id: int) -> dict | None:
+        with self._lock:
+            row = self.db.execute("SELECT id, data FROM device_checks WHERE id = ?", (check_id,)).fetchone()
+        return {**json.loads(row[1]), "id": row[0]} if row else None
+
+    def device_checks_between(self, start: float, end: float, limit: int = 200) -> list[dict]:
+        """Newest first."""
+        with self._lock:
+            rows = self.db.execute("SELECT id, data FROM device_checks WHERE ts BETWEEN ? AND ? ORDER BY ts DESC LIMIT ?",
+                                   (start, end, limit)).fetchall()
+        return [{**json.loads(d), "id": i} for i, d in rows]
 
     # ------------------------------------------------------------ settings & users
 

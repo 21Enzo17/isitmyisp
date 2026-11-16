@@ -89,6 +89,8 @@ R = {
         "doc_title": "Checked on the customer side",
         "doc_intro": "What isitmyisp checked in the customer's own network ({when}), so it can be ruled out before looking at the ISP.",
         "doc_status": {"ok": "Fine", "warn": "Look at it", "bad": "Wrong", "skip": "Not measured"},
+        "dc_title": "Tested from {n} devices", "dc_title_1": "Tested from 1 device",
+        "dc_intro": "Checks run from the customer's own PCs and phones, compared with the probe in the same minutes.",
         "msg_none": "In this period there were no incidents attributable to the ISP's network.",
         "msg_intro": ("Hello. Between {start} and {end} my connection had {n} {incidents} that the evidence places "
                       "in your network, {dur} in total. They were measured continuously from my premises with isitmyisp: "
@@ -205,6 +207,8 @@ R = {
         "doc_title": "Revisado del lado del cliente",
         "doc_intro": "Lo que isitmyisp revisó en la red del propio cliente ({when}), para descartarlo antes de mirar al ISP.",
         "doc_status": {"ok": "Bien", "warn": "Para mirar", "bad": "Mal", "skip": "Sin medir"},
+        "dc_title": "Probado desde {n} equipos", "dc_title_1": "Probado desde 1 equipo",
+        "dc_intro": "Chequeos hechos desde las PC y los celulares del propio cliente, comparados con la sonda en los mismos minutos.",
         "msg_none": "En este período no hubo incidentes atribuibles a la red del ISP.",
         "msg_intro": ("Hola. Entre el {start} y el {end} mi conexión tuvo {n} {incidents} que la evidencia ubica "
                       "en su red, {dur} en total. Los medí de forma continua desde mis instalaciones con isitmyisp: la "
@@ -740,6 +744,24 @@ nav.bar a:hover { text-decoration: underline; }
 DOC_COLOR = {"ok": COLORS["ok"], "warn": COLORS["local"], "bad": COLORS["access"], "skip": COLORS["no_data"]}
 
 
+DEV_STATUS = {"fine": "ok", "device_link": "bad", "device_path": "bad", "shared": "warn", "no_probe": "skip"}
+
+
+def device_section(checks: list[dict], t: dict, lang: str, limit: int = 20) -> str:
+    """'Tested from N devices': the "Check from this device" results of the period (empty if none)."""
+    if not checks:
+        return ""
+    from .texts import devcheck_text
+    n = len({c.get("key") for c in checks})
+    rows = []
+    for c in checks[:limit]:
+        st = DEV_STATUS.get(c["code"], "skip")
+        rows.append(f'<tr><td class="num">{_e(_dt(c["ts"]))}</td><td>{_e(c.get("device", "?"))}</td>'
+                    f'<td><span class="dot" style="background:{DOC_COLOR[st]}"></span>{_e(devcheck_text(c, lang)[0])}</td></tr>')
+    title = t["dc_title_1"] if n == 1 else t["dc_title"].format(n=n)
+    return f'<h2>{_e(title)}</h2><p class="muted">{_e(t["dc_intro"])}</p><table><tbody>{"".join(rows)}</tbody></table>'
+
+
 def doctor_section(run: dict | None, t: dict, lang: str) -> str:
     """The latest `isitmyisp doctor` run: the customer's side, checked line by line (empty if never run)."""
     if not run:
@@ -919,6 +941,7 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
     out.append(f'<h2>{_e(t["message"])}</h2><p class="muted">{_e(t["message_hint"])}</p>'
                f'<pre class="message">{_e(isp_message(incidents, captures, t, start, end, now, drops))}</pre>')
     out.append(doctor_section(store.last_doctor(until=end), t, lang))
+    out.append(device_section(store.device_checks_between(start, end), t, lang))
 
     # ---- by segment
     if incidents:
