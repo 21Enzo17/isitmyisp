@@ -7,6 +7,7 @@ from isitmyisp import devcheck
 from isitmyisp.devcheck import cross, parse, series_stats
 from isitmyisp.probes.icmp import WindowStats
 from isitmyisp.texts import DEVCHECK, devcheck_text
+from tests._web import HAVE_WEB
 
 ANCHORS = ["1.1.1.1", "8.8.8.8", "9.9.9.9"]
 OK = [(0.0, 30.0, "ok")] * 2
@@ -146,6 +147,7 @@ class Stored(unittest.TestCase):
         self.store.set_settings({"auth_mode": "none"})
         return app.test_client()
 
+    @unittest.skipUnless(HAVE_WEB, "web extra not installed")
     def test_web_page_and_csp(self):
         c = self.app()
         r = c.get("/check?lang=es")
@@ -158,6 +160,7 @@ class Stored(unittest.TestCase):
         self.assertIn("connect-src 'self' https:", csp)
         self.assertNotIn("connect-src", c.get("/").headers["Content-Security-Policy"])
 
+    @unittest.skipUnless(HAVE_WEB, "web extra not installed")
     def test_transfer_endpoints(self):
         c = self.app()
         self.assertEqual(c.get("/check/ping").status_code, 204)
@@ -171,6 +174,7 @@ class Stored(unittest.TestCase):
                    environ_overrides={"wsgi.input_terminated": True})
         self.assertEqual(r.get_json(), {"bytes": DEVICE_MAX_BYTES})
 
+    @unittest.skipUnless(HAVE_WEB, "web extra not installed")
     def test_upload_with_csrf_on(self):
         # CSRF reads the form before the view: the bigger limit must already hold by then
         import re
@@ -185,6 +189,7 @@ class Stored(unittest.TestCase):
                    headers={"X-CSRFToken": token})
         self.assertEqual(r.status_code, 413)          # the 64 KB limit still holds everywhere else
 
+    @unittest.skipUnless(HAVE_WEB, "web extra not installed")
     def test_post_result_then_show_it(self):
         c = self.app()
         self.assertEqual(c.post("/check/result", json={"lan": []}).status_code, 400)

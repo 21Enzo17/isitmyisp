@@ -141,7 +141,7 @@ Next, in the [issues](https://github.com/21Enzo17/isitmyisp/issues): the cost of
 
 ```bash
 pip install -e '.[web,pdf]'
-python -m unittest discover -s tests       # also runs without the extras (web tests are skipped)
+python -m unittest discover -s tests -t .  # needs the web extra; without it, set ISITMYISP_CORE_ONLY=1 to skip the web tests
 isitmyisp demo --static site               # the demo as a static site (what the live demo is)
 pip install markdown && python3 scripts/build_docs.py site   # the docs site into site/docs
 python3 scripts/screenshots.py             # regenerate docs/screenshots from synthetic data (needs Docker)

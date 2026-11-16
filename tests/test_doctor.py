@@ -9,6 +9,7 @@ from isitmyisp.doctor import Facts, Mtu, grade, probe_mtu, run_checks
 from isitmyisp.lan import LanStats
 from isitmyisp.probes.mtr import Hop
 from isitmyisp.texts import DOCTOR, DOCTOR_NAME, doctor_text
+from tests._web import HAVE_WEB
 
 
 def net(**kw):
@@ -206,6 +207,7 @@ class Stored(unittest.TestCase):
         self.assertIn("respuestas duplicadas", html)
         self.assertIn("Solo esta máquina", html)
 
+    @unittest.skipUnless(HAVE_WEB, "web extra not installed")
     def test_web_page(self):
         from isitmyisp.webapp import create_app
         app = create_app(self.store, data_dir=Path(self.tmp.name))

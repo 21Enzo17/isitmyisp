@@ -27,9 +27,20 @@ grep -q "^## \[$VERSION\]" CHANGELOG.md || fail "CHANGELOG.md has no '## [$VERSI
 git fetch -q origin main && [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || fail "main is not in sync with origin"
 git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null && fail "tag v$VERSION already exists"
 
+# Two runs, and either one failing stops the release. unittest's own exit code decides: the output goes
+# to a file, never through a pipe, whose status would be the last command's.
+[ -x .venv/bin/python ] || fail "no .venv: the web tests need it (python3 -m venv .venv && .venv/bin/pip install -e '.[web]')"
+LOG=$(mktemp); trap 'rm -f "$LOG"' EXIT
+run_tests() {   # label, python, extra env
+  if env $3 "$2" -m unittest discover -s tests -t . -q >"$LOG" 2>&1; then
+    echo "  $1: $(grep -E '^(OK|Ran)' "$LOG" | tr '\n' ' ')"
+  else
+    cat "$LOG" >&2; fail "tests failed ($1)"
+  fi
+}
 echo "→ tests"
-python3 -m unittest discover -s tests -q 2>&1 | tail -1
-[ -x .venv/bin/python ] && .venv/bin/python -m unittest discover -s tests -q 2>&1 | tail -1
+run_tests "core only, without the web extra" python3 ISITMYISP_CORE_ONLY=1
+run_tests "with the web extra" .venv/bin/python ""
 
 NOTES=$(awk -v v="$VERSION" '$0 ~ "^## \\[" v "\\]" {on=1; next} /^## \[/ {on=0} /^\[.*\]: / {on=0} on' CHANGELOG.md)
 echo "→ v$VERSION: $IMAGE:$VERSION and :latest (linux/amd64, linux/arm64)"
