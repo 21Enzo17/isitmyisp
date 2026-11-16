@@ -135,3 +135,55 @@ class RemoteSummary(unittest.TestCase):
                                                    "Google (8.8.8.8) respondieron bien: tu conexión funcionó.")
         self.assertIn("your connection worked", remote_summary(ev, "en"))
         self.assertEqual(remote_summary(["9.9.9.9: 100.0% loss (15/15)"], "es"), "")   # nobody said OK
+
+
+class Daily(unittest.TestCase):
+    """Availability day by day (#63): over measured time only, the first day partial, gaps in grey."""
+
+    def setUp(self):
+        self.tz = os.environ.get("TZ")
+        os.environ["TZ"] = "America/Argentina/Jujuy"
+        time.tzset()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Store(Path(self.tmp.name) / "d.db")
+        # measuring starts on the 10th at noon; the 11th has an hour of ISP trouble and one of Quad9 alone;
+        # the 12th wasn't measured; the 13th is fine
+        def day(at, codes):
+            for k, code in enumerate(codes):
+                self.store.add_window_verdict(code, 1800, ts=ts(at) + 1800 * (k + 1))
+        day("2026-10-10 12:00", ["ok"] * 24)
+        day("2026-10-11 00:00", ["ok"] * 44 + ["isp"] * 2 + ["remote"] * 2)
+        day("2026-10-13 00:00", ["ok"] * 48)
+
+    def tearDown(self):
+        self.store.close()
+        self.tmp.cleanup()
+        if self.tz is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = self.tz
+        time.tzset()
+
+    def test_each_day_on_its_own(self):
+        from isitmyisp.report import daily
+        days = daily(self.store, ts("2026-10-09 00:00"), ts("2026-10-14 00:00"))
+        self.assertEqual([time.localtime(d.start).tm_mday for d in days], [9, 10, 11, 12, 13])
+        before, first, bad, gap, fine = days
+        self.assertTrue(before.before)
+        self.assertIsNone(before.internet)
+        self.assertTrue(first.partial)
+        self.assertEqual(first.internet, 100)
+        self.assertFalse(bad.partial)
+        self.assertAlmostEqual(bad.internet, 100 * 46 / 48)       # Quad9 alone isn't your internet down
+        self.assertAlmostEqual(bad.isp, 100 * 46 / 48)
+        self.assertEqual((bad.down, bad.culprit), (3600, "isp"))
+        self.assertFalse(gap.before)
+        self.assertIsNone(gap.internet)                            # a gap, after measuring began
+        self.assertEqual((fine.internet, fine.partial, fine.culprit), (100, False, None))
+
+    def test_today_counts_only_what_has_gone(self):
+        from isitmyisp.report import daily
+        today = daily(self.store, ts("2026-10-13 00:00"), ts("2026-10-13 06:00"))
+        self.assertEqual(len(today), 1)
+        self.assertEqual(today[0].measured, 6 * 3600)
+        self.assertFalse(today[0].partial)
