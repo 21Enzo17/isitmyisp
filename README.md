@@ -74,7 +74,7 @@ They work well together: Uptime Kuma for your services, isitmyisp for the connec
 ## What you get
 
 <p>
-  <img src="docs/screenshots/tv.png" alt="The TV board: verdict, figures, last 24 hours, events, destinations and services" width="62%">
+  <img src="docs/screenshots/tv.png" alt="The TV board: verdict, network grade, 30 days, last 24 hours, events, speed, destinations and services" width="62%">
   <img src="docs/screenshots/mobile.png" alt="The dashboard on a phone" width="22%">
 </p>
 

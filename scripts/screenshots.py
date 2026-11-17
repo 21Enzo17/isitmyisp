@@ -115,6 +115,10 @@ def main(lang: str = "en") -> None:
             freeze(base, d / "demo.db", fraction)
             states[name] = d / "demo.db"
         add_speed_result(states["healthy"])
+        (work / "tv").mkdir()                                   # the wall screen: the ISP incident, with a speed test
+        shutil.copy(states["isp"], work / "tv" / "demo.db")
+        add_speed_result(work / "tv" / "demo.db")
+        states["tv"] = work / "tv" / "demo.db"
         for db in states.values():                              # a fixed link for the wall screen
             s = Store(db)
             s.set_settings({"tv_token": "demo"}, bump=False)
@@ -127,7 +131,7 @@ def main(lang: str = "en") -> None:
             (states["failover"], "/", "", "failover.png", "1440,720", False),
             (states["healthy"], "/settings/connection", only("#speed"), "speed-test-settings.png", "1440,1000", True),
             (states["isp"], "/", "", "mobile.png", "390,1500", True),
-            (states["isp"], "/tv/demo", "", "tv.png", "1920,1080", True),
+            (states["tv"], "/tv/demo", "", "tv.png", "1920,1080", True),
             (states["isp"], "/tv/demo?layout=simple", "", "tv-simple.png", "1280,720", True),
             (states["healthy"], "/tv", "", "tv-code.png", "1280,720", True),
             (states["healthy"], "/settings/access", only("#tv"), "tv-settings.png", "1440,700", False),

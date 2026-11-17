@@ -128,7 +128,7 @@ The code expires after 10 minutes and works once. **Settings → Access → TV m
 
 It has two views:
 
-- **Board** (default): the verdict and three figures (availability, time without outages or with problems, latency), the last 24 hours beside the latest events, every measured destination and your services, devices and tunnels. Whatever is down is named at the top in red, destinations losing packets are marked in red, and long lists rotate on every refresh. It fits any screen from 720p to 4K with no scrollbars.
+- **Board** (default): the verdict and three figures (the [network check](/docs/en/doctor/) grade with its first problem, or 24-hour availability until the check has run; time without outages or with problems; latency), availability over the last 30 days day by day, the last 24 hours beside the latest events and call quality, the latest speed test against your plan (when it is on), every measured destination and your services, devices and tunnels. Each block shows only when it has data. Whatever is down is named at the top in red, destinations losing packets are marked in red, and long lists rotate on every refresh. It fits any screen from 720p to 4K with no scrollbars.
 - **Simple** (`?layout=simple`): just the verdict, for a shop counter. [See it in the demo](/en/isp/tv/simple/).
 
 ![The simple TV view](/docs/img/tv-simple.png)

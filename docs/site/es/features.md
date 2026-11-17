@@ -128,7 +128,7 @@ El código vence a los 10 minutos y sirve una sola vez. En **Configuración → 
 
 Tiene dos vistas:
 
-- **Tablero** (por defecto): el veredicto y tres indicadores (disponibilidad, tiempo sin cortes o con problemas, latencia), las últimas 24 horas junto a los últimos eventos, cada destino medido y tus servicios, dispositivos y túneles. Lo que falla se nombra arriba en rojo, los destinos con pérdida se marcan en rojo y las listas largas rotan en cada actualización. Se acomoda a cualquier pantalla, de 720p a 4K, sin barras de desplazamiento.
+- **Tablero** (por defecto): el veredicto y tres indicadores (la nota del [chequeo de la red](/docs/es/doctor/) con su primer problema, o la disponibilidad de 24 horas si todavía no corrió; tiempo sin cortes o con problemas; latencia), la disponibilidad de los últimos 30 días día por día, las últimas 24 horas junto a los últimos eventos y la calidad para llamadas, la última prueba de velocidad contra tu plan (si la tenés activada), cada destino medido y tus servicios, dispositivos y túneles. Cada bloque aparece solo cuando tiene datos. Lo que falla se nombra arriba en rojo, los destinos con pérdida se marcan en rojo y las listas largas rotan en cada actualización. Se acomoda a cualquier pantalla, de 720p a 4K, sin barras de desplazamiento.
 - **Simple** (`?layout=simple`): solo el veredicto, para el mostrador. [Verla en la demo](/es/isp/tv/simple/).
 
 ![La vista simple del modo TV](/docs/img/es/tv-simple.png)

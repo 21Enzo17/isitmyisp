@@ -955,8 +955,9 @@ class ThirtyDays(WebAppBase):
         html = self.client.get("/?lang=es").get_data(as_text=True)
         self.assertIn("Disponibilidad · 30 días", html)
         self.assertIn("Midiendo desde el", html)
-        self.assertEqual(html.count('<li class="g-before'), 30 - len({
-            _t.strftime("%Y-%m-%d", _t.localtime(now - 1800 * k - 900)) for k in range(3 * 48)}))
+        day = lambda ts: _t.strftime("%Y-%m-%d", _t.localtime(ts))
+        # today counts even when the latest window's middle is still yesterday (just after midnight)
+        self.assertEqual(html.count('<li class="g-before'), 30 - len({day(now - 1800 * k - 900) for k in range(3 * 48)} | {day(now)}))
         self.assertIn('class="g-isp', html)
         self.assertIn("1 h sin internet", html)
         rep = self.client.get("/report?since=7d&lang=en").get_data(as_text=True)
@@ -1009,6 +1010,80 @@ class TvPairing(WebAppBase):
         for _ in range(tvpair.MAX_PENDING):
             tvpair.start(self.store)
         self.assertIsNone(tvpair.start(self.store))         # anyone can open /tv: it can't fill the database
+
+
+class TvBoardBlocks(WebAppBase):
+    """The board shows the doctor's grade, 30 days, speed and calls only when each has data; without them it
+    is the board it was before."""
+    BLOCKS = ('class="tvb-card tvb-grade"', 'class="tvb-card tvb-month"', 'class="tvb-card tvb-speed"', 'class="tvb-calls')
+
+    def board(self):
+        return self.client.get("/tv?lang=en").get_data(as_text=True)
+
+    def test_nothing_measured_shows_none_of_the_new_blocks(self):
+        self.store.db.execute("DELETE FROM windows")
+        self.store.db.commit()
+        self.create_admin()
+        html = self.board()
+        for block in self.BLOCKS:
+            self.assertNotIn(block, html, block)
+        self.assertNotIn("has-month", html)
+
+    def test_without_doctor_or_speed_the_figures_and_rows_stay_as_before(self):
+        self.create_admin()
+        html = self.board()
+        self.assertIn("Availability, 24 h", html)                     # the KPI the grade would replace
+        self.assertNotIn('class="tvb-card tvb-grade"', html)
+        self.assertNotIn('class="tvb-card tvb-speed"', html)
+        self.assertIn('class="tvb-row mid"', html)                    # no third column
+        self.assertIn('class="tvb-card tvb-month"', html)             # measured: the 30 days and the calls
+        self.assertIn("has-month", html)
+        self.assertIn('class="tvb-calls', html)
+        self.assertIn("Calls: ", html)
+
+    def test_the_grade_replaces_availability_and_names_the_first_problem(self):
+        from isitmyisp import demo
+        self.create_admin()
+        demo.add_doctor_run(self.store)
+        html = self.board()
+        self.assertIn('class="tvb-card tvb-grade"', html)
+        self.assertNotIn("Availability, 24 h", html)
+        self.assertRegex(html, r'class="doctor-grade g-[a-f]">[A-F]<')
+        self.assertIn("in yellow: ", html)                             # the demo: Wi-Fi and a slow DNS, nothing red
+
+    def test_board_doctor_puts_red_before_yellow(self):
+        from isitmyisp.webapp import views
+        self.assertIsNone(views.board_doctor(self.store, "en"))
+        run = {"ts": 1.0, "grade": "D", "checks": []}
+        orig = views.doctor_view
+        views.doctor_view = lambda store, lang: {"run": run, "grade": "D", "counts": {"ok": 1, "warn": 1, "bad": 1, "skip": 0},
+                                                 "groups": [{"rows": [{"name": "Wi-Fi", "status": "warn"},
+                                                                      {"name": "Link speed", "status": "bad"}]}]}
+        try:
+            self.assertEqual(views.board_doctor(self.store, "en"), {"grade": "D", "bad": 1, "warn": 1, "first": "Link speed"})
+        finally:
+            views.doctor_view = orig
+
+    def test_speed_shows_with_a_result_and_says_when_the_isp_exit_is_the_bottleneck(self):
+        import time as _t
+
+        from isitmyisp import demo
+        from isitmyisp import settings as settings_mod
+        from isitmyisp import speedtest as sp
+        self.create_admin()
+        settings_mod.save(self.store, {"speedtest": {"enabled": True, "accepted": True}})
+        self.assertNotIn('class="tvb-card tvb-speed"', self.board())  # on, but nothing measured yet
+        self.store.add_speedtest(sp.Result(ts=_t.time() - 3 * 86400, down_mbps=0, up_mbps=0, error="timed out"))
+        self.assertNotIn('class="tvb-card tvb-speed"', self.board())  # a failed test is not a speed
+        demo.add_speed_result(self.store)                              # the latest one, with an ISP server
+        html = self.board()
+        self.assertIn('class="tvb-card tvb-speed"', html)
+        self.assertIn('class="tvb-row mid has-speed"', html)
+        self.assertIn("58</b> Mbps", html)
+        self.assertIn('class="tvb-speed-where bad"', html)
+        self.assertIn("Bottleneck at the ISP&#39;s exit", html)
+        settings_mod.save(self.store, {"speedtest": {"enabled": False}})
+        self.assertNotIn('class="tvb-card tvb-speed"', self.board())  # switched off: gone
 
 
 class SettingsTabs(WebAppBase):
