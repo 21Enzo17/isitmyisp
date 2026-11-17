@@ -761,6 +761,18 @@ def doctor_view(store: Store, lang: str, now: float | None = None) -> dict | Non
             "pending": requested > run["ts"] and requested > now - 600}
 
 
+def board_doctor(store: Store, lang: str) -> dict | None:
+    """The TV board's grade card: the latest doctor grade, how many checks are red and yellow, and the
+    first problem by name (red before yellow). None until the doctor has run once."""
+    doc = doctor_view(store, lang)
+    if not doc["run"]:
+        return None
+    rows = [r for grp in doc["groups"] for r in grp["rows"]]
+    first = next((r for r in rows if r["status"] == "bad"), None) or next((r for r in rows if r["status"] == "warn"), None)
+    return {"grade": doc["grade"], "bad": doc["counts"]["bad"], "warn": doc["counts"]["warn"],
+            "first": first["name"] if first else None}
+
+
 def _device_row(rec: dict, lang: str) -> dict:
     from ..texts import VERDICT, devcheck_text
     text, advice = devcheck_text(rec, lang)

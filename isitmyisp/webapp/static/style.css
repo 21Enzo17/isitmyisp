@@ -928,6 +928,44 @@ input[type=text], input[type=password], input[type=number], input[type=datetime-
 .tvb-open { display: flex; gap: .4rem; margin: 0 0 0 auto; font-size: .95rem; color: var(--ink-3); }
 .tvb-open dt { margin: 0; } .tvb-open dd { margin: 0; color: var(--ink); font-weight: 600; }
 .tvb-open + .status-pill { margin-left: .8rem; }
+/* the rows the board adds only when it has their data: 30 days, the doctor's grade, speed, calls */
+.tvb.has-month { grid-template-rows: auto 8.6rem 4.6rem minmax(9rem, 1fr) 13rem; }
+.tvb.has-alarm.has-month { grid-template-rows: auto auto 8.6rem 4.6rem minmax(9rem, 1fr) 13rem; }
+.tvb-month { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; column-gap: 2.2rem; padding: .6rem 1.05rem; }
+.tvb-month-label h2 { margin: 0; display: flex; align-items: center; gap: .55rem; font-size: 1.05rem; white-space: nowrap; }
+.tvb-month-label .ico { width: 1.25rem; height: 1.25rem; stroke-width: 2.2; }
+.tvb-month-label p { margin: .25rem 0 0; color: var(--ink-3); font-size: .8rem; white-space: nowrap; }
+.tvb-month-figs { display: flex; gap: 1.6rem; margin: 0; line-height: 1.2; }
+.tvb-month-figs div { display: flex; flex-direction: column; }
+.tvb-month-figs dt { color: var(--ink-2); font-size: .8rem; white-space: nowrap; }
+.tvb-month-figs dd { margin: 0; font-size: 1.45rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+.tvb-month .days { gap: .2rem; }
+.tvb-month .days li { height: 1.6rem; border-radius: .2rem; }
+.tvb-month .days-x { font-size: .7rem; line-height: 1.2; margin-top: .25rem; }
+.tvb-grade-body { flex: 1; display: flex; align-items: center; gap: 1rem; min-height: 0; margin-top: .5rem; }
+.tvb .doctor-grade { font-size: 2.7rem; width: 4.3rem; height: 4.3rem; border-radius: .75rem; color: var(--good); }
+.tvb .doctor-grade.g-b, .tvb .doctor-grade.g-c { color: var(--you); }
+.tvb .doctor-grade.g-d, .tvb .doctor-grade.g-f { color: var(--isp); }
+.tvb-grade-text { margin: 0; color: var(--ink-2); font-size: .95rem; line-height: 1.3; overflow: hidden;
+                  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.tvb-grade-text.bad { color: var(--ink); font-weight: 600; }
+.tvb-row.mid.has-speed { grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr) minmax(0, .8fr); }
+.tvb-meters { display: grid; gap: .75rem; }
+.tvb-meter-top { display: flex; justify-content: space-between; align-items: baseline; margin: 0; color: var(--ink-2); font-size: .9rem; }
+.tvb-meter-top b { color: var(--ink); font-size: 1.55rem; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.tvb-meter .bar { height: .75rem; margin: .25rem 0 .1rem; }
+.tvb-meter.low .bar-fill { fill: var(--you); }
+.tvb-meter-pct { margin: 0; color: var(--ink-3); font-size: .78rem; }
+.tvb-speed-where { margin: .7rem 0 0; color: var(--ink-2); font-size: .85rem; line-height: 1.3; }
+.tvb-speed-where.bad, .tvb-speed-where.warn { color: var(--ink); padding: .4rem .6rem; border-radius: .5rem;
+                                              background: color-mix(in srgb, var(--isp) 16%, transparent); }
+.tvb-speed-where.warn { background: color-mix(in srgb, var(--you) 16%, transparent); }
+.tvb-calls { --band: var(--good); flex: none; display: flex; align-items: center; gap: .55rem; margin: .4rem 0 0; padding-top: .55rem;
+             border-top: 1px solid var(--line); font-size: .9rem; white-space: nowrap; overflow: hidden; }
+.tvb-calls.b-fair { --band: var(--you); } .tvb-calls.b-poor, .tvb-calls.b-bad { --band: var(--isp); }
+.tvb-calls .mos-dot { width: .7rem; height: .7rem; }
+.tvb-calls b { font-weight: 600; }
+.tvb-calls span:last-child { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
 
 /* the public demo's way out of the wall screen (only on the static demo) */
 .tv-demo { position: fixed; top: .85rem; left: 50%; transform: translateX(-50%); z-index: 5; display: flex; gap: .5rem; }

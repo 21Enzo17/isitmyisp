@@ -62,7 +62,9 @@
 
 {% else %}
 {# ------------------------------------------------------------ board: for a technician's wall #}
-<main class="tvb g-{{ group }}{{ ' has-alarm' if b.alarms }}">
+{% set m = d.month if d.has_data else none %}
+{% set sp = d.speed %}{% set spr = sp.last if sp and sp.on and sp.last and not sp.last.error else none %}
+<main class="tvb g-{{ group }}{{ ' has-alarm' if b.alarms }}{{ ' has-month' if m }}">
   <header class="tvb-head">
     <span class="tvb-brand"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M17 32H24.5M39.5 32H47" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none" opacity=".55"/><circle cx="32" cy="32" r="12" fill="#3b82f6" opacity=".22"/><circle cx="11" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="53" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="32" cy="32" r="7.5" fill="#3b82f6"/></svg>isitmyisp</span>
     <span class="tvb-sub">{{ t.tv_subtitle }}</span>
@@ -82,12 +84,22 @@
     {% if d.kpi %}{% set k = d.kpi %}
     {% macro delta(v, fmt, unit, good_if_up=True) %}{% if v is not none %}{% set up = v >= 0 %}{% set ok = up if good_if_up else not up %}
       <p class="kpi-delta {{ 'up' if ok else 'down' }}"><svg class="ico" aria-hidden="true"><use href="#i-{{ 'up' if up else 'down' }}"/></svg>{{ fmt|format(v) }}{{ unit }}</p>{% endif %}{% endmacro %}
+    {% if doc %}
+    <div class="tvb-card tvb-grade">
+      <p class="kpi-name"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-check"/></svg>{{ t.tv_grade }}</p>
+      <div class="tvb-grade-body">
+        <p class="doctor-grade g-{{ doc.grade|lower }}">{{ doc.grade }}</p>
+        <p class="tvb-grade-text{{ ' bad' if doc.bad }}">{% if doc.bad %}{{ t.tv_grade_bad.format(n=doc.bad, name=doc.first) }}{% elif doc.warn %}{{ t.tv_grade_warn.format(n=doc.warn, name=doc.first) }}{% else %}{{ t.tv_grade_ok }}{% endif %}</p>
+      </div>
+    </div>
+    {% else %}
     <div class="tvb-card kpi">
       <p class="kpi-name"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-bars"/></svg>{{ t.kpi_avail }}</p>
       <p class="kpi-val">{{ '%.1f'|format(k.avail.value) if k.avail.value is not none else '—' }}%</p>
       {{ delta(k.avail.delta, '%+.1f', '%') }}
       {% if not k.avail.spark.empty %}<div class="kpi-spark s-good" aria-hidden="true"><svg viewBox="0 0 1000 100" preserveAspectRatio="none"><path class="area" d="{{ k.avail.spark.area }}"/><path class="ln" d="{{ k.avail.spark.line }}"/></svg></div>{% endif %}
     </div>
+    {% endif %}
     <div class="tvb-card kpi">
       <p class="kpi-name"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-clock"/></svg>{{ t.kpi_down_for if k.uptime.ongoing else t.kpi_uptime }}</p>
       {% if k.uptime.ongoing %}<p class="kpi-val bad">{{ d.active_for or '—' }}</p><p class="kpi-delta down">{{ t.kpi_now_down }}</p>
@@ -102,8 +114,25 @@
     {% endif %}
   </section>
 
+  {% if m %}
+  <section class="tvb-card tvb-month">
+    <div class="tvb-month-label">
+      <h2><svg class="ico hi-blue" aria-hidden="true"><use href="#i-calendar"/></svg>{{ t.month_title }}</h2>
+      {% if m.since %}<p>{{ (t.month_since_1 if m.n == 1 else t.month_since).format(when=m.since|tvdate, n=m.n) }}</p>{% endif %}
+    </div>
+    <dl class="tvb-month-figs">
+      <div><dt>{{ t.month_internet }}</dt><dd>{{ '%.2f'|format(m.internet) if m.internet is not none else '—' }}%</dd></div>
+      <div><dt>{{ t.month_isp }}</dt><dd>{{ '%.2f'|format(m.isp) if m.isp is not none else '—' }}%</dd></div>
+    </dl>
+    <div class="tvb-month-days">
+      <ol class="days" aria-hidden="true">{% for x in m.days %}<li class="g-{{ x.group }}{{ ' partial' if x.partial }}"></li>{% endfor %}</ol>
+      <p class="days-x"><span>{{ m.days[0].start|tvdate }}</span><span>{{ t.month_today }}</span></p>
+    </div>
+  </section>
+  {% endif %}
+
   {% if d.has_data %}
-  <section class="tvb-row mid">
+  <section class="tvb-row mid{{ ' has-speed' if spr }}">
     <div class="tvb-card tvb-chart">
       <div class="tvb-card-head"><h2><svg class="ico hi-blue" aria-hidden="true"><use href="#i-bars"/></svg>{{ t.last24 }}</h2>
         {% if d.day.hours %}<dl class="tvb-open"><dt>{{ t.tv_open }}</dt><dd>{{ d.day.open_dur if d.day.open_s >= 60 else '0' }}</dd></dl>{% endif %}
@@ -137,7 +166,29 @@
         </li>
         {% endfor %}
       </ol>{% endif %}
+      {% if d.calls and d.calls.now %}{% set c = d.calls %}
+      <p class="tvb-calls b-{{ c.now.band }}"><span class="mos-dot" aria-hidden="true"></span><b>{{ t.tv_calls.format(band=t.band[c.now.band]) }}</b>
+        <span>{{ t.tv_calls_fit.format(mos='%.1f'|format(c.now.mos), pct=c.fit_pct) }}</span></p>{% endif %}
     </div>
+    {% if spr %}
+    <div class="tvb-card tvb-speed">
+      <div class="tvb-card-head"><h2><svg class="ico hi-violet" aria-hidden="true"><use href="#i-gauge"/></svg>{{ t.tv_speed_title }}</h2></div>
+      <div class="tvb-meters">
+        {% for label, mbps, contract in [(t.link_down, spr.down_mbps, sp.contract_down), (t.link_up, spr.up_mbps, sp.contract_up)] %}
+        {% set pct = (100 * mbps / contract) if (mbps and contract) else none %}
+        <div class="tvb-meter{{ ' low' if pct is not none and pct < 80 }}">
+          <p class="tvb-meter-top"><span>{{ label }}</span><span><b>{{ '%.0f'|format(mbps or 0) }}</b> Mbps</span></p>
+          {% if pct is not none %}
+          <svg class="bar" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true"><rect class="bar-track" x="0" y="2" width="100" height="6"/><rect class="bar-fill" x="0" y="2" width="{{ [pct, 100]|min }}" height="6"/></svg>
+          <p class="tvb-meter-pct">{{ t.speed_of_plan.format(pct='%.0f'|format(pct), plan='%.0f'|format(contract)) }}</p>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% if spr.servers and sp.where %}<p class="tvb-speed-where{{ ' bad' if sp.where.code == 'exit' else (' warn' if sp.where.code == 'access') }}">{{ t.tv_speed_where[sp.where.code].format(inside='%.0f'|format(sp.where.inside), outside='%.0f'|format(sp.where.outside or 0)) }}</p>{% endif %}
+      <p class="tvb-rot">{{ t.tv_speed_when.format(when=spr.ts|ago) }}</p>
+    </div>
+    {% endif %}
   </section>
 
   <section class="tvb-row low">
@@ -184,6 +235,8 @@
   <symbol id="i-tunnels" viewBox="0 0 24 24"><path d="M4 8.5h15m-3.5-3.5L19 8.5 15.5 12M20 15.5H5m3.5 3.5L5 15.5 8.5 12"/></symbol>
   <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 6 5 17h14Z"/></symbol>
   <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v13m-5-5 5 5 5-5"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4.5 17a8.5 8.5 0 1 1 15 0"/><path d="M12 14l4-5"/></symbol>
 </svg>
 {% endif %}
 </body>

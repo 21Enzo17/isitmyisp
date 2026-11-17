@@ -763,8 +763,9 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
 
     def _tv_board():
         d = views.dashboard_data(store, g.settings)
-        return render_template("tv.html", d=d, b=views.board(d), simple=request.args.get("layout") == "simple",
-                               now=time.time())
+        simple = request.args.get("layout") == "simple"
+        return render_template("tv.html", d=d, b=views.board(d), simple=simple, now=time.time(),
+                               doc=None if simple else views.board_doctor(store, g.lang))
 
     @app.get("/tv")
     @limiter.limit("60 per minute")
