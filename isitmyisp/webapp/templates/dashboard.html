@@ -149,7 +149,7 @@
   {% if fo %}
   <div class="backup-note"><svg class="ico" aria-hidden="true"><use href="#i-tunnels"/></svg>
     <p>{{ t.backup_note.format(backup=fo.backup, since=fo.since|tm, dur=fo['for'], primary=fo.primary or t.isp_primary.lower()) }}
-      <a href="{{ url_for('settings_page') }}#isp">{{ t.backup_change }}</a></p></div>
+      <a href="{{ url_for('settings_page', tab='connection') }}#isp">{{ t.backup_change }}</a></p></div>
   {% endif %}
   {% if d.has_data %}
   <ol class="path" aria-label="{{ t.hop.home }}, {{ t.hop.isp }}, {{ t.hop.internet }}">
@@ -227,7 +227,7 @@
 {% endif %}
   <section class="card linkc" aria-labelledby="link-h">
     <div class="card-head"><h2 id="link-h">{{ t.link_title }}</h2>
-      <a class="icon-link" href="{{ url_for('settings_page') }}#link" aria-label="{{ t.nav.settings }}"><svg class="ico" aria-hidden="true"><use href="#i-settings"/></svg></a></div>
+      <a class="icon-link" href="{{ url_for('settings_page', tab='connection') }}#link" aria-label="{{ t.nav.settings }}"><svg class="ico" aria-hidden="true"><use href="#i-settings"/></svg></a></div>
     {% if not d.link_enabled %}<p class="muted">{{ t.link_off }}</p>
     {% elif not d.link %}<p class="muted">{{ t.link_err }}.</p>
     {% else %}
@@ -264,7 +264,7 @@
     <div class="speed">
       <h3>{{ t.speed_dash_title }}</h3>
       {% if not sp.on %}
-      <p class="muted">{{ t.speed_dash_off }} <a href="{{ url_for('settings_page') }}#speed">{{ t.speed_dash_more }}</a></p>
+      <p class="muted">{{ t.speed_dash_off }} <a href="{{ url_for('settings_page', tab='connection') }}#speed">{{ t.speed_dash_more }}</a></p>
       {% elif not sp.last %}
       <p class="muted">{{ t.speed_dash_none }}</p>
       {% else %}

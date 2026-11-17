@@ -125,14 +125,14 @@ def main(lang: str = "en") -> None:
             (states["healthy"], "/", "", "dashboard-dark.png", "1440,2500", True),
             (states["isp"], "/", "", "incident.png", "1440,1180", True),
             (states["failover"], "/", "", "failover.png", "1440,720", False),
-            (states["healthy"], "/settings", only("#speed"), "speed-test-settings.png", "1440,1000", True),
+            (states["healthy"], "/settings/connection", only("#speed"), "speed-test-settings.png", "1440,1000", True),
             (states["isp"], "/", "", "mobile.png", "390,1500", True),
             (states["isp"], "/tv/demo", "", "tv.png", "1920,1080", True),
             (states["isp"], "/tv/demo?layout=simple", "", "tv-simple.png", "1280,720", True),
             (states["healthy"], "/tv", "", "tv-code.png", "1280,720", True),
-            (states["healthy"], "/settings", only("#tv"), "tv-settings.png", "1440,700", False),
+            (states["healthy"], "/settings/access", only("#tv"), "tv-settings.png", "1440,700", False),
             (states["healthy"], "/settings", only("#devices"), "devices-settings.png", "1440,600", False),
-            (states["healthy"], "/settings", only("#hours"), "hours-settings.png", "1440,1000", False),
+            (states["healthy"], "/settings/alerts", only("#hours"), "hours-settings.png", "1440,1000", False),
         ]
         for db, path, css, name, size, dark in shots:
             shoot(render(db, work, path, lang=lang, css=css), out / name, size, dark)

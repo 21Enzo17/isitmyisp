@@ -4,6 +4,7 @@ import re
 import tempfile
 import unittest
 from pathlib import Path
+from typing import ClassVar
 
 from isitmyisp import settings as settings_mod
 from isitmyisp.classifier import Measurements
@@ -174,10 +175,10 @@ class CsrfAndSettings(WebAppBase):
 
     def test_settings_page_refreshes_itself_while_downloading(self):
         from isitmyisp.webapp import ASN_JOB
-        self.assertNotIn('http-equiv="refresh"', self.client.get("/settings").get_data(as_text=True))
+        self.assertNotIn('http-equiv="refresh"', self.client.get("/settings/connection").get_data(as_text=True))
         ASN_JOB["running"] = True
         try:
-            self.assertIn('http-equiv="refresh"', self.client.get("/settings").get_data(as_text=True))
+            self.assertIn('http-equiv="refresh"', self.client.get("/settings/connection").get_data(as_text=True))
         finally:
             ASN_JOB["running"] = False
 
@@ -252,6 +253,8 @@ class CsrfAndSettings(WebAppBase):
         html = r.get_data(as_text=True)
         self.assertIn("ether1 · bridge", html)
         self.assertEqual(settings_mod.load(self.store).link["enabled"], False)  # listing saves nothing
+        r = self.client.post("/settings/plan", data={"csrf_token": form["csrf_token"], "down_mbps": "1000", "up_mbps": "300"})
+        self.assertEqual(r.status_code, 302)
         r = self.client.post("/settings/link", data={**form, "action": "save"})
         self.assertEqual(r.status_code, 302)
         link = settings_mod.load(self.store).link
@@ -349,7 +352,7 @@ class FailoverOnDashboard(WebAppBase):
         html = self.client.get("/?lang=en").get_data(as_text=True)
         self.assertIn("Internet works, on the backup link", html)
         self.assertIn("Your main ISP, Telecom, is not in use", html)
-        page = self.client.get("/settings").get_data(as_text=True)
+        page = self.client.get("/settings/connection").get_data(as_text=True)
         self.assertIn("Backup link", page)
         r = self.client.post("/settings/isp/primary", data={"csrf_token": csrf(page)})
         self.assertEqual(r.status_code, 302)                        # "I changed providers": Claro is now main
@@ -360,7 +363,7 @@ class FailoverOnDashboard(WebAppBase):
         from unittest import mock
         from isitmyisp import asn
         self.create_admin()
-        page = self.client.get("/settings").get_data(as_text=True)
+        page = self.client.get("/settings/connection").get_data(as_text=True)
         self.assertIn("Download the ASN dataset", page)
         before = self.store.settings_version()
         done = __import__("threading").Event()
@@ -407,7 +410,7 @@ class SpeedTestControls(WebAppBase):
         self.assertFalse(settings_mod.load(self.store).speedtest["enabled"])
         html = self.client.get("/?lang=en").get_data(as_text=True)
         self.assertIn("The speed test is off: it fills your link", html)
-        page = self.client.get("/settings?lang=en").get_data(as_text=True)
+        page = self.client.get("/settings/connection?lang=en").get_data(as_text=True)
         self.assertIn("Why it can be a problem", page)
         self.assertIn("speed.cloudflare.com", page)
         self.assertNotIn("Test the speed now", page)            # no button while it's off
@@ -696,7 +699,7 @@ class BusinessHoursWeb(WebAppBase):
     def test_settings_saves_validates_and_suggests_a_typical_shop(self):
         from isitmyisp import hours
         self.create_admin()
-        page = self.client.get("/settings").get_data(as_text=True)
+        page = self.client.get("/settings/alerts").get_data(as_text=True)
         self.assertIn('id="hours"', page)
         self.assertIn('name="d0_a0" value="08:00"', page)                     # suggested, not saved
         self.assertFalse(hours.load(self.store)["enabled"])
@@ -775,7 +778,7 @@ class MonthlyReportWeb(WebAppBase):
     def test_settings_card_saves_and_explains_a_missing_email_server(self):
         from isitmyisp import monthly
         self.create_admin()
-        page = self.client.get("/settings").get_data(as_text=True)
+        page = self.client.get("/settings/alerts").get_data(as_text=True)
         self.assertIn('id="monthly"', page)
         self.assertIn("Set up the email server in the alerts first", page)
         r = self.client.post("/settings/monthly", data={"csrf_token": csrf(page), "enabled": "1", "day": "3", "hour": "9",
@@ -988,7 +991,7 @@ class TvPairing(WebAppBase):
         self.assertIn("tv_device=", r.headers.get("Set-Cookie", ""))
         board = tv.get("/tv?lang=en").get_data(as_text=True)
         self.assertIn('class="tvb ', board)
-        self.assertIn("Counter", self.client.get("/settings").get_data(as_text=True))
+        self.assertIn("Counter", self.client.get("/settings/access").get_data(as_text=True))
         again = self.client.post("/settings/tv/pair", data={"csrf_token": csrf(page), "code": code, "name": "y"})
         self.assertEqual(again.status_code, 400)          # a code works once
         dev = tvpair.listing(self.store)[0]
@@ -1006,3 +1009,60 @@ class TvPairing(WebAppBase):
         for _ in range(tvpair.MAX_PENDING):
             tvpair.start(self.store)
         self.assertIsNone(tvpair.start(self.store))         # anyone can open /tv: it can't fill the database
+
+
+class SettingsTabs(WebAppBase):
+    """Settings is four sub-pages; each renders only its cards and every form returns to its own tab."""
+    TABS: ClassVar = {"/settings": ("general", "services"), "/settings/connection": ("plan", "isp", "speed", "link"),
+                      "/settings/alerts": ("alerts", "hours", "monthly"),
+                      "/settings/access": ("access", "password", "token")}
+
+    def test_each_tab_has_its_cards_and_not_the_others(self):
+        self.create_admin()
+        for url, mine in self.TABS.items():
+            html = self.client.get(url + "?lang=en").get_data(as_text=True)
+            self.assertIn('aria-current="page"', html)
+            for card in mine:
+                self.assertIn(f'id="{card}"', html, (url, card))
+            for other, theirs in self.TABS.items():
+                if other != url:
+                    for card in theirs:
+                        self.assertNotIn(f'id="{card}"', html, (url, card))
+        self.assertEqual(self.client.get("/settings/nope").status_code, 404)
+
+    def test_every_form_endpoint_maps_to_a_real_route(self):
+        from isitmyisp.webapp import CARD_TAB, ENDPOINT_CARD
+        endpoints = {r.endpoint for r in self.app.url_map.iter_rules()}
+        self.assertLessEqual(set(ENDPOINT_CARD), endpoints)
+        self.assertLessEqual(set(ENDPOINT_CARD.values()), set(CARD_TAB))
+
+    def test_the_plan_saves_on_its_own_and_returns_to_its_tab(self):
+        self.create_admin()
+        page = self.client.get("/settings/connection").get_data(as_text=True)
+        r = self.client.post("/settings/plan", data={"csrf_token": csrf(page), "down_mbps": "300", "up_mbps": "50"})
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(r.headers["Location"].endswith("/settings/connection#plan"))
+        link = settings_mod.load(self.store).link
+        self.assertEqual((link["down_mbps"], link["up_mbps"], link["enabled"]), (300.0, 50.0, False))
+        self.assertIn('value="300', self.client.get("/settings/connection").get_data(as_text=True))
+
+    def test_saves_land_on_their_tab(self):
+        self.create_admin()
+        token = csrf(self.client.get("/settings").get_data(as_text=True))
+        r = self.client.post("/settings/hours", data={"csrf_token": token})
+        self.assertTrue(r.headers["Location"].endswith("/settings/alerts#hours"))
+        r = self.client.post("/settings/monthly", data={"csrf_token": token})
+        self.assertTrue(r.headers["Location"].endswith("/settings/alerts#monthly"))
+
+    def test_switched_off_features_fold_and_open_on_error(self):
+        self.create_admin()
+        html = self.client.get("/settings/alerts?lang=en").get_data(as_text=True)
+        self.assertIn('<details class="card fold" id="hours">', html)
+        self.assertIn('<details class="card fold" id="monthly">', html)
+        r = self.client.post("/settings/hours", data={"csrf_token": csrf(html), "hours_enabled": "1",
+                                                     "d0_a0": "25:00", "d0_b0": "26:00"})
+        self.assertEqual(r.status_code, 400)
+        html = r.get_data(as_text=True)
+        self.assertIn('<div class="card" id="hours">', html)         # the card with the error is open
+        self.assertIn('<details class="card fold" id="monthly">', html)
+        self.assertIn('aria-current="page">Alerts', html)

@@ -39,7 +39,7 @@ Cloudflare alone can't say whether the slow part is your access or the ISP's exi
 
 ## Alerts don't arrive
 
-Press **Send test** in **Settings → Alerts** and look at each channel's result. See [Alerts](alerts.md#if-an-alert-doesnt-arrive).
+Press **Send test** in **Settings → Alerts → Alerts** and look at each channel's result. See [Alerts](alerts.md#if-an-alert-doesnt-arrive).
 
 ## I forgot my password
 

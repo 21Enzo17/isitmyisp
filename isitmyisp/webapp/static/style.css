@@ -1032,3 +1032,22 @@ html:not(.js) .dev-run { display: none; }
 .dev-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px 20px; margin: 16px 0 8px; }
 .dev-facts dt { color: var(--ink-2); font-size: 13px; }
 .dev-facts dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; }
+
+/* Settings: tabs (sub-pages) and features that fold to one line when off. No JS: <a> and <details>. */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line-2); margin: 4px 0 10px; overflow-x: auto;
+  overflow-y: hidden; scrollbar-width: none; }
+.tabs a { padding: 10px 14px; font-size: 14px; font-weight: 500; color: var(--ink-2); text-decoration: none;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tabs a:hover { color: var(--ink); }
+.tabs a[aria-current] { color: var(--ink); border-bottom-color: var(--accent); }
+.tab-sub { margin: 0 0 16px; }
+details.fold > summary { list-style: none; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary h3 { margin: 0; }
+details.fold .fold-cta { margin-left: auto; font-size: 13px; color: var(--accent); }
+details.fold[open] .fold-cta { display: none; }
+details.fold[open] > summary { margin-bottom: 12px; }
+details.chan { border-top: 1px solid var(--line); padding: 10px 0; }
+details.chan > summary { cursor: pointer; display: flex; gap: 8px; align-items: center; }
+details.risk-fold { margin: 6px 0 14px; }
+details.risk-fold > summary { cursor: pointer; font-size: 14px; color: var(--ink-2); }

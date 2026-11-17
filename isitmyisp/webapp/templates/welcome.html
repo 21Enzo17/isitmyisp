@@ -94,10 +94,10 @@
   <h4>{{ t.wiz_next_title }}</h4>
   <ul class="wiz-more">
     <li><a href="{{ url_for('settings_page') }}#tunnels">{{ t.tunnels_title }}</a> <span class="muted">{{ t.wiz_more_tunnels }}</span></li>
-    <li><a href="{{ url_for('settings_page') }}#link">{{ t.snmp_title }}</a> <span class="muted">{{ t.wiz_more_link }}</span></li>
-    <li><a href="{{ url_for('settings_page') }}#speed">{{ t.speed_title }}</a> <span class="muted">{{ t.wiz_more_speed }}</span></li>
-    <li><a href="{{ url_for('settings_page') }}#tv">{{ t.tv_title }}</a> <span class="muted">{{ t.wiz_more_tv }}</span></li>
-    <li><a href="{{ url_for('settings_page') }}#users">{{ t.users_title }}</a> <span class="muted">{{ t.wiz_more_users }}</span></li>
+    <li><a href="{{ url_for('settings_page', tab='connection') }}#link">{{ t.snmp_title }}</a> <span class="muted">{{ t.wiz_more_link }}</span></li>
+    <li><a href="{{ url_for('settings_page', tab='connection') }}#speed">{{ t.speed_title }}</a> <span class="muted">{{ t.wiz_more_speed }}</span></li>
+    <li><a href="{{ url_for('settings_page', tab='access') }}#tv">{{ t.tv_title }}</a> <span class="muted">{{ t.wiz_more_tv }}</span></li>
+    <li><a href="{{ url_for('settings_page', tab='access') }}#users">{{ t.users_title }}</a> <span class="muted">{{ t.wiz_more_users }}</span></li>
   </ul>
   <form method="post" action="{{ url_for('welcome', step='done') }}">{{ csrf() }}
     <div class="actions"><button class="btn primary" type="submit">{{ t.wiz_finish }}</button></div>
