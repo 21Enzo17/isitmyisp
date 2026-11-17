@@ -69,6 +69,26 @@ Las mediciones quedan en el volumen `isitmyisp`. Para borrarlas también: `docke
 
 Se complementan: muchos usan Uptime Kuma para sus servicios e isitmyisp para la conexión.
 
+## ¿Cómo sabe que es el ISP y no mi red?
+
+Mide a la vez tu router, el primer router del ISP y varios destinos de internet, por ICMP y por TCP. Si falla todo lo de afuera y tu router anda, es el ISP. Si tu router también falla, es tu red. Si falla un solo destino, no es tu ISP.
+
+Para no culpar a nadie por un paquete suelto, la pérdida tiene que ser estadísticamente significativa (intervalo de Wilson al 95 %), la latencia se compara con lo normal de cada destino y un incidente necesita dos ventanas malas seguidas. La pérdida en un salto intermedio que no llega al destino no cuenta: es el router priorizando tráfico, no un corte.
+
+¿Se puede equivocar? Sí. Sin datos del router por SNMP, por ejemplo, no puede descartar que el problema sea tu propio enlace lleno, y el informe lo dice así. Los detalles están en [cómo decide](verdict.md).
+
+## ¿Por qué pide `--net=host` y `NET_RAW`?
+
+`--net=host` es para medir tu red real. Sin eso el contenedor ve la red interna de Docker, y "tu router" pasa a ser el puente de Docker. `NET_RAW` es el permiso para hacer ping. No usa `--privileged`. Del equipo solo monta su volumen de datos y, en solo lectura, `/run/systemd/resolve`, para saber qué DNS usás.
+
+## ¿Tengo que confiar en un `curl | sh`?
+
+No hace falta. El instalador muestra cada comando de Docker antes de correrlo y pide confirmación. Con `--dry-run` solo los imprime. Y si preferís no usarlo, es un solo `docker run`, que está en [Instalación](install.md#a-mano-con-docker).
+
+## ¿Lo hiciste con IA?
+
+Sí, lo escribí con Claude Code y no lo escondo: está en cada commit. El diseño, qué mide y cómo decide son míos, y salen de años de soporte de redes escuchando "¿es la red o es el proveedor?". Cada cambio pasa por tests antes de entrar, y lo uso todos los días en mi red. Si encontrás algo raro, [abrí una issue](https://github.com/21Enzo17/isitmyisp/issues), y si es de seguridad, [por privado](security.md#reportar-un-problema-de-seguridad).
+
 ## ¿Cómo hago un backup, o lo paso a otro equipo?
 
 Todo está en el volumen de Docker `isitmyisp`: la configuración, los usuarios y las mediciones. Para guardarlo en un archivo:

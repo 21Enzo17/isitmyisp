@@ -69,6 +69,26 @@ The measurements stay in the `isitmyisp` volume. To delete them too: `docker vol
 
 They work together: plenty of people run Uptime Kuma for their services and isitmyisp for the connection.
 
+## How does it know it's my ISP and not my network?
+
+It measures your router, the ISP's first router and several internet destinations at the same time, over ICMP and TCP. If everything outside fails while your router is fine, it's the ISP. If your router fails too, it's your network. If only one destination fails, it isn't your ISP.
+
+So that a single lost packet doesn't blame anyone, loss has to be statistically significant (a 95 % Wilson interval), latency is compared with what's normal for each destination, and an incident needs two bad windows in a row. Loss at a hop in the middle that doesn't carry through to the destination doesn't count: that's the router deprioritising pings, not an outage.
+
+Can it be wrong? Yes. Without the router over SNMP, for example, it can't rule out that your own link was full, and the report says so. The details are in [how it decides](verdict.md).
+
+## Why does it need `--net=host` and `NET_RAW`?
+
+`--net=host` is so it measures your real network. Without it the container sees Docker's internal network, and "your router" becomes the Docker bridge. `NET_RAW` is the permission to ping. It doesn't use `--privileged`. From the host it only mounts its data volume and, read-only, `/run/systemd/resolve`, to learn which DNS you use.
+
+## Do I have to trust a `curl | sh`?
+
+You don't. The installer prints every Docker command before running it and asks first. With `--dry-run` it only prints them. And if you'd rather skip it, it's a single `docker run`, in [Install](install.md#by-hand-with-docker).
+
+## Did you build it with AI?
+
+Yes, I wrote it with Claude Code and I'm not hiding it: it's on every commit. The design, what it measures and how it decides are mine, and they come from years of network support hearing "is it our network or the provider?". Every change goes through tests before it lands, and I run it on my own network every day. If you find something odd, [open an issue](https://github.com/21Enzo17/isitmyisp/issues), or [privately](security.md#reporting-a-security-problem) if it's about security.
+
 ## How do I back it up, or move it to another machine?
 
 Everything is in the `isitmyisp` Docker volume: settings, users and measurements. To save it to a file:
