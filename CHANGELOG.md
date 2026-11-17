@@ -5,6 +5,24 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-17
+
+### Added
+- **The TV board shows more at a glance**: the doctor's network grade (in place of the 24 h
+  availability once the doctor has run), 30 days of internet and ISP availability, the last speed
+  test against your plan with where the bottleneck is, and call quality. Each block shows only when
+  it has data; `?layout=simple` is unchanged (#84).
+
+### Changed
+- **Settings in four tabs** (Monitoring, Your connection, Alerts, Access), still without JS. The
+  contracted plan has its own card, and switched-off features fold away until you open them (#85).
+
+### Fixed
+- A day with measured windows could show as "before monitoring" in the 30-day strip when the first
+  window ended just past midnight (#87).
+- Without the web extra, the web tests used to skip themselves and a broken install still passed;
+  they now fail unless `ISITMYISP_CORE_ONLY=1` says the core-only run is on purpose (#83).
+
 ## [0.4.0] - 2026-11-16
 
 ### Added
@@ -178,6 +196,7 @@ and to prove it.
 ### Install
 - One-line installer (`install.sh`) that shows every Docker command before running it, and a Raspberry Pi guide.
 
+[0.5.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.5.0
 [0.4.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.4.0
 [0.3.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.3.0
 [0.2.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.2.0
