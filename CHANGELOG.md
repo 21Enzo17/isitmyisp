@@ -5,6 +5,17 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-17
+
+### Security
+- **Open redirect in `?next=`**: `/theme?next=/%09/evil.example` (no login needed) sent the browser
+  to another site, because browsers drop tabs and newlines from a URL; a newline gave a 500. The theme
+  switch and the login now accept only a path on this site (#91).
+
+### Added
+- FAQ entries on how the verdict is reached, the container's permissions, the installer and how the
+  project is written with AI (#92).
+
 ## [0.5.0] - 2026-11-17
 
 ### Added
@@ -196,6 +207,7 @@ and to prove it.
 ### Install
 - One-line installer (`install.sh`) that shows every Docker command before running it, and a Raspberry Pi guide.
 
+[0.5.1]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.5.1
 [0.5.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.5.0
 [0.4.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.4.0
 [0.3.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.3.0
