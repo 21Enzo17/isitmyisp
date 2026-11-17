@@ -14,7 +14,7 @@ Open the dashboard from the device you want to test (the PC, the phone, the lapt
 The browser measures:
 
 - **To the probe**: 20 small requests for latency, jitter and loss inside your network, and a download and an upload for the speed on your local network.
-- **To the internet**: HTTPS requests to the internet destinations (**Settings → Measurement → Internet destinations**), to see how long they take to answer. Nothing is read from those sites, only the time.
+- **To the internet**: HTTPS requests to the internet destinations (**Settings → Monitoring → Measurement → Internet destinations**), to see how long they take to answer. Nothing is read from those sites, only the time.
 
 It needs JavaScript, on this page only. The rest of the dashboard still works without it.
 

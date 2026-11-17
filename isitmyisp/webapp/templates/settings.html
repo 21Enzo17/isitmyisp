@@ -1,15 +1,26 @@
 {% extends "base.html" %}
 {% from "_presets.html" import preset_groups with context %}
 {% from "_hours.html" import hours_fields with context %}
-{% block head %}{% if isp and isp.asn_running %}<meta http-equiv="refresh" content="4;url={{ url_for('settings_page') }}#isp">{% endif %}{% endblock %}
+{% block head %}{% if isp and isp.asn_running %}<meta http-equiv="refresh" content="4;url={{ url_for('settings_page', tab='connection') }}#isp">{% endif %}{% endblock %}
 {% block title %}{{ t.settings_title }}{% endblock %}
 {% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
+{# A card. A feature that's off folds to one line (native <details>, no JS) unless its form was just posted. #}
+{% macro card(id, title, sub=None, folded=False, state=None) %}
+  {% set folded = folded and focus != id %}
+  {% if folded %}<details class="card fold" id="{{ id }}"><summary><h3>{{ title }}</h3>{% if state %}<span class="badge muted">{{ state }}</span>{% endif %}<span class="fold-cta">{{ t.fold_setup }}</span></summary>
+  {% else %}<div class="card" id="{{ id }}"><h3>{{ title }}</h3>{% endif %}{% if sub %}<p class="muted">{{ sub }}</p>{% endif %}
+{{ caller() }}
+  {% if folded %}</details>{% else %}</div>{% endif %}
+{% endmacro %}
 {% block content %}
 <div class="topbar"><h1>{{ t.settings_title }}</h1><div class="right">{% if not readonly %}<a class="btn" href="{{ url_for('welcome', step='plan') }}">{{ t.wiz_open }}</a>{% endif %}{% include "_theme.html" %}</div></div>
+<nav class="tabs" aria-label="{{ t.settings_tabs_label }}">{% for tb in tabs %}<a href="{{ url_for('settings_page', tab=tb) if tb != 'monitoring' else url_for('settings_page') }}"{% if tb == tab %} aria-current="page"{% endif %}>{{ t.settings_tabs[tb] }}</a>{% endfor %}</nav>
+<p class="muted tab-sub">{{ t.settings_tabs_sub[tab] }}</p>
 {% if error %}<div class="flash err">{{ error }}</div>{% endif %}
 {% if readonly %}<div class="flash err">{{ t.readonly }}</div>{% endif %}
 <div class="stack">
-  <div class="card"><h3>{{ t.general }}</h3>
+{% if tab == 'monitoring' %}
+  {% call card('general', t.general) %}
     <form method="post" action="{{ url_for('settings_general') }}">{{ csrf() }}
       <label for="anchors">{{ t.anchors }}</label>
       <textarea id="anchors" name="anchors" {{ 'disabled' if readonly }}>{{ s.anchors|join('\n') }}</textarea>
@@ -27,132 +38,9 @@
       <p class="muted small">{{ t.dns_hint }}</p>
       {% if not readonly %}<div class="actions"><button class="btn primary" type="submit">{{ t.save }}</button></div>{% endif %}
     </form>
-  </div>
+  {% endcall %}
 
-  <div class="card" id="tunnels"><h3>{{ t.tunnels_title }}</h3>
-    {% if s.tunnels_from_file %}<p class="muted">{{ t.from_file.format(path=s.tunnels_from_file) }}</p>{% endif %}
-    {% if s.tunnels %}
-    <table><thead><tr><th>{{ t.name }}</th><th>{{ t.type }}</th><th>{{ t.underlay }}</th><th>{{ t.overlay }}</th><th></th></tr></thead><tbody>
-      {% for tun in s.tunnels %}
-      <tr><td>{{ tun.name }}</td><td>{{ tun.type }}</td><td class="mono">{{ tun.underlay }}</td><td class="mono">{{ tun.overlay }}</td>
-        <td class="num">{% if not readonly and not s.tunnels_from_file %}
-          <form class="inline" method="post" action="{{ url_for('tunnel_delete') }}">{{ csrf() }}<input type="hidden" name="name" value="{{ tun.name }}">
-          <button class="btn small danger" type="submit">{{ t.delete }}</button></form>{% endif %}</td></tr>
-      {% endfor %}
-    </tbody></table>{% else %}<p class="muted">{{ t.no_tunnels }}</p>{% endif %}
-    {% if not readonly and not s.tunnels_from_file %}
-    <form method="post" action="{{ url_for('tunnel_add') }}">{{ csrf() }}
-      <div class="form-row">
-        <div><label for="tname">{{ t.name }}</label><input type="text" id="tname" name="name" required maxlength="40"></div>
-        <div><label for="ttype">{{ t.type }}</label><select id="ttype" name="type">
-          {% for ty in ['ipsec-l2tp', 'ipsec', 'wireguard', 'openvpn', 'other'] %}<option value="{{ ty }}">{{ ty }}</option>{% endfor %}</select></div>
-        <div><label for="tunder">{{ t.underlay }}</label><input type="text" id="tunder" name="underlay" required placeholder="203.0.113.10"></div>
-        <div><label for="tover">{{ t.overlay }}</label><input type="text" id="tover" name="overlay" required placeholder="10.10.0.1"></div>
-      </div>
-      <div class="actions"><button class="btn primary" type="submit">{{ t.add }}</button></div>
-    </form>{% endif %}
-  </div>
-
-  <div class="card" id="isp"><h3>{{ t.isp_title }}</h3><p class="muted">{{ t.isp_sub }}</p>
-    <table class="kv">
-      <tr><th>{{ t.isp_primary }}</th><td>{% if isp.primary %}{{ isp.primary.name }} <span class="muted ip">{{ isp.primary.asn or isp.primary.net16 }}</span>{% else %}<span class="muted">{{ t.isp_not_yet }}</span>{% endif %}</td></tr>
-      <tr><th>{{ t.isp_current }}</th><td>{% if isp.current %}{{ isp.current.name }} <span class="muted ip">{{ isp.current.asn or isp.current.net16 }}</span>
-        {% if isp.on_backup %}<span class="badge warn">{{ t.isp_backup_badge }}</span>{% endif %}{% else %}<span class="muted">—</span>{% endif %}</td></tr>
-    </table>
-    {% if isp.on_backup %}<p class="muted small">{{ t.isp_backup_hint }}</p>{% endif %}
-    <form method="post" action="{{ url_for('isp_primary') }}" class="actions">{{ csrf() }}
-      <button class="btn" type="submit" {{ 'disabled' if readonly or not isp.current }}>{{ t.isp_make_primary }}</button></form>
-    {% if isp.asn_available %}
-    <h4>{{ t.asn_title }}</h4>
-    <p class="muted">{% if isp.asn_installed %}{{ t.asn_installed.format(date=isp.asn_date|dt) }}{% else %}{{ t.asn_missing }}{% endif %}</p>
-    {% if isp.asn_error %}<div class="flash err">{{ isp.asn_error }}</div>{% endif %}
-    <form method="post" action="{{ url_for('isp_asn_download') }}" class="actions">{{ csrf() }}
-      <button class="btn{{ ' primary' if not isp.asn_installed }}" type="submit" {{ 'disabled' if readonly or isp.asn_running }}>
-        <svg class="ico" aria-hidden="true"><use href="#i-download"/></svg>{{ t.asn_running if isp.asn_running else (t.asn_update if isp.asn_installed else t.asn_download) }}</button></form>
-    {% endif %}
-  </div>
-
-  {% set sc = speed.cfg %}
-  <div class="card" id="speed"><h3>{{ t.speed_title }}</h3>
-    <p class="speed-state"><span class="badge {{ '' if speed.on else 'muted' }}">{{ t.speed_on if speed.on else t.speed_off }}</span>
-      {% if speed.on %}{{ t.speed_sched[sc.schedule].format(day=speed.weekdays[lang][sc.weekday], hour='%02d:00'|format(sc.hour)) }}{% else %}{{ t.speed_off_why }}{% endif %}</p>
-    <div class="risk">
-      <svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>
-      <div>
-        <p><b>{{ t.speed_what_h }}</b> {{ t.speed_what }}</p>
-        <p><b>{{ t.speed_risk_h }}</b></p>
-        <ul>
-          <li>{{ t.speed_risk_fill }}</li>
-          <li>{{ t.speed_risk_data.format(size=speed.expected|size, down=('%.0f'|format(speed.contract_down)) if speed.contract_down else '?') }}</li>
-          <li>{{ t.speed_risk_backup }}</li>
-          <li>{{ t.speed_risk_privacy }}</li>
-          <li>{{ t.speed_risk_wifi }}</li>
-        </ul>
-        <p class="muted small">{{ t.speed_guards }}</p>
-      </div>
-    </div>
-    {% if not speed.contract_down %}<p class="muted small">{{ t.speed_no_contract }} <a href="#link">{{ t.snmp_title }}</a></p>{% endif %}
-    <form method="post" action="{{ url_for('settings_speedtest') }}">{{ csrf() }}
-      <label class="check"><input type="checkbox" name="enabled" value="1" {{ 'checked' if sc.enabled }} {{ 'disabled' if readonly }}> {{ t.speed_enable }}</label>
-      <label class="check"><input type="checkbox" name="accepted" value="1" {{ 'checked' if sc.accepted }} {{ 'disabled' if readonly }}> {{ t.speed_accept }}</label>
-      <div class="form-row">
-        <div><label for="ss">{{ t.speed_schedule }}</label><select id="ss" name="schedule" {{ 'disabled' if readonly }}>
-          {% for k in ('weekly', 'daily', 'manual') %}<option value="{{ k }}" {{ 'selected' if sc.schedule == k }}>{{ t.speed_sched_opt[k] }}</option>{% endfor %}</select></div>
-        <div><label for="sw">{{ t.speed_weekday }}</label><select id="sw" name="weekday" {{ 'disabled' if readonly }}>
-          {% for d in speed.weekdays[lang] %}<option value="{{ loop.index0 }}" {{ 'selected' if sc.weekday == loop.index0 }}>{{ d }}</option>{% endfor %}</select></div>
-        <div><label for="sh">{{ t.speed_hour }}</label><input type="number" min="0" max="23" id="sh" name="hour" value="{{ sc.hour }}" {{ 'disabled' if readonly }}></div>
-      </div>
-      <div class="form-row">
-        <div><label for="sb">{{ t.speed_budget }}</label><input type="number" step="0.5" min="0.5" max="500" id="sb" name="budget_gb" value="{{ sc.budget_gb }}" {{ 'disabled' if readonly }}></div>
-        <div><label for="sm">{{ t.speed_busy }}</label><input type="number" min="5" max="100" id="sm" name="max_busy_pct" value="{{ sc.max_busy_pct }}" {{ 'disabled' if readonly }}></div>
-      </div>
-      <p class="muted small">{{ t.speed_budget_hint.format(per=speed.per_test|size, exp=speed.expected|size, used=speed.used|size, budget=speed.budget|size) }}</p>
-      <label class="check"><input type="checkbox" name="run_on_backup" value="1" {{ 'checked' if sc.run_on_backup }} {{ 'disabled' if readonly }}> {{ t.speed_on_backup }}</label>
-      <label for="ssrv">{{ t.speed_servers }}</label>
-      <textarea id="ssrv" name="servers" rows="3" placeholder="iperf.example.net&#10;10.8.0.1:5201 outside" {{ 'disabled' if readonly }}>{{ speed.servers_text }}</textarea>
-      <p class="muted small">{{ t.speed_servers_hint.format(max=speed.max_servers) }}
-        {% if not speed.iperf %}<b>{{ t.speed_no_iperf }}</b>{% endif %}</p>
-      {% if not readonly %}<div class="actions"><button class="btn primary" type="submit">{{ t.save }}</button></div>{% endif %}
-    </form>
-    {% if speed.on and not readonly %}
-    <form method="post" action="{{ url_for('speedtest_run') }}" class="run-now">{{ csrf() }}
-      <label class="check"><input type="checkbox" name="confirm" value="1" required> {{ t.speed_confirm.format(size=speed.expected|size, secs=speed.seconds) }}</label>
-      <button class="btn" type="submit">{{ t.speed_run }}</button>
-    </form>
-    {% endif %}
-  </div>
-
-  <div class="card" id="link"><h3>{{ t.snmp_title }}</h3><p class="muted">{{ t.link_sub }}</p>
-    {% if ifaces %}<div class="flash ok"><b>{{ t.snmp_ifaces }}:</b> {{ ifaces|join(' · ') }}</div>{% endif %}
-    <form method="post" action="{{ url_for('settings_link') }}">{{ csrf() }}
-      <label class="check"><input type="checkbox" name="enabled" value="1" {{ 'checked' if s.link.enabled }} {{ 'disabled' if readonly }}> {{ t.enabled }}</label>
-      <div class="form-row">
-        <div><label for="lh">{{ t.snmp_host }}</label><input type="text" id="lh" name="host" value="{{ s.link.host }}" placeholder="192.168.1.1" {{ 'disabled' if readonly }}></div>
-        <div><label for="lc">{{ t.snmp_community }}</label><input type="password" id="lc" name="community" autocomplete="off" placeholder="{{ t.secret_set if s.link.community else '' }}" {{ 'disabled' if readonly }}></div>
-        <div><label for="lp">{{ t.snmp_port }}</label><input type="number" id="lp" name="port" value="{{ s.link.port }}" {{ 'disabled' if readonly }}></div>
-      </div>
-      <div class="form-row">
-        <div><label for="li">{{ t.snmp_iface }}</label><input type="text" id="li" name="interface" value="{{ s.link.interface }}" placeholder="ether1" {{ 'disabled' if readonly }}></div>
-        <div><label for="ld">{{ t.down_c }}</label><input type="number" step="1" min="0" id="ld" name="down_mbps" value="{{ s.link.down_mbps|int }}" {{ 'disabled' if readonly }}></div>
-        <div><label for="lu">{{ t.up_c }}</label><input type="number" step="1" min="0" id="lu" name="up_mbps" value="{{ s.link.up_mbps|int }}" {{ 'disabled' if readonly }}></div>
-      </div>
-      <p class="muted small">{{ t.snmp_help }}</p>
-      {% if not readonly %}<div class="actions"><button class="btn primary" type="submit" name="action" value="save">{{ t.save }}</button>
-        <button class="btn" type="submit" name="action" value="test">{{ t.snmp_test }}</button></div>{% endif %}
-    </form>
-  </div>
-
-  <div class="card" id="hours"><h3>{{ t.hours_title }}</h3><p class="muted">{{ t.hours_sub }}</p>
-    <form method="post" action="{{ url_for('settings_hours') }}">{{ csrf() }}
-      <label class="check"><input type="checkbox" name="hours_enabled" value="1" {{ 'checked' if hours.enabled }} {{ 'disabled' if readonly }}> {{ t.hours_enabled }}</label>
-      {{ hours_fields(hours, readonly) }}
-      <label class="check"><input type="checkbox" name="hours_quiet" value="1" {{ 'checked' if hours.quiet_alerts }} {{ 'disabled' if readonly }}> {{ t.hours_quiet }}</label>
-      <p class="muted small">{{ t.hours_quiet_help }}</p>
-      {% if not readonly %}<div class="actions"><button class="btn primary" type="submit">{{ t.save }}</button></div>{% endif %}
-    </form>
-  </div>
-
-  <div class="card" id="services"><h3>{{ t.services_title }}</h3><p class="muted">{{ t.services_sub }}</p>
+  {% call card('services', t.services_title, t.services_sub) %}
     {% if s.services %}
     <table><thead><tr><th>{{ t.svc_name }}</th><th>{{ t.svc_kind }}</th><th>{{ t.svc_target }}</th><th></th></tr></thead><tbody>
       {% for sv in s.services %}
@@ -181,9 +69,9 @@
       </form>
     </details>
     {% endif %}{% endif %}
-  </div>
+  {% endcall %}
 
-  <div class="card" id="devices"><h3>{{ t.devices_title }}</h3><p class="muted">{{ t.devices_sub }}</p>
+  {% call card('devices', t.devices_title, t.devices_sub) %}
     {% if s.devices %}
     <table><thead><tr><th>{{ t.dev_name }}</th><th>{{ t.dev_kind }}</th><th>{{ t.dev_target }}</th><th>{{ t.dev_how }}</th><th></th></tr></thead><tbody>
       {% for dv in s.devices %}
@@ -204,9 +92,134 @@
       <p class="muted small">{{ t.dev_port_help }}</p>
       <div class="actions"><button class="btn primary" type="submit">{{ t.dev_add }}</button></div>
     </form>{% endif %}
-  </div>
+  {% endcall %}
 
-  <div class="card" id="alerts"><h3>{{ t.alerts_title }}</h3><p class="muted">{{ t.alerts_sub }}</p>
+  {% call card('tunnels', t.tunnels_title) %}
+    {% if s.tunnels_from_file %}<p class="muted">{{ t.from_file.format(path=s.tunnels_from_file) }}</p>{% endif %}
+    {% if s.tunnels %}
+    <table><thead><tr><th>{{ t.name }}</th><th>{{ t.type }}</th><th>{{ t.underlay }}</th><th>{{ t.overlay }}</th><th></th></tr></thead><tbody>
+      {% for tun in s.tunnels %}
+      <tr><td>{{ tun.name }}</td><td>{{ tun.type }}</td><td class="mono">{{ tun.underlay }}</td><td class="mono">{{ tun.overlay }}</td>
+        <td class="num">{% if not readonly and not s.tunnels_from_file %}
+          <form class="inline" method="post" action="{{ url_for('tunnel_delete') }}">{{ csrf() }}<input type="hidden" name="name" value="{{ tun.name }}">
+          <button class="btn small danger" type="submit">{{ t.delete }}</button></form>{% endif %}</td></tr>
+      {% endfor %}
+    </tbody></table>{% else %}<p class="muted">{{ t.no_tunnels }}</p>{% endif %}
+    {% if not readonly and not s.tunnels_from_file %}
+    <form method="post" action="{{ url_for('tunnel_add') }}">{{ csrf() }}
+      <div class="form-row">
+        <div><label for="tname">{{ t.name }}</label><input type="text" id="tname" name="name" required maxlength="40"></div>
+        <div><label for="ttype">{{ t.type }}</label><select id="ttype" name="type">
+          {% for ty in ['ipsec-l2tp', 'ipsec', 'wireguard', 'openvpn', 'other'] %}<option value="{{ ty }}">{{ ty }}</option>{% endfor %}</select></div>
+        <div><label for="tunder">{{ t.underlay }}</label><input type="text" id="tunder" name="underlay" required placeholder="203.0.113.10"></div>
+        <div><label for="tover">{{ t.overlay }}</label><input type="text" id="tover" name="overlay" required placeholder="10.10.0.1"></div>
+      </div>
+      <div class="actions"><button class="btn primary" type="submit">{{ t.add }}</button></div>
+    </form>{% endif %}
+  {% endcall %}
+
+{% elif tab == 'connection' %}
+  {% call card('plan', t.plan_title, t.plan_sub) %}
+    <form method="post" action="{{ url_for('settings_plan') }}">{{ csrf() }}
+      <div class="form-row">
+        <div><label for="ld">{{ t.down_c }}</label><input type="number" step="1" min="0" id="ld" name="down_mbps" value="{{ s.link.down_mbps|int }}" {{ 'disabled' if readonly }}></div>
+        <div><label for="lu">{{ t.up_c }}</label><input type="number" step="1" min="0" id="lu" name="up_mbps" value="{{ s.link.up_mbps|int }}" {{ 'disabled' if readonly }}></div>
+      </div>
+      {% if not readonly %}<div class="actions"><button class="btn primary" type="submit">{{ t.save }}</button></div>{% endif %}
+    </form>
+  {% endcall %}
+
+  {% call card('isp', t.isp_title, t.isp_sub) %}
+    <table class="kv">
+      <tr><th>{{ t.isp_primary }}</th><td>{% if isp.primary %}{{ isp.primary.name }} <span class="muted ip">{{ isp.primary.asn or isp.primary.net16 }}</span>{% else %}<span class="muted">{{ t.isp_not_yet }}</span>{% endif %}</td></tr>
+      <tr><th>{{ t.isp_current }}</th><td>{% if isp.current %}{{ isp.current.name }} <span class="muted ip">{{ isp.current.asn or isp.current.net16 }}</span>
+        {% if isp.on_backup %}<span class="badge warn">{{ t.isp_backup_badge }}</span>{% endif %}{% else %}<span class="muted">—</span>{% endif %}</td></tr>
+    </table>
+    {% if isp.on_backup %}<p class="muted small">{{ t.isp_backup_hint }}</p>{% endif %}
+    <form method="post" action="{{ url_for('isp_primary') }}" class="actions">{{ csrf() }}
+      <button class="btn" type="submit" {{ 'disabled' if readonly or not isp.current }}>{{ t.isp_make_primary }}</button></form>
+    {% if isp.asn_available %}
+    <h4>{{ t.asn_title }}</h4>
+    <p class="muted">{% if isp.asn_installed %}{{ t.asn_installed.format(date=isp.asn_date|dt) }}{% else %}{{ t.asn_missing }}{% endif %}</p>
+    {% if isp.asn_error %}<div class="flash err">{{ isp.asn_error }}</div>{% endif %}
+    <form method="post" action="{{ url_for('isp_asn_download') }}" class="actions">{{ csrf() }}
+      <button class="btn{{ ' primary' if not isp.asn_installed }}" type="submit" {{ 'disabled' if readonly or isp.asn_running }}>
+        <svg class="ico" aria-hidden="true"><use href="#i-download"/></svg>{{ t.asn_running if isp.asn_running else (t.asn_update if isp.asn_installed else t.asn_download) }}</button></form>
+    {% endif %}
+  {% endcall %}
+
+  {% set sc = speed.cfg %}
+  {% call card('speed', t.speed_title, folded=not speed.on, state=t.fold_off) %}
+    <p class="speed-state"><span class="badge {{ '' if speed.on else 'muted' }}">{{ t.speed_on if speed.on else t.speed_off }}</span>
+      {% if speed.on %}{{ t.speed_sched[sc.schedule].format(day=speed.weekdays[lang][sc.weekday], hour='%02d:00'|format(sc.hour)) }}{% else %}{{ t.speed_off_why }}{% endif %}</p>
+    <details class="risk-fold"{{ ' open' if not sc.accepted }}><summary>{{ t.speed_risk_fold }}</summary>
+    <div class="risk">
+      <svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>
+      <div>
+        <p><b>{{ t.speed_what_h }}</b> {{ t.speed_what }}</p>
+        <p><b>{{ t.speed_risk_h }}</b></p>
+        <ul>
+          <li>{{ t.speed_risk_fill }}</li>
+          <li>{{ t.speed_risk_data.format(size=speed.expected|size, down=('%.0f'|format(speed.contract_down)) if speed.contract_down else '?') }}</li>
+          <li>{{ t.speed_risk_backup }}</li>
+          <li>{{ t.speed_risk_privacy }}</li>
+          <li>{{ t.speed_risk_wifi }}</li>
+        </ul>
+        <p class="muted small">{{ t.speed_guards }}</p>
+      </div>
+    </div>
+    </details>
+    {% if not speed.contract_down %}<p class="muted small">{{ t.speed_no_contract }} <a href="#plan">{{ t.plan_title }}</a></p>{% endif %}
+    <form method="post" action="{{ url_for('settings_speedtest') }}">{{ csrf() }}
+      <label class="check"><input type="checkbox" name="enabled" value="1" {{ 'checked' if sc.enabled }} {{ 'disabled' if readonly }}> {{ t.speed_enable }}</label>
+      <label class="check"><input type="checkbox" name="accepted" value="1" {{ 'checked' if sc.accepted }} {{ 'disabled' if readonly }}> {{ t.speed_accept }}</label>
+      <div class="form-row">
+        <div><label for="ss">{{ t.speed_schedule }}</label><select id="ss" name="schedule" {{ 'disabled' if readonly }}>
+          {% for k in ('weekly', 'daily', 'manual') %}<option value="{{ k }}" {{ 'selected' if sc.schedule == k }}>{{ t.speed_sched_opt[k] }}</option>{% endfor %}</select></div>
+        <div><label for="sw">{{ t.speed_weekday }}</label><select id="sw" name="weekday" {{ 'disabled' if readonly }}>
+          {% for d in speed.weekdays[lang] %}<option value="{{ loop.index0 }}" {{ 'selected' if sc.weekday == loop.index0 }}>{{ d }}</option>{% endfor %}</select></div>
+        <div><label for="sh">{{ t.speed_hour }}</label><input type="number" min="0" max="23" id="sh" name="hour" value="{{ sc.hour }}" {{ 'disabled' if readonly }}></div>
+      </div>
+      <div class="form-row">
+        <div><label for="sb">{{ t.speed_budget }}</label><input type="number" step="0.5" min="0.5" max="500" id="sb" name="budget_gb" value="{{ sc.budget_gb }}" {{ 'disabled' if readonly }}></div>
+        <div><label for="sm">{{ t.speed_busy }}</label><input type="number" min="5" max="100" id="sm" name="max_busy_pct" value="{{ sc.max_busy_pct }}" {{ 'disabled' if readonly }}></div>
+      </div>
+      <p class="muted small">{{ t.speed_budget_hint.format(per=speed.per_test|size, exp=speed.expected|size, used=speed.used|size, budget=speed.budget|size) }}</p>
+      <label class="check"><input type="checkbox" name="run_on_backup" value="1" {{ 'checked' if sc.run_on_backup }} {{ 'disabled' if readonly }}> {{ t.speed_on_backup }}</label>
+      <label for="ssrv">{{ t.speed_servers }}</label>
+      <textarea id="ssrv" name="servers" rows="3" placeholder="iperf.example.net&#10;10.8.0.1:5201 outside" {{ 'disabled' if readonly }}>{{ speed.servers_text }}</textarea>
+      <p class="muted small">{{ t.speed_servers_hint.format(max=speed.max_servers) }}
+        {% if not speed.iperf %}<b>{{ t.speed_no_iperf }}</b>{% endif %}</p>
+      {% if not readonly %}<div class="actions"><button class="btn primary" type="submit">{{ t.save }}</button></div>{% endif %}
+    </form>
+    {% if speed.on and not readonly %}
+    <form method="post" action="{{ url_for('speedtest_run') }}" class="run-now">{{ csrf() }}
+      <label class="check"><input type="checkbox" name="confirm" value="1" required> {{ t.speed_confirm.format(size=speed.expected|size, secs=speed.seconds) }}</label>
+      <button class="btn" type="submit">{{ t.speed_run }}</button>
+    </form>
+    {% endif %}
+  {% endcall %}
+
+  {% call card('link', t.snmp_title, t.link_sub, folded=not s.link.enabled, state=t.fold_off) %}
+    {% if ifaces %}<div class="flash ok"><b>{{ t.snmp_ifaces }}:</b> {{ ifaces|join(' · ') }}</div>{% endif %}
+    <form method="post" action="{{ url_for('settings_link') }}">{{ csrf() }}
+      <label class="check"><input type="checkbox" name="enabled" value="1" {{ 'checked' if s.link.enabled }} {{ 'disabled' if readonly }}> {{ t.enabled }}</label>
+      <div class="form-row">
+        <div><label for="lh">{{ t.snmp_host }}</label><input type="text" id="lh" name="host" value="{{ s.link.host }}" placeholder="192.168.1.1" {{ 'disabled' if readonly }}></div>
+        <div><label for="lc">{{ t.snmp_community }}</label><input type="password" id="lc" name="community" autocomplete="off" placeholder="{{ t.secret_set if s.link.community else '' }}" {{ 'disabled' if readonly }}></div>
+        <div><label for="lp">{{ t.snmp_port }}</label><input type="number" id="lp" name="port" value="{{ s.link.port }}" {{ 'disabled' if readonly }}></div>
+      </div>
+      <div class="form-row">
+        <div><label for="li">{{ t.snmp_iface }}</label><input type="text" id="li" name="interface" value="{{ s.link.interface }}" placeholder="ether1" {{ 'disabled' if readonly }}></div>
+      </div>
+      <p class="muted small">{{ t.snmp_help }}</p>
+      {% if not readonly %}<div class="actions"><button class="btn primary" type="submit" name="action" value="save">{{ t.save }}</button>
+        <button class="btn" type="submit" name="action" value="test">{{ t.snmp_test }}</button></div>{% endif %}
+    </form>
+  {% endcall %}
+
+{% elif tab == 'alerts' %}
+  {% call card('alerts', t.alerts_title, t.alerts_sub) %}
     {% if test_results %}<div class="flash {{ 'ok' if test_results.values()|select('equalto','ok')|list|length == test_results|length else 'err' }}">
       <b>{{ t.test_results }}:</b> {% for ch, r in test_results.items() %}{{ ch }}: {{ r }}{{ ' · ' if not loop.last }}{% endfor %}</div>{% endif %}
     {% if alerts_last and alerts_last.errors %}<div class="flash err"><b>{{ t.alerts_last_errors }}:</b>
@@ -218,15 +231,15 @@
       </div>
       <label class="check"><input type="checkbox" name="notify_close" value="1" {{ 'checked' if alerts.notify_close }} {{ 'disabled' if readonly }}> {{ t.alerts_close }}</label>
 
-      <h4>Telegram</h4>
+      <details class="chan"{{ ' open' if alerts.telegram.enabled or error }}><summary><b>Telegram</b>{% if not alerts.telegram.enabled %} <span class="badge muted">{{ t.fold_off }}</span>{% endif %}</summary>
       <label class="check"><input type="checkbox" name="telegram_enabled" value="1" {{ 'checked' if alerts.telegram.enabled }} {{ 'disabled' if readonly }}> {{ t.enabled }}</label>
       <div class="form-row">
         <div><label for="tgt">{{ t.tg_token }}</label><input type="password" id="tgt" name="telegram_bot_token" autocomplete="off" placeholder="{{ t.secret_set if alerts.telegram.bot_token_set else '123456789:AA…' }}" {{ 'disabled' if readonly }}></div>
         <div><label for="tgc">{{ t.tg_chat }}</label><input type="text" id="tgc" name="telegram_chat_id" value="{{ alerts.telegram.chat_id }}" {{ 'disabled' if readonly }}></div>
       </div>
       <p class="muted small">{{ t.tg_help }}</p>
-
-      <h4>Email</h4>
+      </details>
+      <details class="chan"{{ ' open' if alerts.email.enabled or error }}><summary><b>Email</b>{% if not alerts.email.enabled %} <span class="badge muted">{{ t.fold_off }}</span>{% endif %}</summary>
       <label class="check"><input type="checkbox" name="email_enabled" value="1" {{ 'checked' if alerts.email.enabled }} {{ 'disabled' if readonly }}> {{ t.enabled }}</label>
       <div class="form-row">
         <div><label for="eh">{{ t.smtp_host }}</label><input type="text" id="eh" name="email_host" value="{{ alerts.email.host }}" placeholder="smtp.gmail.com" {{ 'disabled' if readonly }}></div>
@@ -240,17 +253,28 @@
         <div><label for="ef">{{ t.smtp_from }}</label><input type="text" id="ef" name="email_sender" value="{{ alerts.email.sender }}" {{ 'disabled' if readonly }}></div>
         <div><label for="et">{{ t.smtp_to }}</label><input type="text" id="et" name="email_to" value="{{ alerts.email.to }}" {{ 'disabled' if readonly }}></div>
       </div>
-
-      <h4>Webhook</h4>
+      </details>
+      <details class="chan"{{ ' open' if alerts.webhook.enabled or error }}><summary><b>Webhook</b>{% if not alerts.webhook.enabled %} <span class="badge muted">{{ t.fold_off }}</span>{% endif %}</summary>
       <label class="check"><input type="checkbox" name="webhook_enabled" value="1" {{ 'checked' if alerts.webhook.enabled }} {{ 'disabled' if readonly }}> {{ t.enabled }}</label>
       <label for="wu">{{ t.wh_url }}</label><input type="text" id="wu" name="webhook_url" value="{{ alerts.webhook.url }}" placeholder="https://discord.com/api/webhooks/…" {{ 'disabled' if readonly }}>
+      </details>
       {% if not readonly %}<div class="actions"><button class="btn primary" type="submit" name="action" value="save">{{ t.save }}</button>
         <button class="btn" type="submit" name="action" value="test">{{ t.send_test }}</button></div>{% endif %}
     </form>
-  </div>
+  {% endcall %}
+
+  {% call card('hours', t.hours_title, t.hours_sub, folded=not hours.enabled, state=t.fold_off) %}
+    <form method="post" action="{{ url_for('settings_hours') }}">{{ csrf() }}
+      <label class="check"><input type="checkbox" name="hours_enabled" value="1" {{ 'checked' if hours.enabled }} {{ 'disabled' if readonly }}> {{ t.hours_enabled }}</label>
+      {{ hours_fields(hours, readonly) }}
+      <label class="check"><input type="checkbox" name="hours_quiet" value="1" {{ 'checked' if hours.quiet_alerts }} {{ 'disabled' if readonly }}> {{ t.hours_quiet }}</label>
+      <p class="muted small">{{ t.hours_quiet_help }}</p>
+      {% if not readonly %}<div class="actions"><button class="btn primary" type="submit">{{ t.save }}</button></div>{% endif %}
+    </form>
+  {% endcall %}
 
   {% set m = monthly %}
-  <div class="card" id="monthly"><h3>{{ t.monthly_title }}</h3><p class="muted">{{ t.monthly_sub }}</p>
+  {% call card('monthly', t.monthly_title, t.monthly_sub, folded=not m.cfg.enabled, state=t.fold_off) %}
     {% if not m.email_ready %}<p class="note"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><span>{{ t.monthly_no_email }} <a href="#alerts">{{ t.monthly_go_email }}</a></span></p>{% endif %}
     {% if m.error %}<div class="flash err"><b>{{ t.monthly_failed }}</b> {{ m.error.error }}</div>{% endif %}
     {% if m.last %}<p class="small muted">{{ t.monthly_last.format(month=m.last.month, when=m.last.ts|dt) }}</p>{% endif %}
@@ -267,9 +291,10 @@
       {% if not readonly %}<div class="actions"><button class="btn primary" type="submit" name="action" value="save">{{ t.save }}</button>
         <button class="btn" type="submit" name="action" value="send" {{ 'disabled' if not m.email_ready }}>{{ t.monthly_send_now.format(month=m.month) }}</button></div>{% endif %}
     </form>
-  </div>
+  {% endcall %}
 
-  <div class="card"><h3>{{ t.security }}</h3>
+{% else %}
+  {% call card('access', t.security) %}
     <p class="muted">{{ t.bind_hint.format(bind=bind) }}</p>
     <form method="post" action="{{ url_for('settings_access') }}">{{ csrf() }}
       <label for="auth_mode">{{ t.auth_mode }}</label>
@@ -281,10 +306,10 @@
       </div>
       {% if not readonly %}<div class="actions"><button class="btn primary" type="submit">{{ t.save }}</button></div>{% endif %}
     </form>
-  </div>
+  {% endcall %}
 
   {% if users %}
-  <div class="card" id="users"><h3>{{ t.users_title }}</h3><p class="muted">{{ t.users_sub }}</p>
+  {% call card('users', t.users_title, t.users_sub) %}
     {% if invite %}
     <div class="flash ok invite-box"><p><b>{{ (t.users_link_reset if invite.reset else t.users_link_new).format(name=invite.username) }}</b></p>
       <p class="token mono">{{ invite.url }}</p><p class="small">{{ t.users_link_hint }}</p></div>
@@ -311,9 +336,9 @@
       <p class="muted small">{{ t.users_roles_hint }}</p>
       <div class="actions"><button class="btn primary" type="submit">{{ t.users_invite }}</button></div>
     </form>
-  </div>
+  {% endcall %}
 
-  <div class="card" id="tv"><h3>{{ t.tv_title }}</h3><p class="muted">{{ t.tv_sub }}</p>
+  {% call card('tv', t.tv_title, t.tv_sub, folded=not tv_screens and not tv_url, state=t.tv_none) %}
     <p>{{ t.tv_pair_how }} <span class="mono">{{ tv_short }}</span></p>
     {% if not readonly %}
     <form method="post" action="{{ url_for('settings_tv_pair') }}">{{ csrf() }}
@@ -341,11 +366,11 @@
         {% if tv_url %}<button class="btn danger" name="action" value="revoke">{{ t.tv_revoke }}</button>{% endif %}
       </form>
     </details>
-  </div>
+  {% endcall %}
   {% endif %}
 
   {% if user and user.source == 'local' %}
-  <div class="card"><h3>{{ t.change_password }}</h3>
+  {% call card('password', t.change_password) %}
     <form method="post" action="{{ url_for('settings_password') }}">{{ csrf() }}
       <div class="form-row">
         <div><label for="pw">{{ t.password }}</label><input type="password" id="pw" name="password" autocomplete="current-password" required></div>
@@ -354,16 +379,17 @@
       </div>
       <div class="actions"><button class="btn primary" type="submit">{{ t.change_password }}</button></div>
     </form>
-  </div>
+  {% endcall %}
   {% endif %}
 
   {% if metrics_token %}
-  <div class="card"><h3>{{ t.metrics }}</h3>
+  {% call card('token', t.metrics, folded=True) %}
     <p class="muted">{{ t.metrics_hint }}</p>
     <div class="token mono">{{ metrics_token }}</div>
     <form method="post" action="{{ url_for('settings_metrics_token') }}">{{ csrf() }}
       <div class="actions"><button class="btn" type="submit">{{ t.rotate }}</button></div></form>
-  </div>
+  {% endcall %}
   {% endif %}
+{% endif %}
 </div>
 {% endblock %}

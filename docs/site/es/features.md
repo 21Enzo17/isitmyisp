@@ -16,7 +16,7 @@ Cada uno dice qué chequea exactamente. Algunos se chequean por TCP porque su HT
 
 ## Dispositivos del local
 
-"¿Se cayó el posnet o internet?" Cargá los aparatos de tu red en **Configuración → Dispositivos del local**: el posnet o la terminal de cobro, la impresora fiscal, el grabador de las cámaras, la central telefónica, los puntos de acceso Wi-Fi.
+"¿Se cayó el posnet o internet?" Cargá los aparatos de tu red en **Configuración → Monitoreo → Dispositivos del local**: el posnet o la terminal de cobro, la impresora fiscal, el grabador de las cámaras, la central telefónica, los puntos de acceso Wi-Fi.
 
 - Cada uno se chequea cada 30 segundos **por ping** o, si el aparato no responde ping, **conectándose a un puerto** en el que escuche: impresoras 9100, cámaras 554 (RTSP) u 80, centrales 5060.
 - Si deja de responder **3 veces seguidas mientras tu router sí responde**, el panel, las alertas y el informe dicen que **es ese aparato**, no tu internet ni tu ISP: revisá que esté prendido, su cable o su Wi-Fi.
@@ -24,11 +24,11 @@ Cada uno dice qué chequea exactamente. Algunos se chequean por TCP porque su HT
 - Aparecen en la tarjeta **Servicios, dispositivos y túneles** del panel y en el modo TV.
 - Acá, y solo acá, se aceptan direcciones privadas (192.168…, 10…, 172.16…) o nombres locales (`impresora.local`). Las direcciones de internet van en **Tus servicios**.
 
-![Configuración → Dispositivos del local, con un posnet, una impresora fiscal y el grabador de las cámaras](/docs/img/es/devices-settings.png)
+![Configuración → Monitoreo → Dispositivos del local, con un posnet, una impresora fiscal y el grabador de las cámaras](/docs/img/es/devices-settings.png)
 
 ## Horario de atención
 
-Para un comercio, 20 minutos sin internet a las 3 de la mañana no son lo mismo que a las 11. Cargá tu horario en **Configuración → Horario de atención** (o en el asistente): por día de la semana, con hasta dos turnos, como el horario cortado con siesta.
+Para un comercio, 20 minutos sin internet a las 3 de la mañana no son lo mismo que a las 11. Cargá tu horario en **Configuración → Avisos → Horario de atención** (o en el asistente): por día de la semana, con hasta dos turnos, como el horario cortado con siesta.
 
 Con el horario cargado:
 
@@ -36,7 +36,7 @@ Con el horario cargado:
 - **El informe** agrega cuántas horas estuvo abierto el local en el período, cuánto de ese tiempo hubo problemas, y marca cada incidente como "en horario" o "fuera de horario".
 - **Alertas retenidas** (opcional): con el local cerrado no te llega nada. Al abrir, recibís un solo resumen de lo que pasó, por ejemplo "Con el local cerrado: 2 problemas". Si un problema sigue cuando abrís, se avisa como siempre.
 
-![Configuración → Horario de atención: dos turnos de lunes a viernes y el sábado a la mañana](/docs/img/es/hours-settings.png)
+![Configuración → Avisos → Horario de atención: dos turnos de lunes a viernes y el sábado a la mañana](/docs/img/es/hours-settings.png)
 
 Si un turno pasa la medianoche, cargalo en dos partes: hasta 24:00, y desde 00:00 el día siguiente. Los horarios usan la zona horaria del equipo donde corre isitmyisp.
 
@@ -85,9 +85,9 @@ Cuando está activado:
 
 ### Dentro y fuera de tu ISP
 
-Cloudflare solo no distingue un acceso lento de una salida lenta. En **Configuración → Prueba de velocidad contra tu plan** podés agregar hasta tres servidores [iperf3](https://iperf.fr/) propios: un VPS, otra sucursal o un servidor dentro de la red de tu ISP. Uno por línea, como `host[:puerto]` (5201 por defecto).
+Cloudflare solo no distingue un acceso lento de una salida lenta. En **Configuración → Tu conexión → Prueba de velocidad contra tu plan** podés agregar hasta tres servidores [iperf3](https://iperf.fr/) propios: un VPS, otra sucursal o un servidor dentro de la red de tu ISP. Uno por línea, como `host[:puerto]` (5201 por defecto).
 
-Cada servidor se marca **dentro** o **fuera** de tu ISP por su sistema autónomo (ASN), comparado con el de tu ISP. Una dirección en el espacio CGNAT del ISP cuenta como dentro. Una dirección de la LAN o de una VPN no se puede distinguir, así que escribí `inside` u `outside` después (`10.8.0.1 outside`). Marcar por ASN necesita los datos de ASN (**Configuración → ISP principal y enlace de respaldo → Nombres de los ISP**) o `--asn-online`.
+Cada servidor se marca **dentro** o **fuera** de tu ISP por su sistema autónomo (ASN), comparado con el de tu ISP. Una dirección en el espacio CGNAT del ISP cuenta como dentro. Una dirección de la LAN o de una VPN no se puede distinguir, así que escribí `inside` u `outside` después (`10.8.0.1 outside`). Marcar por ASN necesita los datos de ASN (**Configuración → Tu conexión → ISP principal y enlace de respaldo**) o `--asn-online`.
 
 Con un servidor de cada lado, el panel y el informe comparan la mejor bajada de cada uno:
 
@@ -101,7 +101,7 @@ Las protecciones siguen valiendo: el tope de datos por prueba se reparte entre C
 
 ## El router por SNMP
 
-La objeción favorita de cualquier ISP es "saturaste tu propio enlace". Si conectás tu router por SNMP (versión 2c, solo lectura), isitmyisp lee el uso de la interfaz WAN y la CPU en cada ventana. Así descarta esa objeción, o te dice que tenía razón. Necesita las velocidades contratadas para saber cuándo el enlace está lleno.
+La objeción favorita de cualquier ISP es "saturaste tu propio enlace". Si conectás tu router por SNMP (versión 2c, solo lectura), isitmyisp lee el uso de la interfaz WAN y la CPU en cada ventana. Así descarta esa objeción, o te dice que tenía razón. Necesita tu plan contratado (**Configuración → Tu conexión → Tu plan contratado**) para saber cuándo el enlace está lleno.
 
 También lee el broadcast y el multicast que recibe cada interfaz del router: una tormenta en la LAN (un loop entre switches) se ve ahí, al lado de la CPU. Ver [loops y tormentas de broadcast](/docs/es/verdict/#loops-y-tormentas-de-broadcast).
 
@@ -115,16 +115,16 @@ Un tablero para una pantalla en la pared de la oficina: letras grandes, se actua
 
 1. En la tele abrí la dirección del panel seguida de **/tv**, por ejemplo `192.168.1.50:8080/tv`.
 2. La tele muestra un código corto, como **C4R-HN9**.
-3. Desde tu celular o tu PC, en **Configuración → Modo TV**, escribí ese código y ponele un nombre a la pantalla ("Tele del mostrador").
+3. Desde tu celular o tu PC, en **Configuración → Acceso → Modo TV**, escribí ese código y ponele un nombre a la pantalla ("Tele del mostrador").
 4. En unos segundos la tele muestra el tablero, y queda vinculada: si se apaga o se reinicia, vuelve sola al tablero.
 
 ![Lo que muestra la tele antes de vincularla: un código corto y los pasos](/docs/img/es/tv-code.png)
 
-![Configuración → Modo TV: donde se escribe el código](/docs/img/es/tv-settings.png)
+![Configuración → Acceso → Modo TV: donde se escribe el código](/docs/img/es/tv-settings.png)
 
 Para que la tele llegue al panel, el panel tiene que verse desde tu red, que es lo que hace el instalador por defecto. Si lo instalaste con `--local`, volvé a correrlo sin esa opción (ver [Instalar](install.md)); tus datos se conservan.
 
-El código vence a los 10 minutos y sirve una sola vez. En **Configuración → Modo TV** ves las pantallas vinculadas y podés desvincular cualquiera. Si preferís pegar un link, hay también un **link directo** secreto que se puede revocar.
+El código vence a los 10 minutos y sirve una sola vez. En **Configuración → Acceso → Modo TV** ves las pantallas vinculadas y podés desvincular cualquiera. Si preferís pegar un link, hay también un **link directo** secreto que se puede revocar.
 
 Tiene dos vistas:
 
@@ -144,7 +144,7 @@ Los administradores invitan gente con links de un solo uso que vencen en 48 hora
 
 | Ruta | Qué |
 |---|---|
-| `/metrics` | Prometheus, con un token que está en Configuración |
+| `/metrics` | Prometheus, con un token que está en **Configuración → Acceso** |
 | `/api/status` | El estado actual en JSON (con sesión iniciada) |
 | `/healthz` | Público; solo dice si está vivo |
 | `/report?since=7d` | El informe en HTML |

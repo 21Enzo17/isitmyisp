@@ -16,7 +16,7 @@ Each one says exactly what it checks. Some use TCP because their HTTPS can't be 
 
 ## Devices on your network
 
-"Did the card terminal drop, or the internet?" Add the devices on your network in **Settings → Devices on your network**: the card terminal, the fiscal printer, the camera recorder, the phone system, the Wi-Fi access points.
+"Did the card terminal drop, or the internet?" Add the devices on your network in **Settings → Monitoring → Devices on your network**: the card terminal, the fiscal printer, the camera recorder, the phone system, the Wi-Fi access points.
 
 - Each one is checked every 30 seconds **by ping** or, when the device doesn't answer ping, **by connecting to a port** it listens on: printers 9100, cameras 554 (RTSP) or 80, phone systems 5060.
 - If it stops answering **3 times in a row while your router still answers**, the dashboard, the alerts and the report say **it's that device**, not your internet or your ISP: check that it's on, its cable or its Wi-Fi.
@@ -24,11 +24,11 @@ Each one says exactly what it checks. Some use TCP because their HTTPS can't be 
 - They show in the **Services, devices and tunnels** card of the dashboard and on the TV board.
 - Here, and only here, private addresses (192.168…, 10…, 172.16…) or local names (`printer.local`) are accepted. Internet addresses go in **Your services**.
 
-![Settings → Devices on your network, with a card terminal, a fiscal printer and the camera recorder](/docs/img/devices-settings.png)
+![Settings → Monitoring → Devices on your network, with a card terminal, a fiscal printer and the camera recorder](/docs/img/devices-settings.png)
 
 ## Opening hours
 
-For a shop, 20 minutes without internet at 3 a.m. isn't the same as at 11 a.m. Set your hours in **Settings → Opening hours** (or in the wizard): per weekday, with up to two shifts, such as a split shift with a lunch break.
+For a shop, 20 minutes without internet at 3 a.m. isn't the same as at 11 a.m. Set your hours in **Settings → Alerts → Opening hours** (or in the wizard): per weekday, with up to two shifts, such as a split shift with a lunch break.
 
 With hours set:
 
@@ -36,7 +36,7 @@ With hours set:
 - **The report** adds how long the business was open in the period, how much of that time had problems, and marks each incident "while open" or "while closed".
 - **Held alerts** (optional): while closed, nothing reaches you. At opening time you get one summary of what happened, such as "While closed: 2 problems". A problem still going on when you open is alerted as usual.
 
-![Settings → Opening hours: two shifts Monday to Friday and Saturday morning](/docs/img/hours-settings.png)
+![Settings → Alerts → Opening hours: two shifts Monday to Friday and Saturday morning](/docs/img/hours-settings.png)
 
 For a shift past midnight, enter it in two parts: until 24:00, and from 00:00 the next day. Hours use the time zone of the machine running isitmyisp.
 
@@ -85,9 +85,9 @@ When it's on:
 
 ### Inside and outside your ISP
 
-Cloudflare alone can't tell a slow access from a slow exit. In **Settings → Speed test against your plan** you can add up to three [iperf3](https://iperf.fr/) servers of your own: a VPS, another branch, or a server inside your ISP's network. One per line, as `host[:port]` (5201 by default).
+Cloudflare alone can't tell a slow access from a slow exit. In **Settings → Your connection → Speed test against your plan** you can add up to three [iperf3](https://iperf.fr/) servers of your own: a VPS, another branch, or a server inside your ISP's network. One per line, as `host[:port]` (5201 by default).
 
-Each server is marked **inside** or **outside** your ISP by its autonomous system (ASN), against your ISP's. An address in the ISP's CGNAT space counts as inside. A LAN or VPN address can't be told apart, so write `inside` or `outside` after it (`10.8.0.1 outside`). Marking by ASN needs the ASN data (**Settings → Main ISP and backup link → ISP names**) or `--asn-online`.
+Each server is marked **inside** or **outside** your ISP by its autonomous system (ASN), against your ISP's. An address in the ISP's CGNAT space counts as inside. A LAN or VPN address can't be told apart, so write `inside` or `outside` after it (`10.8.0.1 outside`). Marking by ASN needs the ASN data (**Settings → Your connection → Main ISP and backup link**) or `--asn-online`.
 
 With one server on each side, the dashboard and the report compare the best download of each:
 
@@ -101,7 +101,7 @@ The guards still hold: the data cap per test is shared between Cloudflare and yo
 
 ## The router over SNMP
 
-Every ISP's favourite objection is "you saturated your own link". Connect your router over SNMP (v2c, read-only) and isitmyisp reads the WAN interface usage and CPU every window. That rules out the objection, or tells you they were right. It needs your plan's speeds to know when the link is full.
+Every ISP's favourite objection is "you saturated your own link". Connect your router over SNMP (v2c, read-only) and isitmyisp reads the WAN interface usage and CPU every window. That rules out the objection, or tells you they were right. It needs your plan's speeds (**Settings → Your connection → Your contracted plan**) to know when the link is full.
 
 It also reads the broadcast and multicast each router interface receives: a storm on the LAN (a loop between switches) shows up there, next to the CPU. See [loops and broadcast storms](/docs/en/verdict/#loops-and-broadcast-storms).
 
@@ -115,16 +115,16 @@ A board for a screen on the office wall: large type, refreshes by itself, no men
 
 1. On the TV, open the dashboard's address followed by **/tv**, for example `192.168.1.50:8080/tv`.
 2. The TV shows a short code, like **C4R-HN9**.
-3. From your phone or computer, in **Settings → TV mode**, type that code and name the screen ("Counter TV").
+3. From your phone or computer, in **Settings → Access → TV mode**, type that code and name the screen ("Counter TV").
 4. Within a few seconds the TV shows the board, and stays paired: after a power cut or a restart it comes back to the board on its own.
 
 ![What the TV shows before it's paired: a short code and the steps](/docs/img/tv-code.png)
 
-![Settings → TV mode: where the code is typed](/docs/img/tv-settings.png)
+![Settings → Access → TV mode: where the code is typed](/docs/img/tv-settings.png)
 
 For the TV to reach the dashboard, the dashboard has to be reachable from your network, which is what the installer does by default. If you installed it with `--local`, run it again without that option (see [Install](install.md)); your data is kept.
 
-The code expires after 10 minutes and works once. **Settings → TV mode** lists the paired screens and can unpair any of them. If you'd rather paste a link, there's also a secret, revocable **direct link**.
+The code expires after 10 minutes and works once. **Settings → Access → TV mode** lists the paired screens and can unpair any of them. If you'd rather paste a link, there's also a secret, revocable **direct link**.
 
 It has two views:
 
@@ -144,7 +144,7 @@ Admins invite people with one-time links that expire in 48 hours, reset password
 
 | Path | What |
 |---|---|
-| `/metrics` | Prometheus, with a token shown in Settings |
+| `/metrics` | Prometheus, with a token shown in **Settings → Access** |
 | `/api/status` | Current state as JSON (when logged in) |
 | `/healthz` | Public; only says whether it's alive |
 | `/report?since=7d` | The report as HTML |

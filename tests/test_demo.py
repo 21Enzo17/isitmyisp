@@ -72,7 +72,7 @@ class DemoWeb(unittest.TestCase):
         html = self.demo.get("/?lang=en").get_data(as_text=True)
         self.assertIn("Demo data.", html)
         self.assertIn("Your ISP&#39;s network is failing", html)
-        self.assertNotIn("Test the speed now", self.demo.get("/settings?lang=en").get_data(as_text=True))
+        self.assertNotIn("Test the speed now", self.demo.get("/settings/connection?lang=en").get_data(as_text=True))
         for path in ("/settings/general", "/speedtest/run", "/settings/isp/asn", "/logout", "/setup"):
             self.assertEqual(self.demo.post(path, data={"confirm": "1"}).status_code, 403, path)
 
@@ -107,7 +107,7 @@ class StaticSite(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             site = Path(d) / "site"
             pages = export(site, langs=("es",), scenarios=("isp", "healthy"), hours=1)
-            self.assertEqual(len(pages), 138)    # (8 + 2 TV + 29 chart zooms + 6 destinations × 5 zooms) × 2 scenarios
+            self.assertEqual(len(pages), 144)    # (11 + 2 TV + 29 chart zooms + 6 destinations × 5 zooms) × 2 scenarios
             for f in site.rglob("*.html"):
                 for url in re.findall(r'(?:href|src|action)="(/[^"#?]*)', f.read_text()):
                     if url.startswith("/docs/"):          # the docs are built by scripts/build_docs.py (tests/test_docs.py)

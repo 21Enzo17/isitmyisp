@@ -57,6 +57,23 @@ INVITE_TTL = 48 * 3600
 ASN_JOB: dict = {"running": False, "error": None, "lock": threading.Lock()}
 
 
+# Settings is four sub-pages: which tab holds each card, and which card each form posts to.
+SETTINGS_TABS = ("monitoring", "connection", "alerts", "access")
+CARD_TAB = {"general": "monitoring", "services": "monitoring", "devices": "monitoring", "tunnels": "monitoring",
+            "plan": "connection", "isp": "connection", "speed": "connection", "link": "connection",
+            "alerts": "alerts", "hours": "alerts", "monthly": "alerts",
+            "access": "access", "users": "access", "password": "access", "tv": "access", "token": "access"}
+ENDPOINT_CARD = {"settings_general": "general", "tunnel_add": "tunnels", "tunnel_delete": "tunnels",
+                 "service_add": "services", "service_delete": "services", "service_presets": "services",
+                 "device_add": "devices", "device_delete": "devices", "settings_plan": "plan",
+                 "isp_primary": "isp", "isp_asn_download": "isp", "settings_speedtest": "speed",
+                 "speedtest_run": "speed", "settings_link": "link", "settings_alerts": "alerts",
+                 "settings_hours": "hours", "settings_monthly": "monthly", "settings_access": "access",
+                 "users_invite": "users", "users_update": "users", "settings_password": "password",
+                 "settings_tv_pair": "tv", "settings_tv_unpair": "tv", "settings_tv": "tv",
+                 "settings_metrics_token": "token"}
+
+
 def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | None = None,
                bind: str = "127.0.0.1:8080", secure_cookies: bool = False, default_lang: str = "en",
                demo: bool = False) -> Flask:
@@ -410,49 +427,68 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
 
     # ---------------------------------------------------------------- settings
 
+    # Settings is four tabs (sub-pages). Each form's endpoint knows its card, and each card its tab, so a
+    # save or an error lands back where the form was.
+
+    def _settings_url(card: str | None = None) -> str:
+        """The settings tab that holds this card (by default, the card of the form just posted), at the card."""
+        card = card or ENDPOINT_CARD.get(request.endpoint, "general")
+        tab = CARD_TAB[card]
+        return url_for("settings_page", **({} if tab == "monitoring" else {"tab": tab})) + f"#{card}"
+
     def _presets_view():
         from .. import presets
         have = {sv.target for sv in g.settings.services} | {sv.name for sv in g.settings.services}
         return [(group, [(p, p.target in have or p.name in have) for p in items]) for group, items in presets.grouped("ar")]
 
     def _settings_page(error: str | None = None, status: int = 200, results: dict | None = None,
-                       ifaces: list | None = None, invite: dict | None = None):
+                       ifaces: list | None = None, invite: dict | None = None, tab: str | None = None):
+        """One settings tab. Rendered after a POST (an error, a test result), it is the tab of that form, with
+        its card open even when its feature is off."""
         from .. import alerts as alerts_mod, tvpair
-        token = settings_mod.metrics_token(store) if not g.readonly else None
-        is_admin = (not g.readonly and g.settings.auth_mode == "local"
-                    and bool(g.user and getattr(g.user, "is_admin", False)))
-        snap = store.network_at(time.time()) or {}
-        dns_detected = snap.get("dns_detected", snap.get("dns_servers") if not g.settings.dns else None) or []
-        return render_template("settings.html", active="settings", s=g.settings, error=error, dns_detected=dns_detected,
-                               metrics_token=token, bind=app.config["BIND"],
-                               alerts=alerts_mod.masked(alerts_mod.load(store)),
-                               alerts_last=store.get_setting("_alerts_last"), test_results=results,
-                               ifaces=ifaces, isp=views.isp_status(store, data_dir, ASN_JOB),
-                               speed=views.speed_status(store, g.settings), invite=invite,
-                               presets=_presets_view(), hours=_hours_view(), monthly=_monthly_view(),
-                               users=store.list_users() if is_admin else [],
-                               invites=store.pending_invites() if is_admin else [],
-                               tv_screens=tvpair.listing(store),
-                               tv_short=request.host_url.rstrip("/") + "/tv",
-                               tv_url=(url_for("tv", token=store.get_setting("tv_token"), _external=True)
-                                       if is_admin and store.get_setting("tv_token") else None)), status
+        focus = ENDPOINT_CARD.get(request.endpoint) if request.method == "POST" else None
+        tab = tab or CARD_TAB.get(focus or "", "monitoring")
+        ctx: dict = {}
+        if tab == "monitoring":
+            snap = store.network_at(time.time()) or {}
+            ctx.update(dns_detected=snap.get("dns_detected", snap.get("dns_servers") if not g.settings.dns else None) or [],
+                       presets=_presets_view())
+        elif tab == "connection":
+            ctx.update(isp=views.isp_status(store, data_dir, ASN_JOB), speed=views.speed_status(store, g.settings),
+                       ifaces=ifaces)
+        elif tab == "alerts":
+            ctx.update(alerts=alerts_mod.masked(alerts_mod.load(store)), alerts_last=store.get_setting("_alerts_last"),
+                       test_results=results, hours=_hours_view(), monthly=_monthly_view())
+        else:
+            is_admin = (not g.readonly and g.settings.auth_mode == "local"
+                        and bool(g.user and getattr(g.user, "is_admin", False)))
+            ctx.update(metrics_token=settings_mod.metrics_token(store) if not g.readonly else None,
+                       bind=app.config["BIND"], invite=invite,
+                       users=store.list_users() if is_admin else [],
+                       invites=store.pending_invites() if is_admin else [],
+                       tv_screens=tvpair.listing(store), tv_short=request.host_url.rstrip("/") + "/tv",
+                       tv_url=(url_for("tv", token=store.get_setting("tv_token"), _external=True)
+                               if is_admin and store.get_setting("tv_token") else None))
+        return render_template("settings.html", active="settings", s=g.settings, error=error, tab=tab,
+                               tabs=SETTINGS_TABS, focus=focus, **ctx), status
 
     @app.get("/settings")
-    def settings_page():
-        return _settings_page()
+    @app.get("/settings/<any(connection, alerts, access):tab>")
+    def settings_page(tab: str = "monitoring"):
+        return _settings_page(tab=tab)
 
     def _guard_write():
         if g.readonly:
             abort(403)
 
-    def _save(values: dict, anchor: str = ""):
+    def _save(values: dict):
         try:
             settings_mod.save(store, values)
         except settings_mod.SettingsError as exc:
             g.settings = current_settings()
             return _settings_page(str(exc), 400)
         flash(g.t["saved"])
-        return redirect(url_for("settings_page") + anchor)
+        return redirect(_settings_url())
 
     @app.post("/settings/general")
     def settings_general():
@@ -524,11 +560,11 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                 month = monthly.send(store, cfg, g.lang, mark=False)
                 flash(g.t["monthly_sent"].format(month=monthly.month_name(month, g.lang),
                                                  to=monthly.recipients(cfg, alerts_mod.load(store)["email"])))
-                return redirect(url_for("settings_page") + "#monthly")
+                return redirect(_settings_url())
         except monthly.MonthlyError as exc:
             return _settings_page(str(exc), 400)
         flash(g.t["saved"])
-        return redirect(url_for("settings_page") + "#monthly")
+        return redirect(_settings_url())
 
     @app.post("/settings/hours")
     def settings_hours():
@@ -539,7 +575,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         except hours.HoursError as exc:
             return _settings_page(str(exc), 400)
         flash(g.t["saved"])
-        return redirect(url_for("settings_page") + "#hours")
+        return redirect(_settings_url())
 
     @app.post("/settings/services/presets")
     def service_presets():
@@ -565,20 +601,27 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         current = [{"name": dv.name, "kind": dv.kind, "target": dv.target, "port": dv.port} for dv in g.settings.devices]
         current.append({"name": f.get("name", "").strip(), "kind": f.get("kind", "other"),
                         "target": f.get("target", "").strip(), "port": f.get("port", "").strip()})
-        return _save({"devices": current}, "#devices")
+        return _save({"devices": current})
 
     @app.post("/settings/devices/delete")
     def device_delete():
         _guard_write()
         name = request.form.get("name")
         return _save({"devices": [{"name": dv.name, "kind": dv.kind, "target": dv.target, "port": dv.port}
-                                  for dv in g.settings.devices if dv.name != name]}, "#devices")
+                                  for dv in g.settings.devices if dv.name != name]})
 
     @app.post("/settings/services/delete")
     def service_delete():
         _guard_write()
         name = request.form.get("name")
         return _save({"services": [sv.__dict__ for sv in g.settings.services if sv.name != name]})
+
+    @app.post("/settings/plan")
+    def settings_plan():
+        """The contracted plan: the speed test, the report and the doctor grade measure against it."""
+        _guard_write()
+        f = request.form
+        return _save({"link": {**g.settings.link, "down_mbps": f.get("down_mbps") or 0, "up_mbps": f.get("up_mbps") or 0}})
 
     @app.post("/settings/link")
     def settings_link():
@@ -588,7 +631,8 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                   # an empty community field keeps the stored one (it's a credential: never rendered back)
                   "community": f.get("community", "").strip() or g.settings.link.get("community", ""),
                   "port": f.get("port") or 161, "interface": f.get("interface", "").strip(),
-                  "down_mbps": f.get("down_mbps") or 0, "up_mbps": f.get("up_mbps") or 0}
+                  # the contracted plan has its own card and form
+                  "down_mbps": g.settings.link.get("down_mbps", 0), "up_mbps": g.settings.link.get("up_mbps", 0)}
         if f.get("action") != "test":
             return _save({"link": values})
         # "List interfaces": read-only probe of the router, nothing is saved
@@ -622,7 +666,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
             abort(403)
         store.set_settings({"_speed_request": time.time()}, bump=False)
         flash(g.t["speed_requested"])
-        return redirect(request.form.get("back") == "dashboard" and url_for("dashboard") or url_for("settings_page") + "#speed")
+        return redirect(request.form.get("back") == "dashboard" and url_for("dashboard") or _settings_url())
 
     # ---------------------------------------------------------------- users (local accounts only)
 
@@ -671,7 +715,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         else:
             abort(400)
         flash(g.t["saved"])
-        return redirect(url_for("settings_page") + "#users")
+        return redirect(_settings_url())
 
     @app.route("/invite/<token>", methods=["GET", "POST"])
     @limiter.limit("10 per minute", methods=["POST"])
@@ -760,7 +804,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         if not tvpair.approve(store, request.form.get("code", ""), request.form.get("name", "")):
             return _settings_page(g.t["tv_pair_bad"], 400)
         flash(g.t["tv_paired"])
-        return redirect(url_for("settings_page") + "#tv")
+        return redirect(_settings_url())
 
     @app.post("/settings/tv/unpair")
     def settings_tv_unpair():
@@ -768,7 +812,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         _guard_write()
         tvpair.unpair(store, request.form.get("id", ""))
         flash(g.t["saved"])
-        return redirect(url_for("settings_page") + "#tv")
+        return redirect(_settings_url())
 
     @app.post("/settings/tv")
     def settings_tv():
@@ -781,7 +825,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         else:
             abort(400)
         flash(g.t["saved"])
-        return redirect(url_for("settings_page") + "#tv")
+        return redirect(_settings_url())
 
     @app.post("/settings/isp/primary")
     def isp_primary():
@@ -796,7 +840,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
             if inc.scope == "failover":
                 store.close_incident(inc.id)
         flash(g.t["saved"])
-        return redirect(url_for("settings_page") + "#isp")
+        return redirect(_settings_url())
 
     @app.post("/settings/isp/asn")
     def isp_asn_download():
@@ -809,7 +853,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                 ASN_JOB.update(running=True, error=None)
                 threading.Thread(target=_download_asn, daemon=True).start()
         flash(g.t["asn_started"])
-        return redirect(url_for("settings_page") + "#isp")
+        return redirect(_settings_url())
 
     def _download_asn():
         from .. import asn
@@ -849,7 +893,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
             return _settings_page(g.t["pw_" + problem], 400)
         store.set_password_hash(int(g.user.id), auth.hash_password(f["new_password"]))
         flash(g.t["pw_changed"])
-        return redirect(url_for("settings_page"))
+        return redirect(_settings_url())
 
     @app.post("/settings/alerts")
     def settings_alerts():
@@ -865,14 +909,14 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
             results = alerts_mod.send_all(cfg, title, body, {"event": "test"})
             return _settings_page(results=results or {"-": g.t["alerts_none_enabled"]})
         flash(g.t["saved"])
-        return redirect(url_for("settings_page") + "#alerts")
+        return redirect(_settings_url())
 
     @app.post("/settings/metrics-token")
     def settings_metrics_token():
         _guard_write()
         settings_mod.metrics_token(store, rotate=True)
         flash(g.t["rotated"])
-        return redirect(url_for("settings_page"))
+        return redirect(_settings_url())
 
     # ---------------------------------------------------------------- first-run wizard
 

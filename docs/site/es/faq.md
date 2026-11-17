@@ -39,7 +39,7 @@ Cloudflare solo no dice si lo lento es tu acceso o la salida del ISP al resto de
 
 ## No me llegan las alertas
 
-Apretá **Mandar prueba** en **Configuración → Alertas** y mirá el resultado de cada canal. Ver [Alertas](alerts.md#si-una-alerta-no-llega).
+Apretá **Mandar prueba** en **Configuración → Avisos → Alertas** y mirá el resultado de cada canal. Ver [Alertas](alerts.md#si-una-alerta-no-llega).
 
 ## Olvidé la contraseña
 

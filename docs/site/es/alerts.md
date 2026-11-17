@@ -4,7 +4,7 @@ description: Avisos por Telegram, email o webhook cuando se cae internet, un ser
 ---
 # Alertas
 
-Un mensaje cuando se cae internet, un servicio o un túnel. Cada uno dice **de quién es la culpa y qué hacer**. Se configuran en **Configuración → Alertas** (o en el asistente) y cada canal tiene un botón para mandar una prueba.
+Un mensaje cuando se cae internet, un servicio o un túnel. Cada uno dice **de quién es la culpa y qué hacer**. Se configuran en **Configuración → Avisos → Alertas** (o en el asistente) y cada canal tiene un botón para mandar una prueba.
 
 ## Cuándo avisa
 
@@ -30,17 +30,17 @@ Una URL que recibe un POST con el aviso. Las de Discord y Slack se detectan sola
 
 ## Informe mensual por mail
 
-Además de las alertas, isitmyisp puede mandarte **todos los meses el informe del mes anterior**, sin que tengas que entrar al panel. Se activa en **Configuración → Informe mensual por mail**:
+Además de las alertas, isitmyisp puede mandarte **todos los meses el informe del mes anterior**, sin que tengas que entrar al panel. Se activa en **Configuración → Avisos → Informe mensual por mail**:
 
 - Elegís el día (del 1 al 28) y la hora del envío, y los destinatarios. Si los dejás vacíos, va a los mismos de las alertas por email.
 - El mensaje trae un resumen corto: cuántos incidentes hubo y cuánto duraron, de quién fue la culpa, el peor día, cuánto te afectó con el local abierto (si cargaste el [horario](features.md#horario-de-atencion)), el tiempo en el enlace de respaldo, la calidad de las llamadas y la velocidad medida.
 - Adjunto va el **informe completo**, en PDF (en la imagen de Docker) o en HTML, listo para reenviarle a tu ISP.
 - Usa el servidor de mail que configuraste para las alertas.
-- Se manda **una sola vez por mes**, aunque el equipo se reinicie. Si el envío falla, se reintenta cada 15 minutos y el error queda a la vista en Configuración.
+- Se manda **una sola vez por mes**, aunque el equipo se reinicie. Si el envío falla, se reintenta cada 15 minutos y el error queda a la vista en **Configuración → Avisos**.
 - **"Mandar ahora"** te manda el informe del mes anterior para ver cómo llega. Esa prueba no cuenta como el envío del mes.
 
 ## Si una alerta no llega
 
 - Apretá **Mandar prueba**: el resultado de cada canal aparece arriba.
-- Si un envío real falla, el error queda a la vista en **Configuración → Alertas**.
+- Si un envío real falla, el error queda a la vista en **Configuración → Avisos → Alertas**.
 - Las contraseñas y los tokens nunca se muestran de vuelta: si dejás el campo vacío, se conserva el que estaba guardado.

@@ -34,7 +34,7 @@ Si uno se cae mientras internet anda bien, el panel dice que es ese servicio y n
 
 ### Alertas
 
-Telegram o un webhook (Discord, Slack, Home Assistant…), con un botón para **mandar una prueba**. La dirección del panel que va en los mensajes se completa sola. El email se configura en Configuración. Más detalles en [Alertas](alerts.md).
+Telegram o un webhook (Discord, Slack, Home Assistant…), con un botón para **mandar una prueba**. La dirección del panel que va en los mensajes se completa sola. El email se configura en **Configuración → Avisos**. Más detalles en [Alertas](alerts.md).
 
 ### Listo
 
@@ -49,5 +49,5 @@ En el router, reservá la dirección del equipo donde corre isitmyisp. La opció
 Dejalo midiendo. A las pocas horas ya tiene una línea de base de tu conexión; a los pocos días, un historial que podés mostrarle al ISP. Mientras tanto:
 
 - Aprendé a leer [el panel](dashboard.md).
-- Sumá a alguien más con acceso de solo lectura, desde **Configuración → Usuarios**.
+- Sumá a alguien más con acceso de solo lectura, desde **Configuración → Acceso → Usuarios**.
 - Poné el [modo TV](features.md#modo-tv) en una pantalla de la oficina.

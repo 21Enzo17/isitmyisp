@@ -34,7 +34,7 @@ When one fails while the internet works, the dashboard says it's that service an
 
 ### Alerts
 
-Telegram or a webhook (Discord, Slack, Home Assistant…), with a button to **send a test**. The dashboard address included in messages is filled in for you. Email is set up in Settings. More in [Alerts](alerts.md).
+Telegram or a webhook (Discord, Slack, Home Assistant…), with a button to **send a test**. The dashboard address included in messages is filled in for you. Email is set up in **Settings → Alerts**. More in [Alerts](alerts.md).
 
 ### Done
 
@@ -49,5 +49,5 @@ In your router, reserve the address of the machine running isitmyisp. The option
 Leave it measuring. After a few hours it has a baseline of your connection; after a few days, a history you can show your ISP. Meanwhile:
 
 - Learn to read [the dashboard](dashboard.md).
-- Add someone with read-only access in **Settings → Users**.
+- Add someone with read-only access in **Settings → Access → Users**.
 - Put the [TV mode](features.md#tv-mode) on a screen in the office.

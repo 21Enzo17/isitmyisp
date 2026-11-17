@@ -17,7 +17,7 @@ isitmyisp is meant to run on your network for months. By default it **never send
 | `mtr` to 1.1.1.1 | on path discovery and incidents | ICMP probes | on |
 | The [network check-up](doctor.md): "don't fragment" pings to 1.1.1.1 | once a day and when you run it | pings of different sizes, to measure the MTU | on |
 | The check-up: one DNS query to 192.0.2.53 | once a day and when you run it | an A query for www.google.com to an address that doesn't exist on the internet: if anyone answers, something intercepts your DNS | on |
-| iptoasn.com | only when you press the button in Settings or run `update-asn` | one HTTPS download of the public dataset (no per-IP queries) | manual |
+| iptoasn.com | only when you press the button in Settings → Your connection or run `update-asn` | one HTTPS download of the public dataset (no per-IP queries) | manual |
 | Team Cymru whois | only with `--asn-online` | the public IPs of your path | **off** |
 | api.ipify.org | only with `--public-ip` | one HTTPS request (reveals your public IP to them) | **off** |
 | Your services | only the ones you add | an HTTP GET (or TCP connect) every 30 s | **off** |

@@ -14,7 +14,7 @@ Abrí el panel desde el equipo que querés probar (la PC, el celular, la noteboo
 El navegador mide:
 
 - **Hasta la sonda**: 20 pedidos chicos para la latencia, el jitter y la pérdida dentro de tu red, y una descarga y una subida para la velocidad en la red local.
-- **Hasta internet**: pedidos HTTPS a los destinos en internet (**Configuración → Medición → Destinos en internet**), para ver cuánto tardan en contestar. No se lee nada de esos sitios, solo el tiempo.
+- **Hasta internet**: pedidos HTTPS a los destinos en internet (**Configuración → Monitoreo → Medición → Destinos en internet**), para ver cuánto tardan en contestar. No se lee nada de esos sitios, solo el tiempo.
 
 Necesita JavaScript, solo en esta página. El resto del panel sigue funcionando sin JavaScript.
 
