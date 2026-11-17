@@ -54,6 +54,16 @@ VIEWER_WRITES = {"logout", "settings_password",   # the only POSTs a read-only u
 INVITE_TTL = 48 * 3600
 
 
+def safe_next(nxt: str | None) -> str | None:
+    """A ?next= that stays on this site, or None. Browsers drop tabs and newlines from a URL, so
+    "/\t/evil.com" would turn into "//evil.com": any control character or space makes it unsafe."""
+    if not nxt or not nxt.startswith("/") or nxt.startswith("//") or "\\" in nxt:
+        return None
+    if any(ord(c) <= 0x20 or ord(c) == 0x7F for c in nxt):
+        return None
+    return nxt
+
+
 ASN_JOB: dict = {"running": False, "error": None, "lock": threading.Lock()}
 
 
@@ -288,9 +298,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     def theme():
         """Light or dark, remembered in a cookie (no JavaScript); the system's choice until then."""
         to = request.args.get("to")
-        nxt = request.args.get("next") or "/"
-        safe = nxt.startswith("/") and not nxt.startswith("//") and "\\" not in nxt
-        resp = redirect(nxt if safe else url_for("dashboard"))
+        resp = redirect(safe_next(request.args.get("next")) or url_for("dashboard"))
         if to in ("light", "dark"):
             resp.set_cookie("theme", to, max_age=365 * 86400, samesite="Lax", httponly=True)
         else:
@@ -1009,9 +1017,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                 session.clear()
                 session.permanent = True
                 login_user(user)
-                nxt = request.args.get("next") or ""
-                safe = nxt.startswith("/") and not nxt.startswith("//") and "\\" not in nxt
-                return redirect(nxt if safe else url_for("dashboard"))
+                return redirect(safe_next(request.args.get("next")) or url_for("dashboard"))
             error = g.t["bad_login"]
         return render_template("login.html", error=error), (401 if error else 200)
 

@@ -758,6 +758,24 @@ class DashboardLook(WebAppBase):
         self.client.get("/theme?to=whatever")
         self.assertNotIn("data-theme", self.client.get("/").get_data(as_text=True))   # back to the system's
 
+    def test_theme_next_with_control_characters_stays_inside(self):
+        # Browsers drop tabs and newlines from a URL: "/\t/evil.example" would land on //evil.example.
+        self.create_admin()
+        for nxt in ("/%09/evil.example", "/%0a/evil.example", "/%0d/evil.example", "/%20/evil.example",
+                    "/\\evil.example", "https://evil.example"):
+            r = self.client.get(f"/theme?to=dark&next={nxt}")
+            self.assertEqual(r.status_code, 302, nxt)
+            self.assertNotIn("evil", r.headers["Location"], nxt)
+
+    def test_login_next_stays_inside(self):
+        self.create_admin()
+        self.client = self.app.test_client()                  # a browser without a session
+        r = self.login(next_="/%09/evil.example")
+        self.assertEqual(r.status_code, 302)
+        self.assertNotIn("evil", r.headers["Location"])
+        self.client = self.app.test_client()
+        self.assertTrue(self.login(next_="/incidents").headers["Location"].endswith("/incidents"))
+
     def test_dashboard_has_status_figures_and_both_theme_links(self):
         self.create_admin()
         page = self.client.get("/?lang=en").get_data(as_text=True)
