@@ -350,6 +350,7 @@ def daily(store: Store, start: float, end: float) -> list[Day]:
         while i < len(windows) and windows[i][0] - windows[i][1] / 2 < b:
             mine.append(windows[i])
             i += 1
+        day.before = day.before and not mine    # the first window's middle can fall on the day before its end
         bad: dict[str, float] = defaultdict(float)
         for _, s, code in mine:
             if code != "speedtest":
