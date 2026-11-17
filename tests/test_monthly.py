@@ -181,6 +181,19 @@ class Daily(unittest.TestCase):
         self.assertIsNone(gap.internet)                            # a gap, after measuring began
         self.assertEqual((fine.internet, fine.partial, fine.culprit), (100, False, None))
 
+    def test_a_first_window_ending_past_midnight_belongs_to_the_day_before(self):
+        from isitmyisp.report import daily
+        store = Store(Path(self.tmp.name) / "edge.db")
+        try:
+            store.add_window_verdict("ok", 1800, ts=ts("2026-10-20 00:10"))   # its middle is 23:55 on the 19th
+            store.add_window_verdict("ok", 1800, ts=ts("2026-10-20 00:40"))
+            eve, day = daily(store, ts("2026-10-19 00:00"), ts("2026-10-20 01:00"))
+            self.assertFalse(eve.before)                    # it has data: not "before monitoring"
+            self.assertEqual((eve.measured, eve.partial), (1800, True))
+            self.assertFalse(day.before)
+        finally:
+            store.close()
+
     def test_today_counts_only_what_has_gone(self):
         from isitmyisp.report import daily
         today = daily(self.store, ts("2026-10-13 00:00"), ts("2026-10-13 06:00"))
