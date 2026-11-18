@@ -132,6 +132,7 @@ fi
 # the one container, always started the same way (used to show it and to run it)
 start() {
   set -- run -d --name "$NAME" --restart unless-stopped --net=host --cap-add=NET_RAW \
+    --log-opt max-size=10m --log-opt max-file=3 \
     -e "TZ=$TZ_UI" -e "ISITMYISP_HEALTH_URL=http://127.0.0.1:$PORT/healthz" -v "$VOLUME:/data"
   [ -d /run/systemd/resolve ] && set -- "$@" -v /run/systemd/resolve:/run/systemd/resolve:ro
   set -- "$@" "$IMAGE" --lang "$LANG_UI" monitor --web "$BIND"

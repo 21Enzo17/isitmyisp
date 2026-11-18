@@ -9,11 +9,12 @@ LABEL org.opencontainers.image.title="isitmyisp" \
 
 # fping: main probe engine (one process, many targets). mtr: evidence on incidents.
 # iperf3: speed test against your own servers (only if you add them).
+# tini: PID 1 that reaps orphaned children (mtr leaves its helper behind, #94).
 # iputils-ping: fallback prober. iproute2: route/addr discovery. iw: Wi-Fi signal (optional).
 # libpango + fonts: PDF reports via WeasyPrint. tzdata: local times in reports (set TZ).
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      fping mtr-tiny iperf3 iputils-ping iproute2 iw ca-certificates tzdata \
+      tini fping mtr-tiny iperf3 iputils-ping iproute2 iw ca-certificates tzdata \
       libpango-1.0-0 libpangoft2-1.0-0 fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/*
 
@@ -35,5 +36,5 @@ EXPOSE 8080
 # First run: the logs print a one-time setup token to create the admin account.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s \
   CMD python -c "import os,urllib.request,sys; u=os.environ.get('ISITMYISP_HEALTH_URL','http://127.0.0.1:8080/healthz'); sys.exit(0 if urllib.request.urlopen(u,timeout=4).status==200 else 1)" || exit 1
-ENTRYPOINT ["isitmyisp"]
+ENTRYPOINT ["tini", "--", "isitmyisp"]
 CMD ["monitor"]
