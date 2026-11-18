@@ -5,6 +5,8 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-11-17
+
 ### Fixed
 - **Zombie `mtr` processes in Docker**: every path re-discovery (every 15 min) left one `<defunct>`
   process behind, because `mtr` exits without waiting for its helper and the orphan landed on
@@ -215,6 +217,7 @@ and to prove it.
 ### Install
 - One-line installer (`install.sh`) that shows every Docker command before running it, and a Raspberry Pi guide.
 
+[0.5.2]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.5.2
 [0.5.1]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.5.1
 [0.5.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.5.0
 [0.4.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.4.0
