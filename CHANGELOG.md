@@ -5,6 +5,14 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 
 ## [Unreleased]
 
+### Fixed
+- **Zombie `mtr` processes in Docker**: every path re-discovery (every 15 min) left one `<defunct>`
+  process behind, because `mtr` exits without waiting for its helper and the orphan landed on
+  isitmyisp as PID 1. isitmyisp now reaps them, and the image runs under `tini` (#94).
+
+### Changed
+- The installer and the manual `docker run` cap the container log at 3 files of 10 MB.
+
 ## [0.5.1] - 2026-11-17
 
 ### Security

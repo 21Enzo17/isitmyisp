@@ -13,6 +13,8 @@ import json
 import os
 import shutil
 import subprocess
+import threading
+import time
 from dataclasses import dataclass, field
 
 from ..netutil import ip_kind
@@ -77,14 +79,73 @@ def run_mtr(target: str, cycles: int = 10, timeout: float | None = None) -> list
         raise MtrError("mtr is not installed (apt install mtr-tiny)")
     cmd = ["mtr", "-n", "-r", "-c", str(cycles), "--json", target]
     timeout = timeout or cycles * 2 + 30
+    reap_orphans()
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                            env={**os.environ, "LC_ALL": "C", "LANG": "C"})
+    with _OWN_LOCK:
+        _OWN.add(proc.pid)
     try:
-        out = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False,
-                             env={**os.environ, "LC_ALL": "C", "LANG": "C"})
-    except subprocess.TimeoutExpired as exc:
-        raise MtrError(f"mtr timed out after {timeout}s") from exc
-    if out.returncode != 0:
-        raise MtrError(out.stderr.strip() or f"mtr exited with {out.returncode}")
-    return parse_mtr_json(out.stdout)
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            raise MtrError(f"mtr timed out after {timeout}s") from exc
+        finally:
+            if proc.returncode is None:  # timeout, KeyboardInterrupt, anything: never leave it behind
+                proc.kill()
+                proc.communicate()
+    finally:
+        with _OWN_LOCK:
+            _OWN.discard(proc.pid)
+        reap_orphans(grace=1.0)
+    if proc.returncode != 0:
+        raise MtrError(stderr.strip() or f"mtr exited with {proc.returncode}")
+    return parse_mtr_json(stdout)
+
+
+# mtr forks a helper (mtr-packet) and exits without waiting for it. The helper is
+# re-parented to PID 1, which in Docker is us, and nobody else will ever reap it (#94).
+_OWN: set[int] = set()  # mtr processes a run_mtr call is still waiting on itself
+_OWN_LOCK = threading.Lock()
+
+
+def _orphans() -> dict[int, bool]:
+    """Our mtr-named children that no run_mtr call owns: {pid: is_zombie}."""
+    me, found = os.getpid(), {}
+    try:
+        pids = [int(p) for p in os.listdir("/proc") if p.isdigit()]
+    except OSError:
+        return found
+    for pid in pids:
+        try:
+            with open(f"/proc/{pid}/stat") as f:
+                stat = f.read()
+        except OSError:
+            continue
+        comm = stat[stat.find("(") + 1:stat.rfind(")")]
+        state, ppid = stat[stat.rfind(")") + 2:].split()[:2]
+        if int(ppid) == me and comm.startswith("mtr"):
+            found[pid] = state == "Z"
+    with _OWN_LOCK:
+        for pid in _OWN:
+            found.pop(pid, None)
+    return found
+
+
+def reap_orphans(grace: float = 0.0) -> int:
+    """Reap orphaned mtr helpers we inherited; wait up to `grace` s for live ones to exit."""
+    reaped, deadline = 0, time.monotonic() + grace
+    while True:
+        found = _orphans()
+        for pid, zombie in found.items():
+            if zombie:
+                try:
+                    if os.waitpid(pid, os.WNOHANG)[0] == pid:
+                        reaped += 1
+                except ChildProcessError:
+                    pass
+        if all(found.values()) or time.monotonic() >= deadline:
+            return reaped
+        time.sleep(0.05)
 
 
 def parse_mtr_json(raw: str | dict) -> list[Hop]:

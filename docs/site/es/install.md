@@ -49,7 +49,7 @@ Si preferís escribir el comando vos:
 
 ```bash
 docker run -d --name isitmyisp --restart unless-stopped \
-  --net=host --cap-add=NET_RAW \
+  --net=host --cap-add=NET_RAW --log-opt max-size=10m --log-opt max-file=3 \
   -e TZ=America/Argentina/Jujuy -v isitmyisp:/data \
   -v /run/systemd/resolve:/run/systemd/resolve:ro \
   21enzo03/isitmyisp:latest --lang es monitor --web 0.0.0.0:8080
@@ -59,6 +59,7 @@ docker run -d --name isitmyisp --restart unless-stopped \
 |---|---|
 | `--net=host` | Para ver tu router y tu camino reales. Dentro de la red de Docker, el "router" sería Docker |
 | `--cap-add=NET_RAW` | Permiso para hacer ping. No hace falta modo privilegiado ni nada más del equipo |
+| `--log-opt …` | Que el log no crezca sin límite: hasta 3 archivos de 10 MB |
 | `-v isitmyisp:/data` | Donde quedan las mediciones, los incidentes y la configuración |
 | `-v /run/systemd/resolve…` | Opcional: deja ver tus DNS reales en equipos con systemd-resolved |
 | `TZ` | La hora que muestran los informes |
