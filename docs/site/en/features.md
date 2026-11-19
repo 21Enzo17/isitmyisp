@@ -57,6 +57,14 @@ Did the branch tunnel drop because of its configuration or because of the path? 
 
 When configuration drops repeat at a regular interval, the report flags it: that's almost always mismatched rekey timers between both ends.
 
+### Unstable tunnels
+
+A tunnel can never go "fully" down and still cut calls and transfers: 30-second drops too short to be an outage, or outages that come back every hour or two. isitmyisp counts every drop inside the tunnel, even one that lasts a single measurement:
+
+- **With 3 drops or more and no quiet hour between them**, the tunnel is **unstable**: one incident (not one per drop) and one alert, with the likely cause. It closes after an hour without drops, at the last drop.
+- **The likely cause** comes from the same table as above, looking at all the drops together: repeating on a timer with a clean path, **lifetimes or rekey** ("every 2 h"); no pattern with a clean path, **the tunnel's configuration**; the path losing too, **the far site** or **your connection**; a far end that never answers ping, can't tell. If your ISP changed the path to the far site just before, it says so too.
+- The tunnels page shows the last 24 hours' drops hour by hour, how many were too short to count as an outage and what to check. On the dashboard and the TV board the tunnel shows in amber, "Unstable", instead of "Up". The report has an "Instability inside the tunnels" section.
+
 ## Backup link (failover)
 
 With a dual-WAN router, isitmyisp notices within about a minute when traffic moves to the backup link and when it comes back. It does this by watching which ISP router is first on the path. The dashboard says "on backup", and the report says from when to when the main ISP wasn't carrying the traffic.
@@ -138,7 +146,7 @@ The code expires after 10 minutes and works once. **Settings → Access → TV m
 
 It has two views:
 
-- **Board** (default): the verdict and three figures (the [network check](/docs/en/doctor/) grade with its first problem, or 24-hour availability until the check has run; time without outages or with problems; latency), availability over the last 30 days day by day, the last 24 hours beside the latest events and call quality, the latest speed test against your plan (when it is on), every measured destination and your services, devices and tunnels. Each block shows only when it has data. Whatever is down is named at the top in red, destinations losing packets are marked in red, and long lists rotate on every refresh. It fits any screen from 720p to 4K with no scrollbars.
+- **Board** (default): the verdict and three figures (the [network check](/docs/en/doctor/) grade with its first problem, or 24-hour availability until the check has run; time without outages or with problems; latency), availability over the last 30 days day by day, the last 24 hours beside the latest events and call quality, the latest speed test against your plan (when it is on), every measured destination and your services, devices and tunnels. Each block shows only when it has data. Whatever is down is named at the top in red, destinations losing packets are marked in red, and long lists rotate on every refresh (what's down or unstable stays put). A [path change](#path-changes) that's still making things worse goes on top in one line when nothing worse is going on; during an outage it moves to the foot of the latest events. It fits any screen from 720p to 4K with no scrollbars.
 - **Simple** (`?layout=simple`): just the verdict, for a shop counter. [See it in the demo](/en/isp/tv/simple/).
 
 ![The simple TV view](/docs/img/tv-simple.png)

@@ -466,6 +466,7 @@ label.check.preset .badge { align-self: flex-start; margin: 2px 0; }
 .row .st { color: var(--ink-3); }
 .row.s-good .st { color: var(--good); }
 .row.s-bad .st { color: var(--isp); }
+.row.s-warn .st { color: var(--you); }
 .r-main { display: flex; flex-direction: column; min-width: 0; }
 .r-name { font-weight: 500; }
 .r-sub { color: var(--ink-3); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -929,6 +930,10 @@ input[type=text], input[type=password], input[type=number], input[type=datetime-
 .tvb-conn-state { color: var(--ink-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .tvb-conn-list .s-bad { background: color-mix(in srgb, var(--isp) 14%, transparent); }
 .tvb-conn-list .s-bad .tvb-conn-name { font-weight: 600; }
+.tvb-conn-list .s-warn .ring { --rc: var(--you); }
+.tvb-conn-list .s-warn { background: color-mix(in srgb, var(--you) 14%, transparent); }
+.tvb-conn-list .s-warn .tvb-conn-name { font-weight: 600; }
+.tvb-conn-list .s-warn .tvb-conn-state b { color: var(--ink); }
 .tvb-conn-list .s-bad .tvb-conn-state b { color: var(--ink); }
 
 .tvb-open { display: flex; gap: .4rem; margin: 0 0 0 auto; font-size: .95rem; color: var(--ink-3); }
@@ -970,6 +975,11 @@ input[type=text], input[type=password], input[type=number], input[type=datetime-
              border-top: 1px solid var(--line); font-size: .9rem; white-space: nowrap; overflow: hidden; }
 .tvb-calls.b-fair { --band: var(--you); } .tvb-calls.b-poor, .tvb-calls.b-bad { --band: var(--isp); }
 .tvb-calls .mos-dot { width: .7rem; height: .7rem; }
+.tvb-route-note { flex: none; display: flex; align-items: center; gap: .55rem; margin: .4rem 0 0; padding-top: .55rem;
+                  border-top: 1px solid var(--line); font-size: .85rem; color: var(--ink-2); white-space: nowrap; overflow: hidden; }
+.tvb-route-note .ico { flex: none; width: .9rem; height: .9rem; color: var(--violet, var(--ink-2)); }
+.tvb-route-note span { overflow: hidden; text-overflow: ellipsis; }
+.tvb-route-note b { font-weight: 500; color: var(--ink); }
 .tvb-calls b { font-weight: 600; }
 .tvb-calls span:last-child { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
 
@@ -1168,3 +1178,10 @@ details.routes .fold-btn:hover { color: var(--ink); border-color: var(--line-2);
 details.routes .fold-btn::before { content: ""; width: 7px; height: 7px; border: solid currentColor; border-width: 0 2px 2px 0;
                                    transform: translateY(-2px) rotate(45deg); }
 details.routes[open] .fold-btn::before { transform: translateY(2px) rotate(-135deg); }
+
+/* drops inside a tunnel per hour (#99) */
+figure.drops { margin: 10px 0 4px; }
+figure.drops svg { display: block; width: 100%; height: 28px; }
+figure.drops rect { fill: var(--you); }
+figure.drops .base { stroke: var(--line); stroke-width: 1; }
+figure.drops figcaption { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--ink-3); margin-top: 3px; }

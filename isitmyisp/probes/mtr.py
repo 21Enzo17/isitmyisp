@@ -99,7 +99,10 @@ def run_mtr(target: str, cycles: int = 10, timeout: float | None = None) -> list
         reap_orphans(grace=1.0)
     if proc.returncode != 0:
         raise MtrError(stderr.strip() or f"mtr exited with {proc.returncode}")
-    return parse_mtr_json(stdout)
+    try:
+        return parse_mtr_json(stdout)
+    except (ValueError, KeyError, TypeError) as exc:   # exit 0 but no report: an unresolvable name, a target it can't reach
+        raise MtrError(stderr.strip() or "mtr gave no report") from exc
 
 
 # mtr forks a helper (mtr-packet) and exits without waiting for it. The helper is

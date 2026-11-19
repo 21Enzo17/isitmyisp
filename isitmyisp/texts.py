@@ -13,7 +13,12 @@ VERDICT = {
            "saturation": "Link full: your own traffic", "failover": "Running on the backup link",
            "loop": "Loop or broadcast storm on your network",
            "speedtest": "Speed test running",
-           "route_slower": "Your ISP changed the path: slower now"},
+           "route_slower": "Your ISP changed the path: slower now",
+           "unstable_rekey": "Unstable tunnel: drops on a timer (lifetimes/rekey)",
+           "unstable_config": "Unstable tunnel: its configuration (path was clean)",
+           "unstable_path_local": "Unstable tunnel: your connection",
+           "unstable_path_remote": "Unstable tunnel: far site or the path to it",
+           "unstable_unknown": "Unstable tunnel: undetermined"},
     "es": {"ok": "Sana", "local": "Problema de tu lado", "access": "Problema en el acceso del ISP",
            "isp": "Problema en la red del ISP", "remote": "Solo algunos destinos fallan",
            "dns": "Problema de DNS", "no_data": "Sin datos", "stale": "El monitor no reporta",
@@ -24,7 +29,12 @@ VERDICT = {
            "saturation": "Enlace lleno: tu propio tráfico", "failover": "Funcionando por el enlace de respaldo",
            "loop": "Loop o tormenta de broadcast en tu red",
            "speedtest": "Midiendo la velocidad",
-           "route_slower": "Tu proveedor cambió el camino: ahora es más lento"},
+           "route_slower": "Tu proveedor cambió el camino: ahora es más lento",
+           "unstable_rekey": "Túnel inestable: se corta cada tanto (lifetimes/rekey)",
+           "unstable_config": "Túnel inestable: su configuración (camino limpio)",
+           "unstable_path_local": "Túnel inestable: tu conexión",
+           "unstable_path_remote": "Túnel inestable: el sitio remoto o el camino",
+           "unstable_unknown": "Túnel inestable: indeterminado"},
 }
 
 # What an ISP-side verdict rules out / can't rule out (stored per incident by classifier.assess)
@@ -69,6 +79,11 @@ ADVICE = {
         "saturation": "Your own traffic is filling the link (a big download, a backup, video). Find who's using it (your router shows it), schedule backups at night, or prioritize critical traffic (QoS). Your ISP is not at fault.",
         "loop": "Something on your local network is sending frames round in a circle: usually a cable closing a loop between two switches (or both ends of a cable in the same switch), or a switch without STP. Unplug the switches or recent cables one by one until it stops, and turn on STP/loop protection if your switches have it. Your ISP is not at fault.",
         "route_slower": "Your ISP moved your traffic to another path and it is slower (or loses packets) since then. Nothing on your side changed: report it to your ISP with the evidence report, which shows the path before and after. It closes by itself when the usual path comes back.",
+        "unstable_rekey": "The tunnel drops for a moment at a fixed interval while the path outside it stays clean: that is a timer. Compare the IKE (phase 1) and IPsec (phase 2) lifetimes on both ends, they must match; check that rekey happens before expiry (make-before-break / reauth off) and that DPD is not shorter than the rekey takes.",
+        "unstable_config": "The tunnel keeps dropping for short moments while the path outside it stays clean: look at the tunnel itself on both ends. DPD too aggressive, NAT-T keepalives (a NAT that forgets the mapping), MTU/MSS (big packets lost), or both ends starting the tunnel at once.",
+        "unstable_path_local": "The drops happen when your own connection loses packets too: the tunnel is only the messenger. Fix your internet first (see its verdict).",
+        "unstable_path_remote": "Your internet is fine, but at each drop the path to the far site loses packets too: check the far site's link or its ISP.",
+        "unstable_unknown": "The tunnel keeps dropping, but the far end doesn't answer ping outside the tunnel, so the path can't be ruled out. Allow ICMP on its public IP to get a cause.",
     },
     "es": {
         "local": "Revisá primero el Wi-Fi: acercate al router o conectá un cable. Si es por cable, probá otro cable o puerto y reiniciá el router. Acá la culpa no es del ISP.",
@@ -87,6 +102,11 @@ ADVICE = {
         "saturation": "Tu propio tráfico está llenando el enlace (una descarga grande, un backup, video). Buscá quién lo usa (tu router lo muestra), programá los backups de noche o priorizá el tráfico crítico (QoS). Acá la culpa no es del ISP.",
         "loop": "Algo en tu red local está mandando tramas en círculo: casi siempre un cable que cierra un loop entre dos switches (o las dos puntas de un cable en el mismo switch), o un switch sin STP. Desconectá los switches o los cables nuevos de a uno hasta que pare, y activá STP o la protección de loops si tus switches la tienen. Acá la culpa no es del ISP.",
         "route_slower": "Tu proveedor movió tu tráfico a otro camino y desde entonces es más lento (o pierde paquetes). De tu lado no cambió nada: reclamale con el informe de evidencia, que muestra el camino antes y después. Se cierra solo cuando vuelve el camino de siempre.",
+        "unstable_rekey": "El túnel se corta un momento cada cierto tiempo fijo y el camino por fuera sigue limpio: es un temporizador. Compará los lifetimes de IKE (fase 1) e IPsec (fase 2) en las dos puntas, tienen que coincidir; fijate que el rekey ocurra antes del vencimiento (make-before-break, sin reauth) y que el DPD no sea más corto de lo que tarda el rekey.",
+        "unstable_config": "El túnel se corta a cada rato por momentos cortos y el camino por fuera sigue limpio: revisá el túnel en las dos puntas. DPD demasiado agresivo, keepalives de NAT-T (un NAT que olvida el mapeo), MTU/MSS (se pierden los paquetes grandes) o las dos puntas levantando el túnel a la vez.",
+        "unstable_path_local": "Los cortes pasan cuando tu propia conexión también pierde paquetes: el túnel es solo el mensajero. Arreglá tu internet primero (mirá su veredicto).",
+        "unstable_path_remote": "Tu internet anda bien, pero en cada corte el camino al otro sitio también pierde paquetes: revisá el enlace del otro sitio o su ISP.",
+        "unstable_unknown": "El túnel se corta a cada rato, pero el otro extremo no responde ping por fuera del túnel, así que no se puede descartar el camino. Permití ICMP en su IP pública para tener una causa.",
     },
 }
 

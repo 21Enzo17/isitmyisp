@@ -22,9 +22,10 @@ from .probes.icmp import WindowStats
 from .probes.mtr import MtrError, analyze_path, path_to_dict, run_mtr
 from .services import CHECK_EVERY, FAILS_TO_DOWN, OKS_TO_UP, Check, Service
 from .services import state as service_state
-from .stats import Baseline, Hysteresis, Transition
+from .stats import Baseline, Hysteresis, Transition, loss_is_significant
 from .store import Store
-from .tunnels import TunnelVerdict, classify_tunnel
+from .tunnels import TunnelVerdict, classify_tunnel, instability_details
+from .tunnels import instability as tunnel_instability
 
 CaptureFn = Callable[[str, int], None]  # (target, incident_id)
 
@@ -48,6 +49,9 @@ class _TunnelState:
         self.hyst = Hysteresis(open_after=open_after, close_after=close_after)
         self.incident_id: int | None = None
         self.ever_answered = False
+        self.unstable_id: int | None = None   # the open "unstable tunnel" incident (#99)
+        self.calm_at = 0.0                     # with no drop until then, the tunnel has calmed down
+        self.last_drop = 0.0
 
 
 class Monitor:
@@ -260,7 +264,29 @@ class Monitor:
                 self.capture(t.underlay, st.incident_id)
         if st.incident_id is not None and over is not None:
             self.store.bump_peak_loss(st.incident_id, over.loss)
+        self._step_unstable(t, st, over, now)
         return tv, tr
+
+    def _step_unstable(self, t: Tunnel, st: _TunnelState, over: WindowStats | None, now: float) -> None:
+        """Drops too short or too spread out for an incident each, but many of them: an unstable tunnel (#99).
+        Only looked at when the tunnel drops (cheap the rest of the time); it closes once it has calmed down."""
+        dropped = over is not None and over.sent and loss_is_significant(over.lost, over.sent)
+        if not dropped:
+            if st.unstable_id is not None and now >= st.calm_at:
+                self.store.close_incident(st.unstable_id, ts=st.last_drop)
+                st.unstable_id = None
+            return
+        ins = tunnel_instability(self.store, t.name, now, self._open_after)
+        st.last_drop = ins.stretch[-1].end if ins.stretch else now
+        st.calm_at = st.last_drop + ins.calm
+        if not ins.unstable:
+            return
+        code, evidence, details = instability_details(ins, t)
+        if st.unstable_id is None:
+            st.unstable_id = self.store.open_incident(code, evidence, ts=ins.since, scope=f"unstable:tunnel:{t.name}")
+        else:
+            self.store.update_incident(st.unstable_id, code, evidence)
+        self.store.set_incident_details(st.unstable_id, details)
 
     def _opened(self, scope: str, incident_id: int) -> None:
         if self.on_open is not None:

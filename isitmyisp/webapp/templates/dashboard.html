@@ -2,6 +2,7 @@
 {% from "_charts.html" import line_plot, xaxis %}
 {% block head %}{% if not demo_static %}<meta http-equiv="refresh" content="30">{% endif %}{% endblock %}
 {% block title %}{{ t.nav.dashboard }}{% endblock %}
+{% from "_drops.html" import summary with context %}
 {% block content %}
 {% macro num(v, fmt='%.1f') %}{{ fmt|format(v) if v is not none else '—' }}{% endmacro %}
 {% if wizard_pending %}
@@ -404,7 +405,7 @@
     {% else %}
     <ul class="rows">
       {% for c in d.services %}
-      {% set st = 'good' if c.state == 'up' else ('bad' if c.state == 'down' else 'none') %}
+      {% set st = ('warn' if c.unstable else 'good') if c.state == 'up' else ('bad' if c.state == 'down' else 'none') %}
       <li class="row s-{{ st }}">
         <svg class="ico st" aria-hidden="true"><use href="#i-{{ 'check' if st == 'good' else ('cross' if st == 'bad' else 'wait') }}"/></svg>
         <span class="r-main"><span class="r-name">{{ c.name }}</span><span class="r-sub ip">{{ c.target }}</span></span>
@@ -414,7 +415,7 @@
       </li>
       {% endfor %}
       {% for c in d.devices %}
-      {% set st = 'good' if c.state == 'up' else ('bad' if c.state == 'down' else 'none') %}
+      {% set st = ('warn' if c.unstable else 'good') if c.state == 'up' else ('bad' if c.state == 'down' else 'none') %}
       <li class="row s-{{ st }}">
         <svg class="ico st" aria-hidden="true"><use href="#i-{{ 'check' if st == 'good' else ('cross' if st == 'bad' else 'wait') }}"/></svg>
         <span class="r-main"><span class="r-name">{{ c.name }}</span><span class="r-sub">{{ t.device_kind[c.kind] }} · <span class="ip">{{ c.target }}</span></span></span>
@@ -424,13 +425,14 @@
       </li>
       {% endfor %}
       {% for c in d.tunnels %}
-      {% set st = 'good' if c.state == 'up' else ('bad' if c.state == 'down' else 'none') %}
+      {% set st = ('warn' if c.unstable else 'good') if c.state == 'up' else ('bad' if c.state == 'down' else 'none') %}
       <li class="row s-{{ st }}">
-        <svg class="ico st" aria-hidden="true"><use href="#i-{{ 'check' if st == 'good' else ('cross' if st == 'bad' else 'wait') }}"/></svg>
+        <svg class="ico st" aria-hidden="true"><use href="#i-{{ 'check' if st == 'good' else ('cross' if st == 'bad' else ('alert' if st == 'warn' else 'wait')) }}"/></svg>
         <span class="r-main"><span class="r-name">{{ c.name }}</span><span class="r-sub">{{ t.tunnel_word }} {{ c.type }}</span></span>
         <span class="r-val"></span>
-        <span class="r-state">{{ t.tun[c.state] }}{% if c.since %}, {{ c.since }}{% endif %}</span>
-        {% if c.cause %}<p class="r-note">{{ c.cause|cause }}</p>{% endif %}
+        <span class="r-state">{% if c.unstable and c.state == 'up' %}{{ t.tun.unstable }}, {{ c.unstable_since }}{% else %}{{ t.tun[c.state] }}{% if c.since %}, {{ c.since }}{% endif %}{% endif %}</span>
+        {% if c.cause %}<p class="r-note">{{ c.cause|cause }}</p>
+        {% elif c.unstable %}<p class="r-note">{{ c.unstable|cause }}. {{ summary(c) }}</p>{% endif %}
       </li>
       {% endfor %}
     </ul>

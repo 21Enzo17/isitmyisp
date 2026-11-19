@@ -57,5 +57,23 @@ class ReapMtrOrphans(unittest.TestCase):
         self.assertEqual(self.zombies_after_runs("off"), 3)
 
 
+
+@unittest.skipUnless(sys.platform.startswith("linux"), "needs a shell")
+class MtrWithoutReport(unittest.TestCase):
+    def test_exit_zero_with_nothing_on_stdout_is_an_mtr_error(self):
+        # what mtr does with a name that doesn't resolve: the message on stderr, exit 0, no JSON
+        from unittest import mock
+
+        from isitmyisp.probes import mtr
+        with tempfile.TemporaryDirectory() as d:
+            fake = Path(d) / "mtr"
+            fake.write_text("#!/bin/sh\necho 'mtr: Failed to resolve host: nope.example' >&2\n")
+            fake.chmod(0o755)
+            with mock.patch.dict(os.environ, {"PATH": f"{d}:{os.environ.get('PATH', '')}"}), \
+                    self.assertRaises(mtr.MtrError) as cm:
+                mtr.run_mtr("nope.example", cycles=1)
+        self.assertIn("Failed to resolve", str(cm.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

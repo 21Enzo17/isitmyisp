@@ -23,7 +23,9 @@ GROUP = {"ok": "good", "local": "you", "loop": "you", "saturation": "you", "acce
          # tunnels and your own services
          "config": "you", "path_local": "you", "path_remote": "other", "unknown": "none", "service_down": "other",
          "device_down": "you",
-         "failover": "other", "speedtest": "none", "route_slower": "isp"}
+         "failover": "other", "speedtest": "none", "route_slower": "isp",
+         "unstable_rekey": "you", "unstable_config": "you", "unstable_path_local": "you",
+         "unstable_path_remote": "other", "unstable_unknown": "none"}
 SEVERITY = {"isp": 4, "you": 3, "other": 2, "good": 1, "none": 0}
 
 

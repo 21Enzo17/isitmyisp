@@ -365,8 +365,19 @@ class Pages(WebAppBase):
         self.assertIn('class="tvb-alarm route"', tv)
         self.assertIn("The path to 1.1.1.1 changed", tv)
         self.assertNotIn("rfork", tv)                         # one line, never the diagram
+        self.assertNotIn("tvb-route-note", tv)
         simple = self.app.test_client().get("/tv/tok?layout=simple").get_data(as_text=True)
-        self.assertIn("The path to 1.1.1.1 changed", simple)
+        self.assertNotIn("The path to 1.1.1.1 changed", simple)  # a shop counter can't act on it
+
+    def test_wall_screen_keeps_an_outage_on_top(self):
+        from isitmyisp import settings as settings_mod
+        from isitmyisp.webapp import views
+        d = views.dashboard_data(self.store, settings_mod.load(self.store))
+        self.assertIsNotNone(views.board(d)["route_top"])
+        d.code = "isp"                                        # your ISP is down right now
+        b = views.board(d)
+        self.assertIsNotNone(b["route"])
+        self.assertIsNone(b["route_top"])
 
     def test_incidents_show_the_diagnosis(self):
         html = self.client.get("/incidents").get_data(as_text=True)

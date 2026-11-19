@@ -24,7 +24,8 @@ ROLE_ORDER = {"home": 0, "isp": 1, "anchor": 2, "voip": 3, "tcp": 4, "dns": 5}
 CAUSE_CLASS = {"ok": "ok", "local": "warn", "access": "bad", "isp": "bad", "remote": "info", "dns": "info",
                "no_data": "muted", "stale": "muted", "config": "warn", "path_local": "bad",
                "path_remote": "info", "unknown": "muted", "saturation": "warn", "loop": "warn", "speedtest": "muted",
-               "route_slower": "bad"}
+               "route_slower": "bad", "unstable_rekey": "warn", "unstable_config": "warn",
+               "unstable_path_local": "bad", "unstable_path_remote": "info", "unstable_unknown": "muted"}
 
 
 @dataclass
@@ -83,7 +84,7 @@ def build_points(targets: list) -> list[Point]:
 
 
 def fit(items: list, cap: int, state=lambda x: "good", tick: int = 0) -> tuple[list, dict, dict | None]:
-    """At most `cap` lines for a fixed-size panel. Items with problems are pinned (they never rotate
+    """At most `cap` lines for a fixed-size panel. Items that are down (then the ones that are degraded) are pinned (they never rotate
     away); the rest rotate one page per `tick` (the board refreshes every 30 s, so no JavaScript).
     Returns (shown in their original order, {"bad", "none", "good"} counts of what's hidden right now,
     rotation {"page", "pages", "shown", "total"} or None when everything fits)."""
@@ -91,7 +92,7 @@ def fit(items: list, cap: int, state=lambda x: "good", tick: int = 0) -> tuple[l
     if len(items) <= cap:
         return items, hidden, None
     room = cap - 1                     # one line says what's going on
-    pinned = [i for i in items if state(i) == "bad"][:room]
+    pinned = ([i for i in items if state(i) == "bad"] + [i for i in items if state(i) == "warn"])[:room]
     pinned_ids = set(map(id, pinned))
     rest = [i for i in items if id(i) not in pinned_ids]
     slots = room - len(pinned)
@@ -302,12 +303,23 @@ class TunnelCard:
     loss_inside: float | None
     loss_outside: float | None
     since: str = ""
+    # unstable tunnel (#99): drops that don't make an outage each, but many of them
+    unstable: str | None = None         # the open incident's code (unstable_<cause>)
+    unstable_since: str = ""
+    hourly: list[int] = field(default_factory=list)   # drops per hour, last 24 h, oldest first
+    drops: int = 0                      # in the last 24 h
+    micro: int = 0                      # of those, too short to open an outage
+    every: str = ""                     # they repeat at this interval
+    route_changed: bool = False         # the stretch started right after a path change
 
 
 def tunnel_cards(store: Store, settings: Settings, now: float | None = None) -> list[TunnelCard]:
     now = now or time.time()
     latest = {s["role"]: s for s in store.latest_samples() if s["role"].startswith("tunnel_")}
-    active = {i.tunnel: i for i in store.active_incidents() if i.tunnel}
+    from ..tunnels import fmt_every, hourly, instability
+    act = store.active_incidents()
+    active = {i.tunnel: i for i in act if i.tunnel}
+    shaky = {i.scope.split(":", 2)[2]: i for i in act if i.scope.startswith("unstable:tunnel:")}
     cards = []
     for t in settings.tunnels:
         over, under = latest.get(f"tunnel_over:{t.name}"), latest.get(f"tunnel_under:{t.name}")
@@ -318,8 +330,20 @@ def tunnel_cards(store: Store, settings: Settings, now: float | None = None) -> 
             state, cause, css, since = "up", None, "ok", ""
         else:
             state, cause, css, since = "no_data", None, "muted", ""
-        cards.append(TunnelCard(t.name, t.type, t.underlay, t.overlay, state, cause, css,
-                                _sample_loss(over) if over else None, _sample_loss(under) if under else None, since))
+        c = TunnelCard(t.name, t.type, t.underlay, t.overlay, state, cause, css,
+                       _sample_loss(over) if over else None, _sample_loss(under) if under else None, since)
+        ins = instability(store, t.name, now)
+        day = [d for d in ins.drops if d.start >= now - 86400]
+        c.hourly, c.drops, c.micro = hourly(ins.drops, now), len(day), sum(1 for d in day if d.windows < 2)
+        u = shaky.get(t.name)
+        if u is not None:
+            c.unstable, c.unstable_since = u.code, fmt_duration(now - u.opened)
+            every = (u.details or {}).get("every")
+            c.every = fmt_every(every) if every else ""
+            c.route_changed = bool((u.details or {}).get("route_event"))
+            if state == "up":
+                c.css = CAUSE_CLASS.get(u.code, "warn")
+        cards.append(c)
     return cards
 
 
@@ -346,7 +370,7 @@ def incident_rows(store: Store, t: dict, days: int = 30, now: float | None = Non
     now = now or time.time()
     rows = []
     for i in reversed(store.incidents_between(now - days * 86400, now, scope=None)):
-        bare = i.scope.removeprefix("route:")
+        bare = i.scope.removeprefix("route:").removeprefix("unstable:")
         scope = t["scope_internet"] if bare == "internet" else bare.split(":", 1)[-1]
         rows.append(IncidentRow(i.id, i.details if i.code in ("access", "isp") else None, scope, i.code,
                                 CAUSE_CLASS.get(i.code, "muted"), i.opened, i.closed,
@@ -587,9 +611,9 @@ class Conn:
     name: str
     sub: str           # tunnel type, or ""
     ms: float | None
-    state: str         # services: up | down | no_data; tunnels: up | down | no_data
+    state: str         # services: up | down | no_data; tunnels: up | down | no_data | unstable
     since: str
-    st: str            # good | bad | none
+    st: str            # good | bad | none | warn (a tunnel that is up but keeps dropping)
 
 
 BOARD_POINTS, BOARD_CONNS, BOARD_RECENT = 6, 5, 5
@@ -603,15 +627,20 @@ def board(d: Dashboard, now: float | None = None) -> dict:
                   "good" if c.state == "up" else "bad" if c.state == "down" else "none") for c in d.services]
     conns += [Conn("device", c.name, c.kind, c.ms, c.state, c.since,
                    "good" if c.state == "up" else "bad" if c.state == "down" else "none") for c in d.devices]
-    conns += [Conn("tunnel", c.name, c.type, None, c.state, c.since,
+    conns += [Conn("tunnel", c.name, c.type, None, "unstable", c.unstable_since, "warn")   # up, but dropping (#99)
+              if c.unstable and c.state == "up" else
+              Conn("tunnel", c.name, c.type, None, c.state, c.since,
                    "good" if c.state == "up" else "bad" if c.state == "down" else "none") for c in d.tunnels]
     points, p_hidden, p_rot = fit(d.points, BOARD_POINTS, state=lambda p: "good" if p.status == "ok" else "bad", tick=tick)
     shown, c_hidden, c_rot = fit(conns, BOARD_CONNS, state=lambda c: c.st, tick=tick)
+    route = board_route(d)
     return {"points": points, "points_hidden": p_hidden, "points_rot": p_rot,
             "conns": shown, "conns_hidden": c_hidden, "conns_rot": c_rot,
             "alarms": [c for c in conns if c.st == "bad"],
             "points_alarm": any(p.status == "bad" for p in d.points),
-            "recent": d.recent[:BOARD_RECENT], "route": board_route(d)}
+            "recent": d.recent[:BOARD_RECENT], "route": route,
+            # on top only when nothing worse is going on; during an outage it waits in the events card
+            "route_top": route if d.code == "ok" and not any(c.st == "bad" for c in conns) else None}
 
 
 def board_route(d: Dashboard) -> dict | None:

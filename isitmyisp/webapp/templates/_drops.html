@@ -1,0 +1,12 @@
+{# drops inside a tunnel per hour, last 24 h (#99): one bar per hour, no JS #}
+{% macro drops(c) %}{% set top = [c.hourly|max, 1]|max %}
+<figure class="drops">
+  <svg viewBox="0 0 240 28" preserveAspectRatio="none" role="img" aria-label="{{ t.tun_drops_chart }}: {{ c.hourly|join(', ') }}">
+    <line class="base" x1="0" y1="27.5" x2="240" y2="27.5"/>
+    {% for n in c.hourly %}{% if n %}<rect x="{{ loop.index0 * 10 + 1 }}" y="{{ 28 - (4 + 24 * n / top)|round(1) }}" width="8" height="{{ (4 + 24 * n / top)|round(1) }}" rx="1.5"><title>{{ n }}</title></rect>{% endif %}{% endfor %}
+  </svg>
+  <figcaption><span>{{ t.tun_24h_ago }}</span><span>{{ t.tun_drops_chart }}</span><span>{{ t.tun_now }}</span></figcaption>
+</figure>
+{% endmacro %}
+
+{% macro summary(c) %}{% if c.drops %}{{ t.tun_drops_one if c.drops == 1 else t.tun_drops.format(n=c.drops) }}{% if c.micro %} ({{ t.tun_micro.format(n=c.micro) }}){% endif %}.{% endif %}{% if c.every %} {{ t.tun_every.format(every=c.every) }}{% endif %}{% if c.route_changed %} {{ t.tun_route }}{% endif %}{% endmacro %}

@@ -80,4 +80,4 @@ Debajo del camino están:
 
 - **Tu enlace (desde tu router):** cuánto de lo contratado se está usando ahora, si conectaste el router por SNMP. Por encima del 85 % se marca como lleno. Debajo, el último **test de velocidad** comparado con lo que contrataste. Si agregaste servidores iperf3, una tabla con lo que dio cada uno, marcado dentro o fuera de tu ISP, y si el cuello de botella es tu acceso o la salida del ISP ([cómo se decide](features.md#dentro-y-fuera-de-tu-isp)).
 - **Calidad para llamadas:** el MOS estimado (de 1 a 5) y si una llamada se escucharía bien ahora.
-- **Servicios, dispositivos y túneles:** si cada uno responde, cuánto tarda y desde cuándo está así. Los [dispositivos del local](features.md#dispositivos-del-local) (posnet, impresora, cámaras…) muestran su tipo y su dirección.
+- **Servicios, dispositivos y túneles:** si cada uno responde, cuánto tarda y desde cuándo está así. Un túnel que se corta seguido aparece en ámbar como [inestable](features.md#tuneles-inestables), con la causa probable. Los [dispositivos del local](features.md#dispositivos-del-local) (posnet, impresora, cámaras…) muestran su tipo y su dirección.
