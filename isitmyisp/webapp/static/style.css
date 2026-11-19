@@ -1159,13 +1159,12 @@ details.rc-quiet { border-top: 1px solid var(--line); padding-top: 12px; margin-
   .rf-lanes { border-right: 0; border-radius: 0; }
 }
 
-/* Path changes, folded (#97): the title and one line; open by itself only while a change is still making things worse. */
-details.routes > summary.card-head { justify-content: flex-start; margin-bottom: 0; }
+/* Path changes, minimized (#97): just the title row; the choice is kept in a cookie. */
+details.routes > summary.card-head { margin-bottom: 0; }
 details.routes[open] > summary.card-head { margin-bottom: 8px; }
-details.routes .rc-sum { min-width: 0; flex: 1; font-size: 13.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-details.routes .rc-sum.bad { color: var(--isp); font-weight: 500; }
-details.routes[open] .rc-sum { display: none; }
-details.routes > summary .fold-cta { flex: none; text-decoration: none; }
-details.routes > summary a.fold-cta:hover { text-decoration: underline; }
-details.routes[open] > summary .fold-cta.hide { display: inline; margin-left: auto; }
-details.routes:not([open]) > summary .fold-cta.hide, details.routes[open] > summary .fold-cta.show { display: none; }
+details.routes .fold-btn { flex: none; margin-left: auto; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
+                           color: var(--ink-2); border: 1px solid var(--line); }
+details.routes .fold-btn:hover { color: var(--ink); border-color: var(--line-2); }
+details.routes .fold-btn::before { content: ""; width: 7px; height: 7px; border: solid currentColor; border-width: 0 2px 2px 0;
+                                   transform: translateY(-2px) rotate(45deg); }
+details.routes[open] .fold-btn::before { transform: translateY(2px) rotate(-135deg); }

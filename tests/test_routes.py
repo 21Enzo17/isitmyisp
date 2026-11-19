@@ -346,13 +346,13 @@ class Pages(WebAppBase):
 
     def test_card_folds_and_remembers(self):
         html = self.client.get("/").get_data(as_text=True)
-        self.assertIn('id="routes" open', html)              # still making things worse: open by itself
+        self.assertIn('id="routes" open', html)              # open until you minimize it
         r = self.client.get("/fold?card=routes&to=closed&next=/%23routes")
         self.assertEqual(r.status_code, 302)
         self.assertIn("fold_routes=closed", r.headers["Set-Cookie"])
         html = self.client.get("/").get_data(as_text=True)
-        self.assertIn('id="routes" aria-labelledby', html)  # folded: only the title and one line
-        self.assertIn('class="rc-sum bad"', html)
+        self.assertIn('id="routes" aria-labelledby', html)  # minimized: only the title row
+        self.assertIn('to=open', html)                         # the button expands it again
         self.client.get("/fold?card=routes&to=open")
         self.assertIn('id="routes" open', self.client.get("/").get_data(as_text=True))
         r = self.client.get("/fold?card=nope&to=closed&next=//evil.com")

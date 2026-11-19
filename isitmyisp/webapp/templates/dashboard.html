@@ -116,14 +116,11 @@
 </div>
 
 {% if d.routes %}
-{% set rfold = request.cookies.get('fold_routes') %}{% set ra = d.routes.alert %}
-{% set ropen = rfold == 'open' or (rfold != 'closed' and ra) %}
+{% set ropen = request.cookies.get('fold_routes') != 'closed' %}
 <details class="card routes fold" id="routes"{{ ' open' if ropen }} aria-labelledby="routes-h">
   <summary class="card-head"><h2 id="routes-h"><svg class="ico hi-amber" aria-hidden="true"><use href="#i-globe"/></svg>{{ t.routes_title }}</h2>
-    <span class="rc-sum{{ ' bad' if ra }}">{% if ra %}{{ ra.headline }}{% else %}{{ t.routes_n.format(n=d.routes.n) if d.routes.n != 1 else t.routes_n_1 }}{% endif %}</span>
-    {% if demo_static %}<span class="fold-cta show">{{ t.fold_show }}</span>{% else %}{% set nxt = request.full_path.rstrip('?') ~ '#routes' %}
-    <a class="fold-cta show" href="{{ url_for('fold', card='routes', to='open', next=nxt) }}">{{ t.fold_show }}</a>
-    <a class="fold-cta hide" href="{{ url_for('fold', card='routes', to='closed', next=nxt) }}">{{ t.fold_hide }}</a>{% endif %}</summary>
+    {% if demo_static %}<span class="fold-btn" aria-hidden="true"></span>{% else %}{% set nxt = request.full_path.rstrip('?') ~ '#routes' %}
+    <a class="fold-btn" href="{{ url_for('fold', card='routes', to='closed' if ropen else 'open', next=nxt) }}" aria-label="{{ t.fold_min if ropen else t.fold_max }}" title="{{ t.fold_min if ropen else t.fold_max }}"></a>{% endif %}</summary>
   <p class="muted small">{{ t.routes_sub }}</p>
   {% macro rbox(n) %}<li class="rf-node {{ n.state }}"><b>{{ n.name }}</b></li>{% endmacro %}
   {% for r in d.routes.loud %}{% set g = r.diagram %}{% set f = g.fork %}{% set imp = r.impact %}
