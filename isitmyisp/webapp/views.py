@@ -84,7 +84,7 @@ def build_points(targets: list) -> list[Point]:
 
 
 def fit(items: list, cap: int, state=lambda x: "good", tick: int = 0) -> tuple[list, dict, dict | None]:
-    """At most `cap` lines for a fixed-size panel. Items with problems are pinned (they never rotate
+    """At most `cap` lines for a fixed-size panel. Items that are down (then the ones that are degraded) are pinned (they never rotate
     away); the rest rotate one page per `tick` (the board refreshes every 30 s, so no JavaScript).
     Returns (shown in their original order, {"bad", "none", "good"} counts of what's hidden right now,
     rotation {"page", "pages", "shown", "total"} or None when everything fits)."""
@@ -92,7 +92,7 @@ def fit(items: list, cap: int, state=lambda x: "good", tick: int = 0) -> tuple[l
     if len(items) <= cap:
         return items, hidden, None
     room = cap - 1                     # one line says what's going on
-    pinned = [i for i in items if state(i) == "bad"][:room]
+    pinned = ([i for i in items if state(i) == "bad"] + [i for i in items if state(i) == "warn"])[:room]
     pinned_ids = set(map(id, pinned))
     rest = [i for i in items if id(i) not in pinned_ids]
     slots = room - len(pinned)
@@ -611,9 +611,9 @@ class Conn:
     name: str
     sub: str           # tunnel type, or ""
     ms: float | None
-    state: str         # services: up | down | no_data; tunnels: up | down | no_data
+    state: str         # services: up | down | no_data; tunnels: up | down | no_data | unstable
     since: str
-    st: str            # good | bad | none
+    st: str            # good | bad | none | warn (a tunnel that is up but keeps dropping)
 
 
 BOARD_POINTS, BOARD_CONNS, BOARD_RECENT = 6, 5, 5
@@ -627,7 +627,9 @@ def board(d: Dashboard, now: float | None = None) -> dict:
                   "good" if c.state == "up" else "bad" if c.state == "down" else "none") for c in d.services]
     conns += [Conn("device", c.name, c.kind, c.ms, c.state, c.since,
                    "good" if c.state == "up" else "bad" if c.state == "down" else "none") for c in d.devices]
-    conns += [Conn("tunnel", c.name, c.type, None, c.state, c.since,
+    conns += [Conn("tunnel", c.name, c.type, None, "unstable", c.unstable_since, "warn")   # up, but dropping (#99)
+              if c.unstable and c.state == "up" else
+              Conn("tunnel", c.name, c.type, None, c.state, c.since,
                    "good" if c.state == "up" else "bad" if c.state == "down" else "none") for c in d.tunnels]
     points, p_hidden, p_rot = fit(d.points, BOARD_POINTS, state=lambda p: "good" if p.status == "ok" else "bad", tick=tick)
     shown, c_hidden, c_rot = fit(conns, BOARD_CONNS, state=lambda c: c.st, tick=tick)

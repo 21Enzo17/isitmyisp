@@ -930,6 +930,10 @@ input[type=text], input[type=password], input[type=number], input[type=datetime-
 .tvb-conn-state { color: var(--ink-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .tvb-conn-list .s-bad { background: color-mix(in srgb, var(--isp) 14%, transparent); }
 .tvb-conn-list .s-bad .tvb-conn-name { font-weight: 600; }
+.tvb-conn-list .s-warn .ring { --rc: var(--you); }
+.tvb-conn-list .s-warn { background: color-mix(in srgb, var(--you) 14%, transparent); }
+.tvb-conn-list .s-warn .tvb-conn-name { font-weight: 600; }
+.tvb-conn-list .s-warn .tvb-conn-state b { color: var(--ink); }
 .tvb-conn-list .s-bad .tvb-conn-state b { color: var(--ink); }
 
 .tvb-open { display: flex; gap: .4rem; margin: 0 0 0 auto; font-size: .95rem; color: var(--ink-3); }

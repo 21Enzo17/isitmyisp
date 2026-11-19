@@ -154,6 +154,12 @@ class Pages(WebAppBase):
         self.assertIn('class="row s-warn"', html)
         self.assertIn("Unstable tunnel: its configuration (path was clean). 3 drops", html)
 
+    def test_tv_board_says_unstable_not_up(self):
+        self.store.set_settings({"tv_token": "tok"})
+        html = self.client.get("/tv/tok").get_data(as_text=True)
+        self.assertIn('<li class="s-warn">', html)
+        self.assertIn("<b>Unstable</b>", html)
+
     def test_incidents_page_and_report(self):
         html = self.client.get("/incidents").get_data(as_text=True)
         self.assertIn("Unstable tunnel: its configuration", html)

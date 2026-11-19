@@ -217,7 +217,7 @@
         {% for c in b.conns %}
         <li class="s-{{ c.st }}"><span class="ring" aria-hidden="true"></span>
           <span class="tvb-conn-name">{{ c.name }}</span>
-          <span class="tvb-conn-state">{% if c.st == 'bad' %}<b>{{ (t.tun if c.kind == 'tunnel' else t.svc)[c.state] }}</b>{% if c.since %} · {{ c.since }}{% endif %}{% elif c.ms is not none %}{{ '%.0f'|format(c.ms) if c.ms >= 1 else '< 1' }} ms{% else %}{{ (t.tun if c.kind == 'tunnel' else t.svc)[c.state] }}{% endif %}</span></li>
+          <span class="tvb-conn-state">{% if c.st in ('bad', 'warn') %}<b>{{ (t.tun if c.kind == 'tunnel' else t.svc)[c.state] }}</b>{% if c.since %} · {{ c.since }}{% endif %}{% elif c.ms is not none %}{{ '%.0f'|format(c.ms) if c.ms >= 1 else '< 1' }} ms{% else %}{{ (t.tun if c.kind == 'tunnel' else t.svc)[c.state] }}{% endif %}</span></li>
         {% endfor %}
       </ul>
       {% if b.conns_rot %}<p class="tvb-rot">{{ t.board_rot.format(shown=b.conns_rot.shown, total=b.conns_rot.total, page=b.conns_rot.page, pages=b.conns_rot.pages) }}</p>{% endif %}{% endif %}
