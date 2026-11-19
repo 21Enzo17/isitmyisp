@@ -126,10 +126,21 @@
         <summary><b>{{ r.title }}</b> · {{ r.label }}{% if r.unstable %} · <span class="ev-int">{{ t.routes_unstable }}</span>{% endif %}
           <span class="muted" title="{{ r.ts|dt }}">{{ r.ts|ago }}</span>
           {% if r.impact %}<span class="route-imp{{ ' better' if r.impact.after_ms < r.impact.before_ms else '' }}">{{ '%.0f'|format(r.impact.before_ms) }} → {{ '%.0f'|format(r.impact.after_ms) }} ms</span>{% endif %}</summary>
-        <p>{{ r.line }}</p>
-        <table class="route-cmp"><thead><tr><th>{{ t.routes_before }}</th><th>{{ t.routes_after }}</th></tr></thead>
-          <tbody><tr><td>{{ r.before }}</td><td>{{ r.after }}</td></tr>
-          <tr class="mono small"><td>{% for h in r.before_hops %}{{ h }}<br>{% endfor %}</td><td>{% for h in r.after_hops %}{{ h }}<br>{% endfor %}</td></tr></tbody></table>
+        {% set g = r.diagram %}
+        <div class="rpath">
+          {% for side, nodes, reached, ms in (('before', g.before, g.before_reached, r.impact.before_ms if r.impact else none),
+                                              ('after', g.after, g.after_reached, r.impact.after_ms if r.impact else none)) %}
+          <p class="rp-lbl">{{ t.routes_before if side == 'before' else t.routes_after }}</p>
+          <ol class="rp-row {{ side }}">
+            <li class="rp-node home"><span class="rp-box"><b>{{ t.routes_home }}</b></span></li>
+            {% for n in nodes %}<li class="rp-node {{ n.state }}"><span class="rp-box"><b>{{ n.name }}</b>
+              <span class="rp-hops">{% for h in n.hops %}{{ h }}{% if not loop.last %}<br>{% endif %}{% endfor %}</span></span></li>{% endfor %}
+            {% if not reached %}<li class="rp-node cut"><span class="rp-box"><b>{{ t.routes_noreach }}</b></span></li>{% endif %}
+            {% if ms is not none %}<li class="rp-ms{{ ' better' if side == 'after' and r.impact.after_ms < r.impact.before_ms else '' }}">{{ '%.0f'|format(ms) }} ms</li>{% endif %}
+          </ol>
+          {% endfor %}
+        </div>
+        {% if g.where %}<p class="rp-where">{{ g.where }}</p>{% endif %}
       </details>
     </li>
     {% endfor %}

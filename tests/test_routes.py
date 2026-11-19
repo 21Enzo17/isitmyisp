@@ -256,6 +256,40 @@ class WatcherFlow(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_WEB, "web extra not installed")
+class Diagram(unittest.TestCase):
+    """Before and after as boxes, and where the change is (#97)."""
+
+    def ev(self, a, b):
+        return {"from": obs(a).to_dict(), "to": obs(b).to_dict()}
+
+    def test_a_carrier_past_the_isp(self):
+        g = routes.diagram(self.ev(USUAL, OTHER), "en")
+        telecom, arsat, cf = routes.orgs(obs(USUAL))
+        uni = routes.orgs(obs(OTHER))[1]
+        self.assertEqual([n["name"] for n in g["before"]], [telecom, arsat, cf])
+        self.assertEqual([n["state"] for n in g["before"]], ["same", "gone", "same"])
+        self.assertEqual([n["state"] for n in g["after"]], ["same", "new", "same"])
+        self.assertEqual(g["after"][1]["hops"], ["200.16.1.1", "200.16.9.9"])
+        self.assertIn(f"Your network and {telecom} stayed the same", g["where"])
+        self.assertIn(f"goes through {uni}, past your ISP", g["where"])
+
+    def test_other_routers_inside_the_isp(self):
+        inside = ("192.168.1.1", "181.96.60.1", "181.89.51.39", "190.103.1.1", "172.70.1.1", "1.1.1.1")
+        g = routes.diagram(self.ev(USUAL, inside), "es")
+        self.assertEqual([n["state"] for n in g["after"]], ["changed", "same", "same"])
+        self.assertEqual(g["before"][0]["state"], "changed")
+        self.assertIn("dentro de la red de tu proveedor", g["where"])
+
+    def test_a_path_that_no_longer_gets_there(self):
+        g = routes.diagram(self.ev(USUAL, CUT_ISP), "en")
+        self.assertTrue(g["before_reached"])
+        self.assertFalse(g["after_reached"])
+
+    def test_nothing_to_compare(self):
+        g = routes.diagram({}, "en")
+        self.assertEqual((g["before"], g["after"], g["where"]), ([], [], ""))
+
+
 class Pages(WebAppBase):
     """The dashboard, the incidents page and the report show the path changes and the diagnosis."""
     def setUp(self):
@@ -289,6 +323,7 @@ class Pages(WebAppBase):
         self.assertIn("route-list", html)
         self.assertIn("Red de Interconexion", html)
         self.assertIn("route-mark", html)
+        self.assertIn("rp-node new", html)
 
     def test_incidents_show_the_diagnosis(self):
         html = self.client.get("/incidents").get_data(as_text=True)

@@ -521,6 +521,11 @@ T = {
         "slower_loss": "{label}: loss {before_loss:.1f} % → {after_loss:.1f} % after the path changed at {hhmm}",
         "kind_changed": "Your ISP changed the path", "kind_restored": "Back on the usual path",
         "kind_unstable": "The path keeps changing",
+        "and": " and ",
+        "where_isp": "The change is inside your ISP's network: {changed} now uses other routers.",
+        "where_kept": "Your network and {kept} stayed the same: ",
+        "where_via": "traffic now goes through {changed}, past your ISP.",
+        "where_skip": "traffic no longer goes through {changed}, past your ISP.",
     },
     "es": {
         "arrow": " → ", "unknown_path": "desconocido", "stop": "{org} ({host})", "stop_host": "{host}",
@@ -540,6 +545,11 @@ T = {
                        "a las {hhmm}",
         "kind_changed": "Tu proveedor cambió el camino", "kind_restored": "Volvió el camino de siempre",
         "kind_unstable": "El camino cambia una y otra vez",
+        "and": " y ",
+        "where_isp": "El cambio está dentro de la red de tu proveedor: {changed} usa otros routers.",
+        "where_kept": "Tu red y {kept} siguen igual: ",
+        "where_via": "ahora el tráfico pasa por {changed}, después de tu proveedor.",
+        "where_skip": "el tráfico ya no pasa por {changed}, después de tu proveedor.",
     },
 }
 
@@ -550,6 +560,66 @@ def path_text(sample: dict | None, lang: str = "en") -> str:
         return T[lang]["unknown_path"]
     names = orgs(Obs.from_dict(sample))
     return T[lang]["arrow"].join(names) if names else T[lang]["unknown_path"]
+
+
+def _nodes(o: Obs) -> list[dict]:
+    """The trace as one box per network, in order, with the routers each one put on the path."""
+    out: list[dict] = []
+    for h in o.hops:
+        if h["seg"] == "home":
+            continue
+        name = h.get("org") or h["host"]
+        if out and out[-1]["name"] == name:
+            out[-1]["hops"].append(h["host"])
+        else:
+            out.append({"name": name, "seg": h["seg"], "hops": [h["host"]], "state": "same"})
+    return out
+
+
+def diagram(ev: dict, lang: str = "en") -> dict:
+    """Before and after as boxes (#97): which network changed, and whether that is inside your ISP or past it
+    (the first network past your own is your ISP's: hop segments can't tell a carrier from the ISP).
+
+    {"before": [node], "after": [node], "before_reached", "after_reached", "where": sentence}; a node is
+    {"name", "seg", "hops", "state"}, state "same", "gone" (only before), "new" (only after) or "changed"
+    (the same network on both sides, through other routers)."""
+    t = T[lang]
+    a, b = Obs.from_dict(ev.get("from") or {"hops": []}), Obs.from_dict(ev.get("to") or {"hops": []})
+    before, after = _nodes(a), _nodes(b)
+    names_b, names_a = {n["name"] for n in before}, {n["name"] for n in after}
+    for n in before:
+        if n["name"] not in names_a:
+            n["state"] = "gone"
+    for n in after:
+        if n["name"] not in names_b:
+            n["state"] = "new"
+    if names_a == names_b:      # same networks, other routers inside one of them
+        prefixes = {n["name"]: {prefix(h) for h in n["hops"]} for n in before}
+        for n in after:
+            if {prefix(h) for h in n["hops"]} != prefixes.get(n["name"]):
+                n["state"] = "changed"
+        for n in before:
+            if any(m["state"] == "changed" and m["name"] == n["name"] for m in after):
+                n["state"] = "changed"
+    moved = ([n for n in after if n["state"] in ("new", "changed")]
+             or [n for n in before if n["state"] == "gone"])
+    kept = []
+    for x, y in zip(before, after):
+        if x["name"] != y["name"] or y["state"] != "same":
+            break
+        kept.append(y["name"])
+    where = ""
+    if moved:
+        changed = t["arrow"].join(dict.fromkeys(n["name"] for n in moved))
+        isp = (before or after)[0]["name"]      # the first network past yours is your ISP's
+        if moved[0]["name"] == isp:
+            where = t["where_isp"].format(changed=changed)
+        else:
+            key = "where_skip" if moved[0]["state"] == "gone" else "where_via"
+            where = t[key].format(changed=changed)
+            where = t["where_kept"].format(kept=t["and"].join(kept)) + where if kept else where[:1].upper() + where[1:]
+    return {"before": before, "after": after, "before_reached": a.reached, "after_reached": b.reached,
+            "where": where}
 
 
 def stop_text(sample: dict, lang: str = "en") -> tuple[str, str]:

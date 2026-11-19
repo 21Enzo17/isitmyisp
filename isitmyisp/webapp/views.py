@@ -671,7 +671,7 @@ def route_marks(store: Store, start: float, end: float, lang: str) -> list[tuple
 def route_changes(store: Store, lang: str, days: int = 7, now: float | None = None, limit: int = 20) -> list[dict]:
     """The path changes of the last days, newest first, with before and after, for the dashboard list."""
     from ..routes import T as RT
-    from ..routes import change_line, path_text, severity
+    from ..routes import change_line, diagram, path_text, severity
     now = now or time.time()
     out = []
     for e in reversed(store.route_events_between(now - days * 86400, now, kinds=("changed", "restored"))):
@@ -679,8 +679,7 @@ def route_changes(store: Store, lang: str, days: int = 7, now: float | None = No
         out.append({"ts": e["ts"], "kind": e["kind"], "title": RT[lang]["kind_" + e["kind"]],
                     "label": d.get("label", ""), "line": change_line(d, lang),
                     "before": path_text(d.get("from"), lang), "after": path_text(d.get("to"), lang),
-                    "before_hops": [h[1] for h in (d.get("from") or {}).get("hops", []) if h[3] != "home"],
-                    "after_hops": [h[1] for h in (d.get("to") or {}).get("hops", []) if h[3] != "home"],
+                    "diagram": diagram(d, lang),
                     "unstable": bool(d.get("unstable")), "impact": d.get("impact"),
                     "severity": d.get("severity") or severity(d.get("impact"))})
         if len(out) == limit:
