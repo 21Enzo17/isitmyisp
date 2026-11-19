@@ -59,6 +59,8 @@ def _net(hop: str, asn: str, name: str) -> dict:
 
 SLOW_PATH = (15 * 3600, 13 * 3600)   # seconds before the end: the ISP sends traffic the long way (#97)
 SLOW_EXTRA = 31.0                    # what the longer path adds, in ms
+TUNNEL_SLOW = 3 * 3600               # seconds before the end: the path to the branch office changes, and stays (#97)
+TUNNEL_EXTRA = 24.0                  # what that path adds to the tunnel, in ms
 
 MAIN = _net("203.0.113.1", "AS64500", "Example ISP S.A.")
 BACKUP = _net("198.51.100.1", "AS64501", "Backup Wireless S.R.L.")
@@ -75,6 +77,7 @@ class State:
     backup: bool = False
     loop: bool = False      # a cable closing a circle between two switches
     slow_path: bool = False  # the ISP moved traffic to a longer path
+    tunnel_slow: bool = False  # the branch office's provider moved the tunnel's traffic to a longer path
 
 
 class Simulator:
@@ -164,8 +167,10 @@ class Simulator:
             self.dev_checks[dv.name] = self.dev_checks[dv.name][-10:]
         rows = ([("home", home[0]), ("isp", m.isp_hop)] + [("anchor", a) for a in anchors]
                 + [("tcp", t) for t in tcp.values()] + [("dns", d) for d in dns])   # like a real monitor
-        under = w(self.tunnel.underlay, n, n - (round(n * .5) if st.path_drop else 0), 41.0)
-        over = w(self.tunnel.overlay, n, 0 if st.rekey_drop else (n - round(n * .5) if st.path_drop else n), 43.0)
+        extra = TUNNEL_EXTRA if st.tunnel_slow else 0.0
+        under = w(self.tunnel.underlay, n, n - (round(n * .5) if st.path_drop else 0), 41.0 + extra + rng.gauss(0, .5))
+        over = w(self.tunnel.overlay, n, 0 if st.rekey_drop else (n - round(n * .5) if st.path_drop else n),
+                 43.0 + extra + rng.gauss(0, .5))
         self.mon.step(m, rows, now=now, tunnels=[(self.tunnel, under, over)],
                       services=[(s, list(self.checks[s.name])) for s in self.services],
                       devices=[(d, list(self.dev_checks[d.name])) for d in self.devices])
@@ -188,7 +193,8 @@ class Simulator:
             st = State(isp_bad=0.58 <= f < 0.66 or 0.86 <= f < 0.94 or flaky, wifi_bad=0.26 <= f < 0.285,
                        erp_down=0.72 <= f < 0.75, pos_down=0.79 <= f < 0.81, rekey_drop=minute % 120 < 2.5 and minute > 5,
                        path_drop=0.40 <= f < 0.42, backup=0.47 <= f < 0.55,
-                       slow_path=end - SLOW_PATH[0] <= now < end - SLOW_PATH[1])
+                       slow_path=end - SLOW_PATH[0] <= now < end - SLOW_PATH[1],
+                       tunnel_slow=now >= end - TUNNEL_SLOW)
             if i >= total - tail:
                 st = self.scenario_state(scenario, now)
             self.step(now, st)
@@ -197,7 +203,7 @@ class Simulator:
     def scenario_state(self, scenario: str, now: float) -> State:
         """What keeps happening live in each scenario (the tunnel keeps its rekey drops)."""
         minute = (now / 60) % 120
-        base = State(rekey_drop=minute < 2.5)
+        base = State(rekey_drop=minute < 2.5, tunnel_slow=True)   # the tunnel's longer path is still there
         if scenario == "isp":
             base.isp_bad = True
         elif scenario == "wifi":
@@ -261,52 +267,83 @@ def add_device_checks(store: Store, now: float | None = None) -> None:
 
 
 def add_route_changes(store: Store, now: float | None = None) -> None:
-    """Path changes (#97): the ISP sends internet traffic the long way for two hours, which is slower, and the
-    ISP outages carry what the path showed when they opened."""
+    """Path changes (#97): the ISP sends internet traffic the long way for two hours, which is slower; the branch
+    office's provider moves the tunnel to other routers three hours ago and it is still slower; a change inside
+    the ISP that made nothing worse; and the ISP outages carry what the path showed when they opened."""
     from . import routes
     from .probes.mtr import Hop
     now = now or time.time()
     asn = {"203.0.113.1": ("64500", "Example ISP S.A."), "203.0.113.9": ("64500", "Example ISP S.A."),
+           "198.19.20.7": ("64500", "Example ISP S.A."),
            "192.0.2.10": ("64502", "Transit One LLC"), "198.18.4.1": ("64503", "Long Haul Carrier Inc."),
-           "198.18.9.1": ("64503", "Long Haul Carrier Inc."), "1.1.1.1": ("13335", "Cloudflare, Inc.")}
-    usual = ["192.168.1.1", "203.0.113.1", "203.0.113.9", "192.0.2.10", "1.1.1.1"]
-    longer = ["192.168.1.1", "203.0.113.1", "203.0.113.9", "198.18.4.1", "198.18.9.1", "1.1.1.1"]
-    cut = ["192.168.1.1", "203.0.113.1", "203.0.113.9", "???", "???", "???"]
+           "198.18.9.1": ("64503", "Long Haul Carrier Inc."), "1.1.1.1": ("13335", "Cloudflare, Inc."),
+           "8.8.8.8": ("15169", "Google LLC"), "9.9.9.9": ("19281", "Quad9"),
+           "198.51.100.1": ("64510", "Telco Sur S.A."), "198.51.100.20": ("64510", "Telco Sur S.A."),
+           "198.51.7.1": ("64510", "Telco Sur S.A."), "198.51.7.9": ("64510", "Telco Sur S.A.")}
 
     def obs(hosts, ts, ms=4.0):
         return routes.observe([Hop(i, h, 100.0 if h == "???" else 0.0, 3, ms * i, ms * i, ms * i + 2, 0.4)
                                for i, h in enumerate(hosts, 1)], asn, ts=ts)
 
-    t = routes.Target("anchor:1.1.1.1", "1.1.1.1", "internet", "1.1.1.1", "anchor", "1.1.1.1")
-    tr = routes.Tracker()
+    def track(t, paths, impacts):
+        """A tracker that settles on the first path, then sees each (path, ts, ms) CONFIRM times."""
+        tr = routes.Tracker()
+        first, ts0 = paths[0][0], paths[0][1]
+        for k in range(6):
+            tr.observe(obs(first, ts0 - (6 - k) * routes.ROUND))
+        out = []
+        for (path, ts, ms), imp in zip(paths[1:], impacts):
+            for k in range(routes.CONFIRM):
+                ev = tr.observe(obs(path, ts + k * routes.ROUND, ms))
+            ev.update({"label": t.label, "host": t.host, "impact": imp, "severity": routes.severity(imp)})
+            ev["id"] = store.add_route_event(ev["ts"], t.key, t.group, ev["kind"], ev)
+            out.append(ev)
+        return tr, out
+
+    trackers = {}
     change, back = now - SLOW_PATH[0], now - SLOW_PATH[1]
-    for k in range(6):
-        tr.observe(obs(usual, change - (6 - k) * routes.ROUND))
-    events = []
-    for path, ts, ms in ((longer, change, 10.0), (usual, back, 4.0)):
-        for k in range(routes.CONFIRM):
-            ev = tr.observe(obs(path, ts + k * routes.ROUND, ms))
-        events.append(ev)
     fast, slow = 30.0, 30.0 + SLOW_EXTRA
-    impacts = ({"before_ms": fast, "after_ms": slow, "before_loss": 0.0, "after_loss": 0.0},
-               {"before_ms": slow, "after_ms": fast, "before_loss": 0.0, "after_loss": 0.0})
-    for ev, imp in zip(events, impacts):
-        ev.update({"label": t.label, "host": t.host, "impact": imp, "severity": routes.severity(imp)})
-        ev["id"] = store.add_route_event(ev["ts"], t.key, t.group, ev["kind"], ev)
-    first = events[0]
+    slower = {"before_ms": fast, "after_ms": slow, "before_loss": 0.0, "after_loss": 0.0}
+    faster = {"before_ms": slow, "after_ms": fast, "before_loss": 0.0, "after_loss": 0.0}
+    first = None
+    for a in ANCHORS:                      # the longer path is the same for every internet destination
+        t = routes.Target(f"anchor:{a}", a, "internet", a, "anchor", a)
+        usual = ["192.168.1.1", "203.0.113.1", "203.0.113.9", "192.0.2.10", a]
+        longer = ["192.168.1.1", "203.0.113.1", "203.0.113.9", "198.18.4.1", "198.18.9.1", a]
+        paths = [(usual, change - 8 * 3600, 4.0)]
+        imps = []
+        if a == "8.8.8.8":                 # inside the ISP, other routers, nothing worse
+            paths.append((["192.168.1.1", "203.0.113.1", "198.19.20.7", "192.0.2.10", a], now - 20 * 3600, 4.0))
+            imps.append({"before_ms": fast, "after_ms": fast + .4, "before_loss": 0.0, "after_loss": 0.0})
+        paths += [(longer, change + 60 * ANCHORS.index(a), 10.0), (usual, back + 60 * ANCHORS.index(a), 4.0)]
+        imps += [slower, faster]
+        tr, evs = track(t, paths, imps)
+        trackers[t.key] = tr
+        if a == ANCHORS[0]:
+            first = evs[-2]
+            t0, back_ts = t, evs[-1]["ts"]
     iid = store.open_incident("route_slower", routes.evidence_lines(first, store.get_setting("lang") or "en"),
                               ts=first["ts"], scope="route:internet")
-    store.set_incident_details(iid, {"route_event": first["id"], "target": t.key})
-    store.close_incident(iid, ts=events[1]["ts"])
-    usual_sample = routes.Obs.from_dict(obs(usual, 0).to_dict()).to_dict()
+    store.set_incident_details(iid, {"route_event": first["id"], "target": t0.key})
+    store.close_incident(iid, ts=back_ts)
+    tun = routes.Target("tunnel:branch-office", "198.51.100.20", "tunnel:branch-office", "branch-office",
+                        "tunnel_under:branch-office", "198.51.100.20")
+    site = ["192.168.1.1", "203.0.113.1", "203.0.113.9", "198.51.100.1", "198.51.100.20"]
+    other = ["192.168.1.1", "203.0.113.1", "203.0.113.9", "198.51.7.1", "198.51.7.9", "198.51.100.20"]
+    tr, _ = track(tun, [(site, now - TUNNEL_SLOW - 8 * 3600, 8.0), (other, now - TUNNEL_SLOW, 11.0)],
+                  [{"before_ms": 41.0, "after_ms": 41.0 + TUNNEL_EXTRA, "before_loss": 0.0, "after_loss": 0.0}])
+    trackers[tun.key] = tr
+    cut = ["192.168.1.1", "203.0.113.1", "203.0.113.9", "???", "???", "???"]
+    usual_sample = routes.Obs.from_dict(obs(["192.168.1.1", "203.0.113.1", "203.0.113.9", "192.0.2.10", "1.1.1.1"],
+                                            0).to_dict()).to_dict()
     for inc in store.incidents_between(now - 86400, now):
         if inc.code in ("isp", "access", "remote") and not (change - 1800 <= inc.opened <= back):
-            row = {"target": t.key, "label": t.label, "host": t.host, "verdict": "cut",
+            row = {"target": t0.key, "label": t0.label, "host": t0.host, "verdict": "cut",
                    "before": usual_sample, "now": obs(cut, inc.opened + 30).to_dict()}
             store.add_route_event(inc.opened + 30, "group:internet", "internet", "diagnosis",
                                   {"incident_id": inc.id, "group": "internet", "rows": [row], "recent": []},
                                   incident_id=inc.id)
-    store.set_settings({"_routes": {t.key: tr.to_dict()}}, bump=False)
+    store.set_settings({"_routes": {k: tr.to_dict() for k, tr in trackers.items()}}, bump=False)
     store.commit()
 
 

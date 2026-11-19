@@ -19,7 +19,8 @@ ASN = {"181.96.60.1": ("7303", "Telecom Argentina S.A."), "181.96.60.162": ("730
        "181.89.51.39": ("7303", "Telecom Argentina S.A."),
        "200.16.1.1": ("4270", "Red de Interconexion Universitaria"), "200.16.9.9": ("4270", "Red de Interconexion Universitaria"),
        "190.103.1.1": ("52361", "ARSAT - Empresa Argentina de Soluciones Satelitales S.A."),
-       "1.1.1.1": ("13335", "Cloudflare, Inc."), "172.70.1.1": ("13335", "Cloudflare, Inc.")}
+       "1.1.1.1": ("13335", "Cloudflare, Inc."), "172.70.1.1": ("13335", "Cloudflare, Inc."),
+       "172.70.9.9": ("13335", "Cloudflare, Inc.")}
 
 
 def hops(*hosts: str) -> list[Hop]:
@@ -270,8 +271,14 @@ class Diagram(unittest.TestCase):
         self.assertEqual([n["state"] for n in g["before"]], ["same", "gone", "same"])
         self.assertEqual([n["state"] for n in g["after"]], ["same", "new", "same"])
         self.assertEqual(g["after"][1]["hops"], ["200.16.1.1", "200.16.9.9"])
-        self.assertIn(f"Your network and {telecom} stayed the same", g["where"])
-        self.assertIn(f"goes through {uni}, past your ISP", g["where"])
+        self.assertEqual(g["where"], f"Your ISP ({telecom}) now sends your traffic through {uni} instead of {arsat}.")
+        self.assertEqual(g["side"], "middle")
+        self.assertEqual(g["dest"], cf)
+        f = g["fork"]
+        self.assertEqual([n["name"] for n in f["head"]], [telecom])
+        self.assertEqual([n["name"] for n in f["before"]], [arsat])
+        self.assertEqual([n["name"] for n in f["after"]], [uni])
+        self.assertEqual([n["name"] for n in f["tail"]], [cf])
 
     def test_other_routers_inside_the_isp(self):
         inside = ("192.168.1.1", "181.96.60.1", "181.89.51.39", "190.103.1.1", "172.70.1.1", "1.1.1.1")
@@ -279,11 +286,21 @@ class Diagram(unittest.TestCase):
         self.assertEqual([n["state"] for n in g["after"]], ["changed", "same", "same"])
         self.assertEqual(g["before"][0]["state"], "changed")
         self.assertIn("dentro de la red de tu proveedor", g["where"])
+        self.assertEqual(g["side"], "isp")
+        self.assertEqual(g["fork"]["head"], [])
+
+    def test_other_routers_at_the_far_end(self):
+        far = ("192.168.1.1", "181.96.60.1", "181.96.60.162", "190.103.1.1", "172.70.9.9", "1.1.1.1")
+        g = routes.diagram(self.ev(USUAL, far), "en", far="site")
+        self.assertEqual(g["side"], "far")
+        self.assertIn("other site's side", g["where"])
 
     def test_a_path_that_no_longer_gets_there(self):
         g = routes.diagram(self.ev(USUAL, CUT_ISP), "en")
         self.assertTrue(g["before_reached"])
         self.assertFalse(g["after_reached"])
+        self.assertEqual(g["fork"]["tail"], [])
+        self.assertIn("no longer gets there", g["where"])
 
     def test_nothing_to_compare(self):
         g = routes.diagram({}, "en")
@@ -320,10 +337,12 @@ class Pages(WebAppBase):
 
     def test_dashboard_lists_the_change(self):
         html = self.client.get("/").get_data(as_text=True)
-        self.assertIn("route-list", html)
+        self.assertIn('class="rc ', html)
+        self.assertIn("rfork", html)
         self.assertIn("Red de Interconexion", html)
         self.assertIn("route-mark", html)
-        self.assertIn("rp-node new", html)
+        self.assertIn("rf-node new", html)
+        self.assertIn("20 → 70 ms", html)
 
     def test_incidents_show_the_diagnosis(self):
         html = self.client.get("/incidents").get_data(as_text=True)
@@ -336,6 +355,95 @@ class Pages(WebAppBase):
         html = build_report(self.store, now - 86400, now, lang="en", now=now)
         self.assertIn("Path changes", html)
         self.assertIn("20 → 70 ms", html)
+
+
+class Cards(unittest.TestCase):
+    """The dashboard card: changes grouped into events, still like that or not, the latency around them (#97)."""
+    ANCHORS = ("1.1.1.1", "8.8.8.8", "9.9.9.9")
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.store = Store(Path(self.tmp.name) / "c.db")
+        self.now = 1_800_000_000.0
+        self.at = self.now - 3 * 3600
+        self.targets = routes.targets(list(self.ANCHORS), [Tunnel("HQ", "198.51.100.7", "10.8.0.1", "wireguard")])
+
+    def samples(self, role, target, before, after, at=None, until=None):
+        at = at or self.at
+        for t in range(int(at - 4 * 3600), int(self.now), 60):
+            ms = after if at <= t < (until or self.now) else before
+            self.store.add_window(role, window(target, ms), ts=t)
+
+    def event(self, key, group, ts, kind="changed", a=USUAL, b=OTHER, **data):
+        d = {"from": obs(a).to_dict(), "to": obs(b).to_dict(), "label": key.split(":", 1)[1], "impact": None, **data}
+        self.store.add_route_event(ts, key, group, kind, d)
+
+    def cards(self, lang="en"):
+        self.store.commit()
+        return routes.cards(self.store, self.targets, lang, now=self.now, overlays={"HQ": "10.8.0.1"})
+
+    def test_one_event_for_several_destinations(self):
+        for i, a in enumerate(self.ANCHORS[:2]):
+            self.samples("anchor", a, 20, 60)
+            self.event(f"anchor:{a}", "internet", self.at + 60 * i)
+        self.samples("anchor", "9.9.9.9", 20, 20)
+        (c,) = self.cards()
+        self.assertEqual((c["case"], c["state"], c["n"], c["of"]), ("worse", "ongoing", 2, 3))
+        self.assertIn("2 destinations", c["headline"])
+        self.assertEqual(set(c["series"]), {"target", "others"})
+        self.assertGreater(len(c["series"]["target"]), 50)
+
+    def test_back_on_the_usual_path(self):
+        self.samples("anchor", "1.1.1.1", 20, 60, until=self.at + 3600)
+        self.event("anchor:1.1.1.1", "internet", self.at)
+        self.event("anchor:1.1.1.1", "internet", self.at + 3600, kind="restored", a=OTHER, b=USUAL)
+        back, change = self.cards()
+        self.assertEqual((back["case"], back["quiet"]), ("restored", True))
+        self.assertEqual((change["state"], change["until"]), ("back", self.at + 3600))
+        self.assertLessEqual(change["window"][1], self.at + 3600 + 1800)
+
+    def test_a_tunnel_slower_inside_and_out(self):
+        self.samples("tunnel_under:HQ", "198.51.100.7", 40, 65)
+        self.samples("tunnel_over:HQ", "10.8.0.1", 42, 67)
+        for a in self.ANCHORS:
+            self.samples("anchor", a, 20, 20)
+        self.event("tunnel:HQ", "tunnel:HQ", self.at)
+        (c,) = self.cards("es")
+        self.assertEqual((c["scope"], c["case"]), ("tunnel", "worse"))
+        self.assertTrue(c["only_site"])
+        self.assertIn("«HQ»", c["headline"])
+        self.assertIn("Dentro del túnel también: 42 → 67 ms.", c["lines"])
+        self.assertIn("solo afecta a este túnel", " ".join(c["lines"]))
+        self.assertEqual(set(c["series"]), {"inside", "outside", "internet"})
+
+    def test_not_only_the_tunnel_when_the_internet_got_worse_too(self):
+        self.samples("tunnel_under:HQ", "198.51.100.7", 40, 65)
+        for a in self.ANCHORS:
+            self.samples("anchor", a, 20, 60)
+        self.event("tunnel:HQ", "tunnel:HQ", self.at)
+        (c,) = self.cards()
+        self.assertFalse(c["only_site"])
+
+    def test_nothing_worse_is_folded(self):
+        self.samples("anchor", "1.1.1.1", 20, 21)
+        self.event("anchor:1.1.1.1", "internet", self.at)
+        (c,) = self.cards()
+        self.assertEqual((c["case"], c["quiet"], c["series"]), ("none", True, {}))
+
+    def test_too_soon_to_tell(self):
+        self.event("anchor:1.1.1.1", "internet", self.now - 300)
+        (c,) = self.cards()
+        self.assertEqual((c["case"], c["quiet"]), ("pending", False))
+        self.assertTrue(any("5 min ago" in line for line in c["lines"]))
+
+    def test_a_path_that_keeps_changing_is_one_event(self):
+        for k in range(4):
+            a, b = (USUAL, OTHER) if k % 2 == 0 else (OTHER, USUAL)
+            self.event("anchor:1.1.1.1", "internet", self.at + 900 * k, a=a, b=b, unstable=k >= 2)
+        cs = self.cards()
+        self.assertEqual(cs[0]["case"], "unstable")
+        self.assertTrue(any("times since" in line for line in cs[0]["lines"]))
 
 
 if __name__ == "__main__":

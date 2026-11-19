@@ -521,11 +521,36 @@ T = {
         "slower_loss": "{label}: loss {before_loss:.1f} % → {after_loss:.1f} % after the path changed at {hhmm}",
         "kind_changed": "Your ISP changed the path", "kind_restored": "Back on the usual path",
         "kind_unstable": "The path keeps changing",
-        "and": " and ",
-        "where_isp": "The change is inside your ISP's network: {changed} now uses other routers.",
-        "where_kept": "Your network and {kept} stayed the same: ",
-        "where_via": "traffic now goes through {changed}, past your ISP.",
-        "where_skip": "traffic no longer goes through {changed}, past your ISP.",
+        "where_isp": "The change is inside your ISP's network ({isp}): it now uses other routers.",
+        "where_via": "Your ISP ({isp}) now sends your traffic through {new} instead of {old}.",
+        "where_via_add": "Your ISP ({isp}) now sends your traffic through {new} as well.",
+        "where_skip": "Your ISP ({isp}) no longer sends your traffic through {old}.",
+        "where_routers": "Your ISP ({isp}) still hands it to {org}, now through other routers.",
+        "where_far_dest": "The change is at the far end, inside {dest}'s own network.",
+        "where_far_site": "The change is on the other site's side, inside its provider's network ({dest}).",
+        "where_cut": "It now stops inside {org} and no longer gets there.",
+        "where_cut_home": "It now stops inside your own network.",
+        "who_isp": "Your ISP", "n_dest": "{n} destinations", "the_site": "the other site of “{name}”",
+        "h_worse": "{who} changed the path to {what} and it's slower",
+        "h_worse_tunnel": "Tunnel “{name}” is slower because the path to the other site changed",
+        "h_worse_service": "{name} is slower because the path to it changed",
+        "h_loss": "{who} changed the path to {what} and packets are getting lost",
+        "h_loss_tunnel": "Tunnel “{name}” is losing packets since the path to the other site changed",
+        "h_loss_service": "{name} is losing packets since the path to it changed",
+        "h_cut": "The path to {what} changed and no longer gets there",
+        "h_unstable": "The path to {what} keeps changing",
+        "h_pending": "{who} changed the path to {what}: checking whether it matters",
+        "h_better": "{who} changed the path to {what} and it's faster",
+        "h_none": "{who} changed the path to {what}; nothing got worse",
+        "h_restored": "Back on the usual path to {what}",
+        "inside_same": "Inside the tunnel too: {before_ms:.0f} → {after_ms:.0f} ms.",
+        "inside_same_loss": "Inside the tunnel too: loss {before_loss:.1f} % → {after_loss:.1f} %.",
+        "inside_flat": "Inside the tunnel it stayed at {after_ms:.0f} ms.",
+        "inet_same_tunnel": "The rest of the internet stayed the same: only this tunnel is affected.",
+        "inet_same_service": "The rest of the internet stayed the same: only this service is affected.",
+        "outside_home": "It's outside your home: not your Wi-Fi or your router.",
+        "pending_line": "It changed {mins} min ago; latency before and after is compared once 15 min have passed.",
+        "flaps": "It changed {k} times since {hhmm}.",
     },
     "es": {
         "arrow": " → ", "unknown_path": "desconocido", "stop": "{org} ({host})", "stop_host": "{host}",
@@ -545,11 +570,36 @@ T = {
                        "a las {hhmm}",
         "kind_changed": "Tu proveedor cambió el camino", "kind_restored": "Volvió el camino de siempre",
         "kind_unstable": "El camino cambia una y otra vez",
-        "and": " y ",
-        "where_isp": "El cambio está dentro de la red de tu proveedor: {changed} usa otros routers.",
-        "where_kept": "Tu red y {kept} siguen igual: ",
-        "where_via": "ahora el tráfico pasa por {changed}, después de tu proveedor.",
-        "where_skip": "el tráfico ya no pasa por {changed}, después de tu proveedor.",
+        "where_isp": "El cambio está dentro de la red de tu proveedor ({isp}): ahora usa otros routers.",
+        "where_via": "Tu proveedor ({isp}) ahora manda tu tráfico por {new} en vez de {old}.",
+        "where_via_add": "Tu proveedor ({isp}) ahora manda tu tráfico también por {new}.",
+        "where_skip": "Tu proveedor ({isp}) ya no manda tu tráfico por {old}.",
+        "where_routers": "Tu proveedor ({isp}) lo sigue entregando a {org}, ahora por otros routers.",
+        "where_far_dest": "El cambio está del otro lado, dentro de la red de {dest}.",
+        "where_far_site": "El cambio está del lado del otro sitio, dentro de la red de su proveedor ({dest}).",
+        "where_cut": "Ahora se corta dentro de {org} y ya no llega.",
+        "where_cut_home": "Ahora se corta dentro de tu propia red.",
+        "who_isp": "Tu proveedor", "n_dest": "{n} destinos", "the_site": "el otro sitio de «{name}»",
+        "h_worse": "{who} cambió el camino hacia {what} y va más lento",
+        "h_worse_tunnel": "El túnel «{name}» va más lento porque cambió el camino hacia el otro sitio",
+        "h_worse_service": "{name} va más lento porque cambió el camino hacia él",
+        "h_loss": "{who} cambió el camino hacia {what} y se pierden paquetes",
+        "h_loss_tunnel": "El túnel «{name}» pierde paquetes desde que cambió el camino hacia el otro sitio",
+        "h_loss_service": "{name} pierde paquetes desde que cambió el camino hacia él",
+        "h_cut": "Cambió el camino hacia {what} y ya no llega",
+        "h_unstable": "El camino hacia {what} cambia una y otra vez",
+        "h_pending": "{who} cambió el camino hacia {what}: viendo si afecta",
+        "h_better": "{who} cambió el camino hacia {what} y va más rápido",
+        "h_none": "{who} cambió el camino hacia {what}; nada empeoró",
+        "h_restored": "Volvió el camino de siempre hacia {what}",
+        "inside_same": "Dentro del túnel también: {before_ms:.0f} → {after_ms:.0f} ms.",
+        "inside_same_loss": "Dentro del túnel también: pérdida {before_loss:.1f} % → {after_loss:.1f} %.",
+        "inside_flat": "Dentro del túnel siguió en {after_ms:.0f} ms.",
+        "inet_same_tunnel": "El resto de internet siguió igual: solo afecta a este túnel.",
+        "inet_same_service": "El resto de internet siguió igual: solo afecta a este servicio.",
+        "outside_home": "Está fuera de tu casa: no es tu Wi-Fi ni tu router.",
+        "pending_line": "Cambió hace {mins} min; la latencia de antes y después se compara a los 15 min.",
+        "flaps": "Cambió {k} veces desde las {hhmm}.",
     },
 }
 
@@ -576,13 +626,16 @@ def _nodes(o: Obs) -> list[dict]:
     return out
 
 
-def diagram(ev: dict, lang: str = "en") -> dict:
-    """Before and after as boxes (#97): which network changed, and whether that is inside your ISP or past it
-    (the first network past your own is your ISP's: hop segments can't tell a carrier from the ISP).
+def diagram(ev: dict, lang: str = "en", far: str = "dest") -> dict:
+    """Before and after as boxes (#97): which network changed, and whether that is inside your ISP, a network
+    your ISP now hands the traffic to, or the destination's own (the first network past yours is your ISP's:
+    hop segments can't tell a carrier from the ISP). `far`: "dest" (an internet destination) or "site" (the
+    other end of a tunnel), for the sentence about a change at the far end.
 
-    {"before": [node], "after": [node], "before_reached", "after_reached", "where": sentence}; a node is
-    {"name", "seg", "hops", "state"}, state "same", "gone" (only before), "new" (only after) or "changed"
-    (the same network on both sides, through other routers)."""
+    {"before": [node], "after": [node], "before_reached", "after_reached", "where": sentence, "side", "dest",
+    "fork"}; a node is {"name", "seg", "hops", "state"}, state "same", "gone" (only before), "new" (only after)
+    or "changed" (the same network on both sides, through other routers). `fork` is the same paths drawn as a
+    fork: {"head", "tail"} what both share at the start and at the end, {"before", "after"} the two lanes."""
     t = T[lang]
     a, b = Obs.from_dict(ev.get("from") or {"hops": []}), Obs.from_dict(ev.get("to") or {"hops": []})
     before, after = _nodes(a), _nodes(b)
@@ -601,25 +654,54 @@ def diagram(ev: dict, lang: str = "en") -> dict:
         for n in before:
             if any(m["state"] == "changed" and m["name"] == n["name"] for m in after):
                 n["state"] = "changed"
-    moved = ([n for n in after if n["state"] in ("new", "changed")]
-             or [n for n in before if n["state"] == "gone"])
-    kept = []
-    for x, y in zip(before, after):
-        if x["name"] != y["name"] or y["state"] != "same":
-            break
-        kept.append(y["name"])
-    where = ""
-    if moved:
-        changed = t["arrow"].join(dict.fromkeys(n["name"] for n in moved))
-        isp = (before or after)[0]["name"]      # the first network past yours is your ISP's
-        if moved[0]["name"] == isp:
-            where = t["where_isp"].format(changed=changed)
-        else:
-            key = "where_skip" if moved[0]["state"] == "gone" else "where_via"
-            where = t[key].format(changed=changed)
-            where = t["where_kept"].format(kept=t["and"].join(kept)) + where if kept else where[:1].upper() + where[1:]
+    head = 0
+    while (head < min(len(before), len(after)) and before[head]["name"] == after[head]["name"]
+           and before[head]["state"] == after[head]["state"] == "same"):
+        head += 1
+    tail = 0
+    if a.reached and b.reached:
+        while (tail < min(len(before), len(after)) - head and before[-1 - tail]["name"] == after[-1 - tail]["name"]
+               and before[-1 - tail]["state"] == after[-1 - tail]["state"] == "same"):
+            tail += 1
+    fork = {"head": after[:head], "before": before[head:len(before) - tail], "after": after[head:len(after) - tail],
+            "tail": after[len(after) - tail:]}
+    side, where, dest = _where(before, after, a.reached, b.reached, t, far)
     return {"before": before, "after": after, "before_reached": a.reached, "after_reached": b.reached,
-            "where": where}
+            "where": where, "side": side, "dest": dest, "fork": fork}
+
+
+def _where(before: list[dict], after: list[dict], reached_b: bool, reached_a: bool, t: dict,
+           far: str) -> tuple[str, str, str]:
+    """(side, sentence, destination network): side "isp" (inside your ISP's network), "middle" (your ISP now
+    hands it to other networks: it chose that), "far" (inside the destination's own network) or ""."""
+    if not before and not after:
+        return "", "", ""
+    isp = (before or after)[0]["name"]          # the first network past yours is your ISP's
+    dest = (before[-1]["name"] if reached_b and before else after[-1]["name"] if reached_a and after else "")
+    if reached_b and not reached_a:              # it no longer gets there: say where it stops
+        if not after:
+            return "isp", t["where_cut_home"], dest
+        stop = after[-1]["name"]
+        return ("isp" if stop == isp else "middle"), t["where_cut"].format(org=stop), dest
+    new = [n for n in after if n["state"] == "new"]
+    gone = [n for n in before if n["state"] == "gone"]
+    changed = [n for n in after if n["state"] == "changed"]
+    moved = new or changed or gone
+    if not moved:
+        return "", "", dest
+    first = moved[0]
+    if first["name"] == isp:
+        return "isp", t["where_isp"].format(isp=isp), dest
+    if not new and not gone and first["name"] == dest:
+        return "far", t["where_far_" + far].format(dest=dest), dest
+    names = lambda ns: t["arrow"].join(dict.fromkeys(n["name"] for n in ns))
+    if new and gone:
+        return "middle", t["where_via"].format(isp=isp, new=names(new), old=names(gone)), dest
+    if new:
+        return "middle", t["where_via_add"].format(isp=isp, new=names(new)), dest
+    if gone:
+        return "middle", t["where_skip"].format(isp=isp, old=names(gone)), dest
+    return "middle", t["where_routers"].format(isp=isp, org=first["name"]), dest
 
 
 def stop_text(sample: dict, lang: str = "en") -> tuple[str, str]:
@@ -712,3 +794,145 @@ def diagnosis_lines(store, incident, lang: str = "en", limit: int = 3) -> list[s
             if incident.scope == "internet" and len(lines) >= 2:
                 break
     return lines[:limit]
+
+
+# ------------------------------------------------------------------ the dashboard card
+
+GROUP_GAP = 1800.0     # changes of one group this close together are one event (several destinations at once)
+QUIET = ("restored", "better", "none")
+_RANK = {"cut": 3, "much_worse": 2, "worse": 1}
+
+
+def _clusters(events: list[dict]) -> list[list[dict]]:
+    """Changes grouped into events: same group, within GROUP_GAP (or UNSTABLE[1] while the path keeps
+    changing). A destination already in an event starts a new one, unless it is flapping."""
+    out: list[list[dict]] = []
+    open_: dict[str, list[dict]] = {}
+    for e in events:
+        c = open_.get(e["group"])
+        gap = UNSTABLE[1] if e["data"].get("unstable") else GROUP_GAP
+        if (c is not None and e["ts"] - c[-1]["ts"] <= gap
+                and (e["data"].get("unstable") or e["target"] not in {x["target"] for x in c})):
+            c.append(e)
+        else:
+            c = [e]
+            out.append(c)
+            open_[e["group"]] = c
+    return out
+
+
+def _rank(e: dict) -> tuple:
+    d = e["data"]
+    cut = bool((d.get("from") or {}).get("reached")) and not (d.get("to") or {}).get("reached")
+    imp = d.get("impact") or {}
+    delta = (imp.get("after_ms", 0) - imp.get("before_ms", 0)) if imp else 0
+    return (3 if cut else _RANK.get(d.get("severity") or severity(d.get("impact")), 0), delta)
+
+
+def _series(store, role: str, targets: set[str], start: float, end: float, n: int = 120) -> list[tuple[float, float]]:
+    """Median latency of some targets of a role, in n buckets."""
+    step = max(1.0, (end - start) / n)
+    buckets: dict[int, list[float]] = {}
+    for r in store.samples_between(start, end, role=role):
+        if r["target"] in targets and r["rtt_median"] is not None:
+            buckets.setdefault(int((r["ts"] - start) // step), []).append(r["rtt_median"])
+    return [(start + (i + 0.5) * step, statistics.median(v)) for i, v in sorted(buckets.items())]
+
+
+def cards(store, targets_: list[Target], lang: str = "en", now: float | None = None, days: float = 7,
+          overlays: dict[str, str] | None = None) -> list[dict]:
+    """The path changes of the last days as events, newest first: what happened in one sentence, whether it
+    is still like that, where the change is, and the latency around it (#97)."""
+    t = T[lang if lang in T else "en"]
+    now = now or time.time()
+    overlays = overlays or {}
+    by_key = {x.key: x for x in targets_}
+    anchors = [x for x in targets_ if x.role == "anchor"]
+    events = [e for e in store.route_events_between(now - days * 86400, now, kinds=("changed", "restored"))
+              if e["target"] in by_key]
+    clusters = _clusters(events)
+    inet_ts = [c[0]["ts"] for c in clusters if c[0]["group"] == "internet"]
+    out = []
+    for c in reversed(clusters):
+        p = max(c, key=_rank)
+        tg, d = by_key[p["target"]], p["data"]
+        scope = "inet" if tg.group == "internet" else tg.group.split(":", 1)[0]
+        name = tg.label
+        later = [e for e in events if e["target"] == p["target"] and e["ts"] > c[-1]["ts"]]
+        state, until = ("ongoing", None) if not later else (
+            "back" if later[0]["kind"] == "restored" else "again", later[0]["ts"])
+        end = min(now, p["ts"] + 86400) if until is None else min(now, until + 1800, p["ts"] + 86400)
+        imp = d.get("impact")
+        if imp is None and now - p["ts"] >= IMPACT_AFTER:
+            imp = impact(store, tg, p["ts"], until or now)
+        cut = bool((d.get("from") or {}).get("reached")) and not (d.get("to") or {}).get("reached")
+        lossy = bool(imp) and imp["after_loss"] - imp["before_loss"] >= 1.0
+        flapping = d.get("unstable") or len(c) > len({e["target"] for e in c})
+        if flapping:
+            case = "unstable"
+        elif p["kind"] == "restored":
+            case = "restored"
+        elif cut:
+            case = "cut"
+        elif imp is None:
+            case = "pending" if now - p["ts"] < 4 * IMPACT_AFTER else "none"
+        elif lossy:
+            case = "loss"
+        elif severity(imp) != "none":
+            case = "worse"
+        elif imp["before_ms"] - imp["after_ms"] >= 10 and imp["after_ms"] <= 0.8 * imp["before_ms"]:
+            case = "better"
+        else:
+            case = "none"
+        dia = diagram(d, lang, far="site" if scope == "tunnel" else "dest")
+        n = len({e["target"] for e in c})
+        of = len(anchors) if scope == "inet" else 1
+        what = (t["n_dest"].format(n=n) if n > 1 else d.get("label", name)) if scope == "inet" else (
+            t["the_site"].format(name=name) if scope == "tunnel" else name)
+        who = dia["dest"] if dia["side"] == "far" and dia["dest"] else t["who_isp"]
+        headline = t.get(f"h_{case}_{scope}", t[f"h_{case}"]).format(who=who, what=what, name=name)
+        headline = headline[:1].upper() + headline[1:]
+        lines = [dia["where"]] if dia["where"] else []
+        only_site = scope != "inet" and not any(abs(ts - p["ts"]) <= GROUP_GAP for ts in inet_ts) and not any(
+            severity(impact(store, a, p["ts"], until or now)) != "none" for a in anchors)
+        if scope == "tunnel" and name in overlays and case not in QUIET:
+            over = Target(tg.key, overlays[name], tg.group, name, f"tunnel_over:{name}", overlays[name])
+            inside = impact(store, over, p["ts"], until or now)
+            if inside:
+                if lossy and inside["after_loss"] - inside["before_loss"] >= 1.0:
+                    lines.append(t["inside_same_loss"].format(**inside))
+                elif severity(inside) != "none":
+                    lines.append(t["inside_same"].format(**inside))
+                else:
+                    lines.append(t["inside_flat"].format(**inside))
+        if only_site and case not in QUIET:
+            lines.append(t[f"inet_same_{scope}"])
+        if dia["side"] and case not in QUIET:
+            lines.append(t["outside_home"])
+        if case == "pending":
+            lines.append(t["pending_line"].format(mins=max(1, round((now - p["ts"]) / 60))))
+        if case == "unstable":
+            lines.append(t["flaps"].format(k=len(c), hhmm=time.strftime("%H:%M", time.localtime(c[0]["ts"]))))
+        card = {"ts": p["ts"], "since": c[0]["ts"], "group": tg.group, "scope": scope, "name": name, "case": case,
+                "quiet": case in QUIET, "headline": headline, "lines": lines, "label": d.get("label", name),
+                "n": n, "of": of, "only_site": only_site, "impact": imp, "lossy": lossy, "state": state,
+                "until": until, "unstable": bool(flapping), "diagram": dia, "series": {}, "window": None,
+                "mark": p["ts"]}
+        if not card["quiet"]:
+            start = p["ts"] - min(6 * 3600, max(3600, (end - p["ts"]) / 2))
+            card["window"] = (start, end)
+            hit = {by_key[e["target"]].sample_target for e in c}
+            if scope == "inet":
+                card["series"]["target"] = _series(store, "anchor", hit, start, end)
+                rest = {a.sample_target for a in anchors} - hit
+                if rest:
+                    card["series"]["others"] = _series(store, "anchor", rest, start, end)
+            elif scope == "tunnel":
+                if name in overlays:
+                    card["series"]["inside"] = _series(store, f"tunnel_over:{name}", {overlays[name]}, start, end)
+                card["series"]["outside"] = _series(store, tg.role, {tg.sample_target}, start, end)
+                card["series"]["internet"] = _series(store, "anchor", {a.sample_target for a in anchors}, start, end)
+            else:
+                card["series"]["target"] = _series(store, tg.role, {tg.sample_target}, start, end)
+        out.append(card)
+    return out

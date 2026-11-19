@@ -152,7 +152,7 @@ class Dashboard:
     link: dict | None = None
     link_enabled: bool = False
     recent: list = field(default_factory=list)
-    routes: list = field(default_factory=list)    # path changes of the last days (#97)
+    routes: dict | None = None    # path changes of the last days (#97)
     failover: dict | None = None   # on the backup link right now
     calls: dict | None = None      # estimated call quality (E-model)
     speed: dict | None = None      # speed test state and last results
@@ -231,7 +231,7 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
     d.isp_name = net.get("isp_name") or ""
     d.path = _path(d, net)
     d.recent = recent_incidents(store, now)
-    d.routes = route_changes(store, settings.lang, now=now, limit=5)
+    d.routes = route_cards(store, settings, now=now)
     d.speed = speed_status(store, settings, now)
     fo = next((i for i in store.incidents_between(now - 400 * 86400, now, scope="failover") if i.closed is None), None)
     if fo:
@@ -668,23 +668,28 @@ def route_marks(store: Store, start: float, end: float, lang: str) -> list[tuple
             for e in store.route_events_between(start, end, kinds=("changed", "restored"))]
 
 
-def route_changes(store: Store, lang: str, days: int = 7, now: float | None = None, limit: int = 20) -> list[dict]:
-    """The path changes of the last days, newest first, with before and after, for the dashboard list."""
-    from ..routes import T as RT
-    from ..routes import change_line, diagram, path_text, severity
+def route_cards(store: Store, settings: Settings, now: float | None = None) -> dict | None:
+    """The path changes of the last week as event cards (#97): the ones that made something worse first, with
+    their latency around the change; the ones that didn't, folded."""
+    from ..routes import cards, targets
     now = now or time.time()
-    out = []
-    for e in reversed(store.route_events_between(now - days * 86400, now, kinds=("changed", "restored"))):
-        d = e["data"]
-        out.append({"ts": e["ts"], "kind": e["kind"], "title": RT[lang]["kind_" + e["kind"]],
-                    "label": d.get("label", ""), "line": change_line(d, lang),
-                    "before": path_text(d.get("from"), lang), "after": path_text(d.get("to"), lang),
-                    "diagram": diagram(d, lang),
-                    "unstable": bool(d.get("unstable")), "impact": d.get("impact"),
-                    "severity": d.get("severity") or severity(d.get("impact"))})
-        if len(out) == limit:
-            break
-    return out
+    tg = targets(settings.anchors, settings.tunnels, settings.services)
+    cs = cards(store, tg, settings.lang, now=now, overlays={x.name: x.overlay for x in settings.tunnels})
+    if not cs:
+        return None
+    loud = [c for c in cs if not c["quiet"]][:3]
+    for c in loud:
+        start, end = c["window"]
+        top = max((v for pts in c["series"].values() for _, v in pts), default=0.0)
+        ymax = charts._nice_max(top, 10)
+        c["plots"] = [(k, charts.plot(pts, start, end, unit="ms", ymax=ymax)) for k, pts in c["series"].items()]
+        c["plots"] = [(k, pl) for k, pl in c["plots"] if not pl.empty]
+        c["ticks"] = next((pl.ticks for _, pl in c["plots"]), [])
+        c["mark_x"] = round(1000 * (c["mark"] - start) / max(1.0, end - start), 1)
+        c["xticks"] = charts.xticks(start, end)
+        c["for"] = fmt_duration(now - c["since"])
+        c["until_ago"] = fmt_duration(now - c["until"]) if c["until"] else ""
+    return {"loud": loud, "quiet": [c for c in cs if c["quiet"]][:10]}
 
 
 def chart_view(store: Store, settings: Settings, span: str = "24h", k: int = 0,
