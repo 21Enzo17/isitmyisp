@@ -125,8 +125,8 @@ def find_drops(store, name: str, start: float, end: float) -> list[Drop]:
     if not over:
         return []
     under = {round(r["ts"]): r for r in store.samples_between(start, end, role=f"tunnel_under:{name}")}
-    answered = any(r["received"] for r in under.values()) or any(
-        r["received"] for r in store.samples_between(end - 30 * 86400, start, role=f"tunnel_under:{name}"))
+    answered = any(r["received"] for r in under.values()) or store.answered_between(
+        end - 30 * 86400, start, role=f"tunnel_under:{name}")
     inet = {round(ts): code for ts, _, code in store.windows_between(start, end)}
     w = _window_len(over)
     drops: list[Drop] = []

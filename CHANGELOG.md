@@ -25,6 +25,11 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
   going on; during an outage it is one line at the foot of the latest events. The simple (counter) view
   doesn't show it. What's down or unstable stays put while long lists rotate (#97, #99).
 
+### Fixed
+- **`mtr` with no report**: for a name that doesn't resolve, `mtr` exits 0 and prints nothing, which
+  killed the thread that stores an incident's path (a traceback in the log, no evidence). It is now a
+  plain "no path" like any other `mtr` error.
+
 ## [0.5.2] - 2026-11-17
 
 ### Fixed

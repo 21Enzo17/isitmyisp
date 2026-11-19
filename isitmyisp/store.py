@@ -351,6 +351,12 @@ class Store:
             cols = [c[0] for c in cur.description]
             return [dict(zip(cols, r)) for r in cur.fetchall()]
 
+    def answered_between(self, start: float, end: float, role: str) -> bool:
+        """Whether anything with this role answered in the period (stops at the first that did)."""
+        with self._lock:
+            return self.db.execute("SELECT 1 FROM samples WHERE ts BETWEEN ? AND ? AND role = ? AND received > 0"
+                                   " LIMIT 1", (start, end, role)).fetchone() is not None
+
     def incidents_between(self, start: float, end: float, scope: str | None = "internet") -> list[Incident]:
         """scope='internet' (default), 'tunnel:<name>', 'tunnels' (any tunnel), 'unstable' (unstable tunnels),
         'unstable:tunnel:<name>' or None (everything)."""
