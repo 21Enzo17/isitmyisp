@@ -17,6 +17,7 @@
   {% if simple %}<a href="{{ base }}tv/">{{ t.demo_tv_board }}</a>{% else %}<a href="{{ base }}tv/simple/">{{ t.demo_tv_simple }}</a>{% endif %}</nav>
 {% endif %}
 {% macro more(h, rot) %}{% if h.bad %}{{ t.board_more.format(n=h.bad + h.none + h.good) }} {{ t.board_more_bad.format(n=h.bad) }} {% endif %}{% if rot %}{{ t.board_rot.format(shown=rot.shown, total=rot.total, page=rot.page, pages=rot.pages) }}{% endif %}{% endmacro %}
+{% macro route_line(rt) %}{% set imp = rt.impact %}<b>{{ rt.headline }}</b>{% if imp %} · {% if rt.lossy %}{{ t.routes_loss.format(before=imp.before_loss, after=imp.after_loss) }}{% else %}{{ '%.0f'|format(imp.before_ms) }} → {{ '%.0f'|format(imp.after_ms) }} ms{% endif %}{% endif %} · {{ t.routes_ongoing.format(dur=rt['for']) }}{% endmacro %}
 {% macro num(v, fmt='%.1f') %}{{ fmt|format(v) if v is not none else '—' }}{% endmacro %}
 {% set fo = d.failover %}
 {% set group = 'other' if fo and d.code == 'ok' else d.group %}
@@ -55,6 +56,7 @@
       {% for g in ('isp', 'you', 'other') if d.day.by.get(g) %}{{ t.day_by[g].format(k=d.day.by[g]) }}{{ ', ' if not loop.last else '.' }}{% endfor %}
       {% if d.day.hours %}{{ t.day_open.format(dur=d.day.open_dur) if d.day.open_s >= 60 else t.day_open_none }}{% endif %}{% endif %}</p>
     {% set down = d.services|selectattr('state', 'equalto', 'down')|list %}
+    {% if b.route %}<p class="tv-alert">{{ route_line(b.route) }}</p>{% endif %}
     {% if down %}<p class="tv-alert">{{ t.tv_services_down.format(names=down|map(attribute='name')|join(', ')) }}</p>{% endif %}
   </div>
   {% endif %}
@@ -64,13 +66,14 @@
 {# ------------------------------------------------------------ board: for a technician's wall #}
 {% set m = d.month if d.has_data else none %}
 {% set sp = d.speed %}{% set spr = sp.last if sp and sp.on and sp.last and not sp.last.error else none %}
-<main class="tvb g-{{ group }}{{ ' has-alarm' if b.alarms }}{{ ' has-month' if m }}">
+<main class="tvb g-{{ group }}{{ ' has-alarm' if b.alarms or b.route }}{{ ' has-month' if m }}">
   <header class="tvb-head">
     <span class="tvb-brand"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M17 32H24.5M39.5 32H47" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none" opacity=".55"/><circle cx="32" cy="32" r="12" fill="#3b82f6" opacity=".22"/><circle cx="11" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="53" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="32" cy="32" r="7.5" fill="#3b82f6"/></svg>isitmyisp</span>
     <span class="tvb-sub">{{ t.tv_subtitle }}</span>
     <span class="tvb-clock"><span class="live{{ ' stale' if d.code == 'stale' }}" aria-hidden="true"></span>{{ now|tvdate }} · {{ now|tm }}</span>
   </header>
 
+  {% if not b.alarms and b.route %}<p class="tvb-alarm route"><svg class="ico" aria-hidden="true"><use href="#i-globe"/></svg><span>{{ route_line(b.route) }}</span></p>{% endif %}
   {% if b.alarms %}<p class="tvb-alarm" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-cross"/></svg><span>{{ t.tv_alarm }} {% for c in b.alarms[:3] %}<b>{{ c.name }}</b>{% if c.since %} ({{ c.since }}){% endif %}{{ ', ' if not loop.last }}{% endfor %}{% if b.alarms|length > 3 %} {{ t.tv_alarm_more.format(n=b.alarms|length - 3) }}{% endif %}</span></p>{% endif %}
 
   <section class="tvb-row first">

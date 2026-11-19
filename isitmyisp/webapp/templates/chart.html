@@ -24,6 +24,7 @@
   {% set tl = cv.timeline %}{% set zoom = cv.zoom_in %}
   {% if cv.timeline.groups %}<ul class="key chart-key" aria-label="{{ t.row_status }}">
     {% for g in cv.timeline.groups %}<li><i class="sw g-{{ g }}" aria-hidden="true"></i>{{ t.group[g] }}</li>{% endfor %}
+    {% if cv.timeline.route_marks %}<li><i class="sw route" aria-hidden="true"></i>{{ t.route_mark_legend }}</li>{% endif %}
   </ul>{% endif %}
   <div class="zoomable" data-start="{{ cv.start|int }}" data-end="{{ cv.end|int }}" data-now="{{ cv.now|int }}"
        data-first="{{ (cv.first or cv.start)|int }}" data-who="{{ cv.who or '' }}"

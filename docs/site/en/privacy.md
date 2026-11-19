@@ -15,6 +15,7 @@ isitmyisp is meant to run on your network for months. By default it **never send
 | TCP to 1.1.1.1, 8.8.8.8 and 9.9.9.9, port 443 | always | SYN, then closes (no data, no TLS) | on |
 | DNS queries to your own resolvers | always | A queries for www.google.com, www.cloudflare.com and www.wikipedia.org | on |
 | `mtr` to 1.1.1.1 | on path discovery and incidents | ICMP probes | on |
+| `mtr` to each internet destination, tunnel far end and service | every 10 min and when an incident opens | 3 rounds of ICMP probes, to see whether your ISP changed the path | on |
 | The [network check-up](doctor.md): "don't fragment" pings to 1.1.1.1 | once a day and when you run it | pings of different sizes, to measure the MTU | on |
 | The check-up: one DNS query to 192.0.2.53 | once a day and when you run it | an A query for www.google.com to an address that doesn't exist on the internet: if anyone answers, something intercepts your DNS | on |
 | iptoasn.com | only when you press the button in Settings → Your connection or run `update-asn` | one HTTPS download of the public dataset (no per-IP queries) | manual |

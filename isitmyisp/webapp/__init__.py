@@ -305,6 +305,17 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
             resp.delete_cookie("theme")
         return resp
 
+    FOLDS = ("routes",)
+
+    @app.get("/fold")
+    def fold():
+        """A dashboard card kept open or folded, remembered in a cookie (no JavaScript)."""
+        card, to = request.args.get("card"), request.args.get("to")
+        resp = redirect(safe_next(request.args.get("next")) or url_for("dashboard"))
+        if card in FOLDS and to in ("open", "closed"):
+            resp.set_cookie(f"fold_{card}", to, max_age=365 * 86400, samesite="Lax", httponly=True)
+        return resp
+
     # ---------------------------------------------------------------- pages
 
     @app.get("/")

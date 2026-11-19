@@ -23,7 +23,7 @@ GROUP = {"ok": "good", "local": "you", "loop": "you", "saturation": "you", "acce
          # tunnels and your own services
          "config": "you", "path_local": "you", "path_remote": "other", "unknown": "none", "service_down": "other",
          "device_down": "you",
-         "failover": "other", "speedtest": "none"}
+         "failover": "other", "speedtest": "none", "route_slower": "isp"}
 SEVERITY = {"isp": 4, "you": 3, "other": 2, "good": 1, "none": 0}
 
 
@@ -39,6 +39,7 @@ class Bucket:
     backup: bool = False  # traffic was going out through the backup link
     mos: float | None = None  # estimated call quality (1..5), mean of the bucket
     loss_max: float | None = None  # the worst single window in the bucket (%): a short spike the mean hides
+    route: list[str] = field(default_factory=list)  # the ISP changed a path in this bucket: what changed (#97)
 
 
 @dataclass
@@ -69,6 +70,7 @@ class Timeline:
     hourly: list[Bucket]                         # table view
     backup_runs: list[tuple[float, float]] = field(default_factory=list)  # (x, width): on the backup link
     calls: Plot | None = None                    # estimated MOS over time (None: not computed)
+    route_marks: list[tuple[float, str]] = field(default_factory=list)  # (x, kind): a path changed there
 
 
 def _nice_max(v: float, floor: float) -> float:
@@ -190,9 +192,10 @@ def xticks(start: float, end: float) -> list[str]:
 
 def timeline(windows: list[tuple[float, float, str]], series: list[tuple[float, float, float | None]],
              start: float, end: float, n: int = BUCKETS, backup: list[tuple[float, float]] = (),
-             calls: list[tuple[float, float]] | None = None) -> Timeline:
+             calls: list[tuple[float, float]] | None = None,
+             routes: list[tuple[float, str, str]] = ()) -> Timeline:
     """windows: [(ts, seconds, code)]; series: [(ts, loss %, median latency ms)] per window;
-    backup: [(start, end)] spans on the backup link (failover)."""
+    backup: [(start, end)] spans on the backup link (failover); routes: [(ts, kind, text)] path changes."""
     buckets = _buckets(windows, series, start, end, n)
     span = max(1.0, end - start)
     backup_runs = []
@@ -212,6 +215,13 @@ def timeline(windows: list[tuple[float, float, str]], series: list[tuple[float, 
                 acc[i].append(mos)
         for b, ms in zip(buckets, acc):
             b.mos = round(statistics.fmean(ms), 2) if ms else None
+    marks = []
+    for ts, kind, text in routes:
+        if start <= ts < end:
+            marks.append((round(1000 * (ts - start) / span, 2), kind))
+            i = min(len(buckets) - 1, int((ts - start) / (span / len(buckets)))) if buckets else -1
+            if i >= 0:
+                buckets[i].route.append(text)
     runs = strip_runs(windows, start, end)
     present = {g for _, _, g, _ in runs}
     groups = [g for g in ("good", "you", "isp", "other") if g in present]
@@ -221,4 +231,4 @@ def timeline(windows: list[tuple[float, float, str]], series: list[tuple[float, 
                     plot([(ts, loss) for ts, loss, _ in series], start, end, unit="%", floor=2),
                     plot([(ts, lat) for ts, _, lat in series], start, end, unit=" ms", floor=10),
                     xticks(start, end), groups, _merge(buckets, max(1, n // 24)), backup_runs,
-                    plot(calls, start, end, ymin=1, ymax=5, threshold=3.6) if calls else None)
+                    plot(calls, start, end, ymin=1, ymax=5, threshold=3.6) if calls else None, marks)

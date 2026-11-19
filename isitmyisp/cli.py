@@ -340,8 +340,18 @@ def cmd_monitor(args, t) -> int:
 
     store = Store(args.db)
     cfg = _settings(args, store)
+    from . import routes
+    from .probes.mtr import mtr_available
+    watcher = None
+    if mtr_available():   # route changes (#97): every destination traced every 10 min, and when an incident opens
+        def route_targets():
+            c = _settings(args, store)
+            return routes.targets(c.anchors, c.tunnels, c.services)
+        watcher = routes.Watcher(store, route_targets, data_dir=data_dir(), asn_online=args.asn_online)
+        watcher.start()
     mon = Monitor(store, window_seconds=args.window or cfg.window,
-                  capture=mtr_capturer(store, data_dir(), asn_online=args.asn_online))
+                  capture=mtr_capturer(store, data_dir(), asn_online=args.asn_online),
+                  on_open=watcher.incident_opened if watcher else None)
     mon.resume()
     from .alerts import Alerter
     alerter = Alerter(store, lambda: _settings(args, store).lang)
@@ -430,6 +440,8 @@ def cmd_monitor(args, t) -> int:
     except KeyboardInterrupt:
         pass
     finally:
+        if watcher:
+            watcher.stop()
         if server:
             server.stop()
         store.close()

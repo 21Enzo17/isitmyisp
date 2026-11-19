@@ -64,6 +64,7 @@
     <h2 id="tl-h"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-bars"/></svg>{{ t.last24 }}</h2>
     <ul class="key" aria-label="{{ t.row_status }}">
       {% for g in tl.groups %}<li><i class="sw g-{{ g }}" aria-hidden="true"></i>{{ t.group[g] }}</li>{% endfor %}
+      {% if tl.route_marks %}<li><i class="sw route" aria-hidden="true"></i>{{ t.route_mark_legend }}</li>{% endif %}
     </ul>
     <a class="card-link" href="{{ url_for('chart', span='24h') }}">{{ t.chart_open }} <span aria-hidden="true">↗</span></a>
   </div>
@@ -113,6 +114,74 @@
 </section>
 {% endif %}
 </div>
+
+{% if d.routes %}
+{% set ropen = request.cookies.get('fold_routes') != 'closed' %}
+<details class="card routes fold" id="routes"{{ ' open' if ropen }} aria-labelledby="routes-h">
+  <summary class="card-head"><h2 id="routes-h"><svg class="ico hi-amber" aria-hidden="true"><use href="#i-globe"/></svg>{{ t.routes_title }}</h2>
+    {% if demo_static %}<span class="fold-btn" aria-hidden="true"></span>{% else %}{% set nxt = request.full_path.rstrip('?') ~ '#routes' %}
+    <a class="fold-btn" href="{{ url_for('fold', card='routes', to='closed' if ropen else 'open', next=nxt) }}" aria-label="{{ t.fold_min if ropen else t.fold_max }}" title="{{ t.fold_min if ropen else t.fold_max }}"></a>{% endif %}</summary>
+  <p class="muted small">{{ t.routes_sub }}</p>
+  {% macro rbox(n) %}<li class="rf-node {{ n.state }}"><b>{{ n.name }}</b></li>{% endmacro %}
+  {% for r in d.routes.loud %}{% set g = r.diagram %}{% set f = g.fork %}{% set imp = r.impact %}
+  <article class="rc case-{{ r.case }}" aria-labelledby="rc-{{ loop.index }}">
+    <h3 id="rc-{{ loop.index }}">{{ r.headline }}</h3>
+    <p class="rc-chips">
+      {% if imp %}{% set worse = imp.after_ms > imp.before_ms %}
+      <span class="chip {{ 'bad' if r.case in ('worse', 'loss', 'cut', 'unstable') else 'good' if r.case == 'better' else '' }}">{% if r.lossy %}{{ t.routes_loss.format(before=imp.before_loss, after=imp.after_loss) }}{% else %}{{ '%.0f'|format(imp.before_ms) }} → {{ '%.0f'|format(imp.after_ms) }} ms{% endif %}</span>{% endif %}
+      {% if r.scope == 'inet' and r.of > 1 %}<span class="chip">{{ t.routes_n_of.format(n=r.n, of=r.of) }}</span>
+      {% elif r.only_site %}<span class="chip">{{ t.routes_only_tunnel if r.scope == 'tunnel' else t.routes_only_service }}</span>{% endif %}
+      <span class="chip state-{{ r.state }}" title="{{ r.since|dt }}">{% if r.state == 'ongoing' %}{{ t.routes_ongoing.format(dur=r['for']) }}{% elif r.state == 'back' %}{{ t.routes_back.format(dur=r.until_ago) }}{% else %}{{ t.routes_again.format(dur=r.until_ago) }}{% endif %}</span>
+    </p>
+    {% for line in r.lines %}<p class="rc-line">{{ line }}</p>{% endfor %}
+    {% if r.plots %}
+    <figure class="rc-fig">
+      <figcaption class="rc-key"><span class="muted">{{ t.routes_chart }}</span>
+        {% for k, pl in r.plots %}<span class="k s-{{ k }}"><i aria-hidden="true"></i>{{ t.routes_series['targets' if k == 'target' and r.n > 1 else k] }}</span>{% endfor %}
+        <span class="k s-mark"><i aria-hidden="true"></i>{{ t.route_mark_legend }}</span></figcaption>
+      <div class="rc-plot line">
+        <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
+          <line class="gl" x1="0" x2="1000" y1="0.5" y2="0.5"/>
+          <line class="gl" x1="0" x2="1000" y1="50" y2="50"/>
+          <line class="base" x1="0" x2="1000" y1="99.5" y2="99.5"/>
+          <rect class="route-mark" x="{{ r.mark_x - 2 }}" y="0" width="4" height="100"/>
+          {% for k, pl in r.plots|reverse %}<path class="ln s-{{ k }}" d="{{ pl.line }}"/>{% endfor %}
+        </svg>
+        <span class="yt top">{{ r.ticks[0] }}</span><span class="yt mid">{{ r.ticks[1] }}</span>
+      </div>
+      <div class="xaxis" aria-hidden="true">{% for x in r.xticks %}<span class="x{{ loop.index }}">{{ x }}</span>{% endfor %}</div>
+    </figure>
+    {% endif %}
+    {% if g.before or g.after %}
+    <div class="rfork">
+      <ol class="rf-head"><li class="rf-node home"><b>{{ t.routes_home }}</b></li>{% for n in f.head %}{{ rbox(n) }}{% endfor %}</ol>
+      <div class="rf-lanes">
+        {% for side, nodes, reached, ms in (('before', f.before, g.before_reached, imp.before_ms if imp else none),
+                                            ('after', f.after, g.after_reached, imp.after_ms if imp else none)) %}
+        <div class="rf-lane {{ side }}">
+          <span class="rf-tag">{{ t.routes_before if side == 'before' else t.routes_after }}</span>
+          <ol>{% for n in nodes %}{{ rbox(n) }}{% else %}{% if reached %}<li class="rf-node direct"><b>{{ t.routes_direct }}</b></li>{% endif %}{% endfor %}
+            {% if not reached %}<li class="rf-node cut"><b>{{ t.routes_noreach }}</b></li>{% endif %}</ol>
+          {% if ms is not none %}<span class="rf-ms">{{ '%.0f'|format(ms) }} ms</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% if f.tail %}<ol class="rf-tail">{% for n in f.tail %}{{ rbox(n) }}{% endfor %}</ol>{% endif %}
+    </div>
+    <details class="rc-ips"><summary>{{ t.routes_routers }}</summary>
+      <dl>{% for side, nodes in (('before', g.before), ('after', g.after)) %}<dt>{{ t.routes_before if side == 'before' else t.routes_after }}</dt>
+        <dd>{% for n in nodes %}<span class="rp-net {{ n.state }}"><b>{{ n.name }}</b> {{ n.hops|join(' · ') }}</span>{% endfor %}</dd>{% endfor %}</dl>
+    </details>
+    {% endif %}
+  </article>
+  {% endfor %}
+  {% if d.routes.quiet %}{% set q = d.routes.quiet %}
+  <details class="rc-quiet"><summary>{{ t.routes_quiet_1 if q|length == 1 else t.routes_quiet.format(n=q|length) }}</summary>
+    <ul>{% for r in q %}<li>{{ r.headline }} <span class="muted" title="{{ r.ts|dt }}">· {{ r.ts|ago }}</span>{% if r.diagram.where %}<br><span class="muted small">{{ r.diagram.where }}</span>{% endif %}</li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+</details>
+{% endif %}
 
 {% if d.month %}{% set m = d.month %}
 <section class="card month" aria-labelledby="month-h">

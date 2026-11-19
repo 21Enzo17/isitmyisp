@@ -12,6 +12,7 @@
       <td class="num">{{ r.duration }}</td>
       <td><span class="dot {{ r.css }}"></span> {{ r.scope }} · {{ r.code|cause }}{% if r.drops %}<br><span class="ev-int">{{ t.intermittent_n.format(n=r.drops) }}</span>{% endif %}</td>
       <td>{% if r.summary %}<p class="ev-sum">{{ r.summary }}</p>{% endif %}<span class="mono">{% for e in r.evidence %}{{ e|ev }}<br>{% endfor %}</span>
+        {% for line in r.path %}<p class="ev-path">{{ line }}</p>{% endfor %}
         {% with details = r.details %}{% include "_ruled.html" %}{% endwith %}</td></tr>
   {% endfor %}
   </tbody>

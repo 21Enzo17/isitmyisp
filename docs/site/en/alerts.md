@@ -11,6 +11,7 @@ A message when the internet, a service or a tunnel goes down. Each one says **wh
 - **Only if it lasts.** By default it alerts once a problem has lasted at least 2 minutes; you can set 0 to 240. A few seconds' blip won't wake you up.
 - **Also when it's resolved**, with the total duration. This can be turned off.
 - **With a link to the dashboard**, if you fill in the dashboard address. The wizard fills it in from the address you used.
+- **With what the path shows.** When an incident opens, it traces the path right away and the alert says where it stops, or that your ISP changed it just before ([path changes](features.md#path-changes)). The webhook gets it as `path`.
 
 ## Telegram
 
