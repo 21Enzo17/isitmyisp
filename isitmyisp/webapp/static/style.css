@@ -861,6 +861,8 @@ input[type=text], input[type=password], input[type=number], input[type=datetime-
              color: var(--ink); background: color-mix(in srgb, var(--isp) 20%, var(--surface)); border: 1px solid var(--isp); overflow: hidden; }
 .tvb-alarm span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tvb-alarm .ico { width: 1.3rem; height: 1.3rem; color: var(--isp); stroke-width: 3; flex: none; }
+.tvb-alarm.route { background: color-mix(in srgb, var(--violet) 16%, var(--surface)); border-color: var(--violet); }
+.tvb-alarm.route .ico { color: var(--violet); stroke-width: 2; }
 .tvb-row { display: grid; gap: .9rem; min-height: 0; }
 .tvb-row.first { grid-template-columns: minmax(0, 1.75fr) repeat(3, minmax(0, 1fr)); }
 .tvb-row.mid { grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr); }
@@ -1156,3 +1158,14 @@ details.rc-quiet { border-top: 1px solid var(--line); padding-top: 12px; margin-
   .rf-head::after, .rf-tail::before { display: none; }
   .rf-lanes { border-right: 0; border-radius: 0; }
 }
+
+/* Path changes, folded (#97): the title and one line; open by itself only while a change is still making things worse. */
+details.routes > summary.card-head { justify-content: flex-start; margin-bottom: 0; }
+details.routes[open] > summary.card-head { margin-bottom: 8px; }
+details.routes .rc-sum { min-width: 0; flex: 1; font-size: 13.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+details.routes .rc-sum.bad { color: var(--isp); font-weight: 500; }
+details.routes[open] .rc-sum { display: none; }
+details.routes > summary .fold-cta { flex: none; text-decoration: none; }
+details.routes > summary a.fold-cta:hover { text-decoration: underline; }
+details.routes[open] > summary .fold-cta.hide { display: inline; margin-left: auto; }
+details.routes:not([open]) > summary .fold-cta.hide, details.routes[open] > summary .fold-cta.show { display: none; }

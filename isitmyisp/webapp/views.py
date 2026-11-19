@@ -611,7 +611,13 @@ def board(d: Dashboard, now: float | None = None) -> dict:
             "conns": shown, "conns_hidden": c_hidden, "conns_rot": c_rot,
             "alarms": [c for c in conns if c.st == "bad"],
             "points_alarm": any(p.status == "bad" for p in d.points),
-            "recent": d.recent[:BOARD_RECENT]}
+            "recent": d.recent[:BOARD_RECENT], "route": board_route(d)}
+
+
+def board_route(d: Dashboard) -> dict | None:
+    """The wall screen names a path change only while it is still making things worse: one line, the
+    headline and how much, never the diagram."""
+    return (d.routes or {}).get("alert")
 
 
 # ------------------------------------------------------------------ the chart, enlarged, with zoom
@@ -668,6 +674,9 @@ def route_marks(store: Store, start: float, end: float, lang: str) -> list[tuple
             for e in store.route_events_between(start, end, kinds=("changed", "restored"))]
 
 
+BAD_CASES = ("worse", "loss", "cut", "unstable")
+
+
 def route_cards(store: Store, settings: Settings, now: float | None = None) -> dict | None:
     """The path changes of the last week as event cards (#97): the ones that made something worse first, with
     their latency around the change; the ones that didn't, folded."""
@@ -689,7 +698,8 @@ def route_cards(store: Store, settings: Settings, now: float | None = None) -> d
         c["xticks"] = charts.xticks(start, end)
         c["for"] = fmt_duration(now - c["since"])
         c["until_ago"] = fmt_duration(now - c["until"]) if c["until"] else ""
-    return {"loud": loud, "quiet": [c for c in cs if c["quiet"]][:10]}
+    alert = next((c for c in loud if c["state"] == "ongoing" and c["case"] in BAD_CASES), None)
+    return {"loud": loud, "quiet": [c for c in cs if c["quiet"]][:10], "alert": alert, "n": len(cs)}
 
 
 def chart_view(store: Store, settings: Settings, span: str = "24h", k: int = 0,

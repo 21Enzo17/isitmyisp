@@ -344,6 +344,30 @@ class Pages(WebAppBase):
         self.assertIn("rf-node new", html)
         self.assertIn("20 → 70 ms", html)
 
+    def test_card_folds_and_remembers(self):
+        html = self.client.get("/").get_data(as_text=True)
+        self.assertIn('id="routes" open', html)              # still making things worse: open by itself
+        r = self.client.get("/fold?card=routes&to=closed&next=/%23routes")
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("fold_routes=closed", r.headers["Set-Cookie"])
+        html = self.client.get("/").get_data(as_text=True)
+        self.assertIn('id="routes" aria-labelledby', html)  # folded: only the title and one line
+        self.assertIn('class="rc-sum bad"', html)
+        self.client.get("/fold?card=routes&to=open")
+        self.assertIn('id="routes" open', self.client.get("/").get_data(as_text=True))
+        r = self.client.get("/fold?card=nope&to=closed&next=//evil.com")
+        self.assertNotIn("fold_", r.headers.get("Set-Cookie", ""))
+        self.assertNotIn("evil", r.headers["Location"])
+
+    def test_wall_screen_names_an_ongoing_change(self):
+        self.store.set_settings({"tv_token": "tok"})
+        tv = self.app.test_client().get("/tv/tok").get_data(as_text=True)
+        self.assertIn('class="tvb-alarm route"', tv)
+        self.assertIn("The path to 1.1.1.1 changed", tv)
+        self.assertNotIn("rfork", tv)                         # one line, never the diagram
+        simple = self.app.test_client().get("/tv/tok?layout=simple").get_data(as_text=True)
+        self.assertIn("The path to 1.1.1.1 changed", simple)
+
     def test_incidents_show_the_diagnosis(self):
         html = self.client.get("/incidents").get_data(as_text=True)
         self.assertIn("ev-path", html)

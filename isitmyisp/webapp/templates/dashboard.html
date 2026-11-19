@@ -116,8 +116,14 @@
 </div>
 
 {% if d.routes %}
-<section class="card routes" aria-labelledby="routes-h">
-  <div class="card-head"><h2 id="routes-h"><svg class="ico hi-amber" aria-hidden="true"><use href="#i-globe"/></svg>{{ t.routes_title }}</h2></div>
+{% set rfold = request.cookies.get('fold_routes') %}{% set ra = d.routes.alert %}
+{% set ropen = rfold == 'open' or (rfold != 'closed' and ra) %}
+<details class="card routes fold" id="routes"{{ ' open' if ropen }} aria-labelledby="routes-h">
+  <summary class="card-head"><h2 id="routes-h"><svg class="ico hi-amber" aria-hidden="true"><use href="#i-globe"/></svg>{{ t.routes_title }}</h2>
+    <span class="rc-sum{{ ' bad' if ra }}">{% if ra %}{{ ra.headline }}{% else %}{{ t.routes_n.format(n=d.routes.n) if d.routes.n != 1 else t.routes_n_1 }}{% endif %}</span>
+    {% if demo_static %}<span class="fold-cta show">{{ t.fold_show }}</span>{% else %}{% set nxt = request.full_path.rstrip('?') ~ '#routes' %}
+    <a class="fold-cta show" href="{{ url_for('fold', card='routes', to='open', next=nxt) }}">{{ t.fold_show }}</a>
+    <a class="fold-cta hide" href="{{ url_for('fold', card='routes', to='closed', next=nxt) }}">{{ t.fold_hide }}</a>{% endif %}</summary>
   <p class="muted small">{{ t.routes_sub }}</p>
   {% macro rbox(n) %}<li class="rf-node {{ n.state }}"><b>{{ n.name }}</b></li>{% endmacro %}
   {% for r in d.routes.loud %}{% set g = r.diagram %}{% set f = g.fork %}{% set imp = r.impact %}
@@ -177,7 +183,7 @@
     <ul>{% for r in q %}<li>{{ r.headline }} <span class="muted" title="{{ r.ts|dt }}">· {{ r.ts|ago }}</span>{% if r.diagram.where %}<br><span class="muted small">{{ r.diagram.where }}</span>{% endif %}</li>{% endfor %}</ul>
   </details>
   {% endif %}
-</section>
+</details>
 {% endif %}
 
 {% if d.month %}{% set m = d.month %}
