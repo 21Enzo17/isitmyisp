@@ -56,7 +56,6 @@
       {% for g in ('isp', 'you', 'other') if d.day.by.get(g) %}{{ t.day_by[g].format(k=d.day.by[g]) }}{{ ', ' if not loop.last else '.' }}{% endfor %}
       {% if d.day.hours %}{{ t.day_open.format(dur=d.day.open_dur) if d.day.open_s >= 60 else t.day_open_none }}{% endif %}{% endif %}</p>
     {% set down = d.services|selectattr('state', 'equalto', 'down')|list %}
-    {% if b.route %}<p class="tv-alert">{{ route_line(b.route) }}</p>{% endif %}
     {% if down %}<p class="tv-alert">{{ t.tv_services_down.format(names=down|map(attribute='name')|join(', ')) }}</p>{% endif %}
   </div>
   {% endif %}
@@ -66,14 +65,14 @@
 {# ------------------------------------------------------------ board: for a technician's wall #}
 {% set m = d.month if d.has_data else none %}
 {% set sp = d.speed %}{% set spr = sp.last if sp and sp.on and sp.last and not sp.last.error else none %}
-<main class="tvb g-{{ group }}{{ ' has-alarm' if b.alarms or b.route }}{{ ' has-month' if m }}">
+<main class="tvb g-{{ group }}{{ ' has-alarm' if b.alarms or b.route_top }}{{ ' has-month' if m }}">
   <header class="tvb-head">
     <span class="tvb-brand"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M17 32H24.5M39.5 32H47" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none" opacity=".55"/><circle cx="32" cy="32" r="12" fill="#3b82f6" opacity=".22"/><circle cx="11" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="53" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="32" cy="32" r="7.5" fill="#3b82f6"/></svg>isitmyisp</span>
     <span class="tvb-sub">{{ t.tv_subtitle }}</span>
     <span class="tvb-clock"><span class="live{{ ' stale' if d.code == 'stale' }}" aria-hidden="true"></span>{{ now|tvdate }} · {{ now|tm }}</span>
   </header>
 
-  {% if not b.alarms and b.route %}<p class="tvb-alarm route"><svg class="ico" aria-hidden="true"><use href="#i-globe"/></svg><span>{{ route_line(b.route) }}</span></p>{% endif %}
+  {% if not b.alarms and b.route_top %}<p class="tvb-alarm route"><svg class="ico" aria-hidden="true"><use href="#i-globe"/></svg><span>{{ route_line(b.route) }}</span></p>{% endif %}
   {% if b.alarms %}<p class="tvb-alarm" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-cross"/></svg><span>{{ t.tv_alarm }} {% for c in b.alarms[:3] %}<b>{{ c.name }}</b>{% if c.since %} ({{ c.since }}){% endif %}{{ ', ' if not loop.last }}{% endfor %}{% if b.alarms|length > 3 %} {{ t.tv_alarm_more.format(n=b.alarms|length - 3) }}{% endif %}</span></p>{% endif %}
 
   <section class="tvb-row first">
@@ -169,6 +168,7 @@
         </li>
         {% endfor %}
       </ol>{% endif %}
+      {% if b.route and not b.route_top %}<p class="tvb-route-note"><svg class="ico" aria-hidden="true"><use href="#i-globe"/></svg><span>{{ route_line(b.route) }}</span></p>{% endif %}
       {% if d.calls and d.calls.now %}{% set c = d.calls %}
       <p class="tvb-calls b-{{ c.now.band }}"><span class="mos-dot" aria-hidden="true"></span><b>{{ t.tv_calls.format(band=t.band[c.now.band]) }}</b>
         <span>{{ t.tv_calls_fit.format(mos='%.1f'|format(c.now.mos), pct=c.fit_pct) }}</span></p>{% endif %}

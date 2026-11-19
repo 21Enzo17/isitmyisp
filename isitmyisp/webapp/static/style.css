@@ -975,6 +975,11 @@ input[type=text], input[type=password], input[type=number], input[type=datetime-
              border-top: 1px solid var(--line); font-size: .9rem; white-space: nowrap; overflow: hidden; }
 .tvb-calls.b-fair { --band: var(--you); } .tvb-calls.b-poor, .tvb-calls.b-bad { --band: var(--isp); }
 .tvb-calls .mos-dot { width: .7rem; height: .7rem; }
+.tvb-route-note { flex: none; display: flex; align-items: center; gap: .55rem; margin: .4rem 0 0; padding-top: .55rem;
+                  border-top: 1px solid var(--line); font-size: .85rem; color: var(--ink-2); white-space: nowrap; overflow: hidden; }
+.tvb-route-note .ico { flex: none; width: .9rem; height: .9rem; color: var(--violet, var(--ink-2)); }
+.tvb-route-note span { overflow: hidden; text-overflow: ellipsis; }
+.tvb-route-note b { font-weight: 500; color: var(--ink); }
 .tvb-calls b { font-weight: 600; }
 .tvb-calls span:last-child { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
 

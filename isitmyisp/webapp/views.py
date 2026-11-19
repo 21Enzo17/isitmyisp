@@ -633,11 +633,14 @@ def board(d: Dashboard, now: float | None = None) -> dict:
                    "good" if c.state == "up" else "bad" if c.state == "down" else "none") for c in d.tunnels]
     points, p_hidden, p_rot = fit(d.points, BOARD_POINTS, state=lambda p: "good" if p.status == "ok" else "bad", tick=tick)
     shown, c_hidden, c_rot = fit(conns, BOARD_CONNS, state=lambda c: c.st, tick=tick)
+    route = board_route(d)
     return {"points": points, "points_hidden": p_hidden, "points_rot": p_rot,
             "conns": shown, "conns_hidden": c_hidden, "conns_rot": c_rot,
             "alarms": [c for c in conns if c.st == "bad"],
             "points_alarm": any(p.status == "bad" for p in d.points),
-            "recent": d.recent[:BOARD_RECENT], "route": board_route(d)}
+            "recent": d.recent[:BOARD_RECENT], "route": route,
+            # on top only when nothing worse is going on; during an outage it waits in the events card
+            "route_top": route if d.code == "ok" and not any(c.st == "bad" for c in conns) else None}
 
 
 def board_route(d: Dashboard) -> dict | None:
