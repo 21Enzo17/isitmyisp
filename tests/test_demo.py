@@ -19,8 +19,9 @@ class Scenarios(unittest.TestCase):
                 code, scopes = expected[sc]
                 self.assertEqual(sim.store.last_window()[2], code)
                 # the tunnel's scheduled rekey drops (every 2 h, 2.5 min) belong to every scenario: a run that
-                # happens to land on one must not fail
-                self.assertEqual({i.scope for i in sim.store.active_incidents() if not i.scope.startswith("tunnel:")}, scopes)
+                # happens to land on one must not fail; nor the unstable stretch those drops make (#99)
+                self.assertEqual({i.scope for i in sim.store.active_incidents()
+                                  if not i.scope.startswith(("tunnel:", "unstable:tunnel:"))}, scopes)
                 now = sim.store.last_window()[0]
                 for k in range(4):                          # the live feed keeps the scenario going
                     sim.step(now + 30 * (k + 1), sim.scenario_state(sc, now + 30 * (k + 1)))

@@ -159,7 +159,7 @@ def _what(inc: Incident, lang: str) -> str:
         where = t["scope_service"].format(name=inc.scope.split(":", 1)[1])
     elif inc.scope == "failover":
         where = t["scope_failover"]
-    elif inc.scope.startswith("route:"):   # route:internet, route:tunnel:<name>, route:service:<name>
+    elif inc.scope.startswith(("route:", "unstable:")):   # route:internet, route:tunnel:<n>, unstable:tunnel:<n>
         inner = dataclasses.replace(inc, scope=inc.scope.split(":", 1)[1])
         return f"{_what(inner, lang).split(' · ')[0]} · {verdict.get(inc.code, inc.code)}"
     else:

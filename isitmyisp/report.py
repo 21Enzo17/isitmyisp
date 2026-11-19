@@ -18,8 +18,8 @@ from datetime import date, datetime, timedelta
 from . import __version__
 from .routes import change_line, diagnosis_lines
 from .store import Capture, Incident, Store
-from .texts import remote_summary
-from .tunnels import periodic_interval
+from .texts import VERDICT, remote_summary
+from .tunnels import find_drops, periodic_interval
 
 ISP_CODES = ("access", "isp")
 YOU_CODES = ("local", "loop", "saturation")   # your side: rules the ISP out
@@ -130,6 +130,11 @@ R = {
         "tun_cause": {"path_local": "Loss on your connection", "path_remote": "Far site or path to it",
                       "config": "Tunnel configuration (path was clean)", "unknown": "Undetermined (far end filters ICMP)"},
         "tun_none": "No tunnel drops in this period.",
+        "tun_unstable": "Instability inside the tunnels",
+        "tun_unstable_intro": ("Every drop inside a tunnel, even one too short to count as an outage. Many drops close "
+                               "together make an unstable stretch, with its likely cause."),
+        "tun_drops": "Drops", "tun_micro": "Too short for an outage", "tun_unstable_for": "Unstable for",
+        "tun_likely": "Likely cause",
         "speed": "Measured speed",
         "speed_plan": "Contracted: {down} Mbps down / {up} Mbps up. ",
         "speed_intro": "Tests against speed.cloudflare.com with several parallel streams. A test over Wi-Fi measures the Wi-Fi as well.",
@@ -254,6 +259,11 @@ R = {
         "tun_cause": {"path_local": "Pérdida en tu conexión", "path_remote": "Sitio remoto o camino hacia él",
                       "config": "Configuración del túnel (camino limpio)", "unknown": "Indeterminado (el otro extremo filtra ICMP)"},
         "tun_none": "Sin caídas de túneles en este período.",
+        "tun_unstable": "Inestabilidad dentro de los túneles",
+        "tun_unstable_intro": ("Cada corte dentro de un túnel, aunque sea demasiado corto para contar como caída. Muchos "
+                               "cortes seguidos son un tramo inestable, con su causa probable."),
+        "tun_drops": "Cortes", "tun_micro": "Muy cortos para ser caída", "tun_unstable_for": "Inestable durante",
+        "tun_likely": "Causa probable",
         "speed": "Velocidad medida",
         "speed_plan": "Contratado: {down} Mbps de bajada / {up} Mbps de subida. ",
         "speed_intro": "Pruebas contra speed.cloudflare.com con varias conexiones en paralelo. Una prueba por Wi-Fi mide también el Wi-Fi.",
@@ -650,6 +660,32 @@ def tunnel_section(incidents: list[Incident], t: dict, now: float) -> str:
                  f'<th class="num">{t["duration"]}</th></tr></thead><tbody>{"".join(rows)}</tbody></table>')
     parts += [f'<p class="verdict-line">{_e(h)}</p>' for h in hints]
     return "".join(parts)
+
+
+def unstable_section(store: Store, names: list[str], start: float, end: float, t: dict, lang: str,
+                     now: float) -> str:
+    """Per tunnel: drops in the period (incident or not), how long it was unstable and why (#99)."""
+    unstable = store.incidents_between(start, end, scope="unstable")
+    rows = []
+    for name in names:
+        drops = find_drops(store, name, start, min(end, now))
+        mine = [i for i in unstable if i.scope == f"unstable:tunnel:{name}"]
+        if not drops and not mine:
+            continue
+        span = sum(min(i.closed or now, end) - max(i.opened, start) for i in mine)
+        codes = defaultdict(float)
+        for i in mine:
+            codes[i.code] += i.duration(now)
+        cause = VERDICT[lang].get(max(codes, key=codes.get), "") if codes else "—"
+        rows.append(f'<tr><td>{_e(name)}</td><td class="num">{len(drops)}</td>'
+                    f'<td class="num">{sum(1 for d in drops if d.windows < 2)}</td>'
+                    f'<td class="num">{fmt_duration(span) if mine else "—"}</td><td>{_e(cause)}</td></tr>')
+    if not rows:
+        return ""
+    return (f'<h3>{_e(t["tun_unstable"])}</h3><p class="muted">{_e(t["tun_unstable_intro"])}</p>'
+            f'<table><thead><tr><th></th><th class="num">{t["tun_drops"]}</th><th class="num">{t["tun_micro"]}</th>'
+            f'<th class="num">{t["tun_unstable_for"]}</th><th>{t["tun_likely"]}</th></tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table>')
 
 
 def isp_message(incidents: list[Incident], captures: dict[int, list[Capture]], t: dict,
@@ -1094,6 +1130,11 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
     tun_captures = store.captures_for([i.id for i in tun_incidents])
     if tun_incidents or (net.get("tunnels")):
         out.append(tunnel_section(tun_incidents, t, now))
+    tun_names = store.tunnel_names_between(start, end)
+    if tun_names:
+        if not (tun_incidents or net.get("tunnels")):
+            out.append(f'<h2>{_e(t["tunnels"])}</h2>')
+        out.append(unstable_section(store, tun_names, start, end, t, lang, now))
 
     # ---- your services (outages that were NOT your internet)
     svc_incidents = [i for i in store.incidents_between(start, end, scope=None) if i.scope.startswith("service:")]

@@ -24,7 +24,8 @@ ROLE_ORDER = {"home": 0, "isp": 1, "anchor": 2, "voip": 3, "tcp": 4, "dns": 5}
 CAUSE_CLASS = {"ok": "ok", "local": "warn", "access": "bad", "isp": "bad", "remote": "info", "dns": "info",
                "no_data": "muted", "stale": "muted", "config": "warn", "path_local": "bad",
                "path_remote": "info", "unknown": "muted", "saturation": "warn", "loop": "warn", "speedtest": "muted",
-               "route_slower": "bad"}
+               "route_slower": "bad", "unstable_rekey": "warn", "unstable_config": "warn",
+               "unstable_path_local": "bad", "unstable_path_remote": "info", "unstable_unknown": "muted"}
 
 
 @dataclass
@@ -302,12 +303,23 @@ class TunnelCard:
     loss_inside: float | None
     loss_outside: float | None
     since: str = ""
+    # unstable tunnel (#99): drops that don't make an outage each, but many of them
+    unstable: str | None = None         # the open incident's code (unstable_<cause>)
+    unstable_since: str = ""
+    hourly: list[int] = field(default_factory=list)   # drops per hour, last 24 h, oldest first
+    drops: int = 0                      # in the last 24 h
+    micro: int = 0                      # of those, too short to open an outage
+    every: str = ""                     # they repeat at this interval
+    route_changed: bool = False         # the stretch started right after a path change
 
 
 def tunnel_cards(store: Store, settings: Settings, now: float | None = None) -> list[TunnelCard]:
     now = now or time.time()
     latest = {s["role"]: s for s in store.latest_samples() if s["role"].startswith("tunnel_")}
-    active = {i.tunnel: i for i in store.active_incidents() if i.tunnel}
+    from ..tunnels import fmt_every, hourly, instability
+    act = store.active_incidents()
+    active = {i.tunnel: i for i in act if i.tunnel}
+    shaky = {i.scope.split(":", 2)[2]: i for i in act if i.scope.startswith("unstable:tunnel:")}
     cards = []
     for t in settings.tunnels:
         over, under = latest.get(f"tunnel_over:{t.name}"), latest.get(f"tunnel_under:{t.name}")
@@ -318,8 +330,20 @@ def tunnel_cards(store: Store, settings: Settings, now: float | None = None) -> 
             state, cause, css, since = "up", None, "ok", ""
         else:
             state, cause, css, since = "no_data", None, "muted", ""
-        cards.append(TunnelCard(t.name, t.type, t.underlay, t.overlay, state, cause, css,
-                                _sample_loss(over) if over else None, _sample_loss(under) if under else None, since))
+        c = TunnelCard(t.name, t.type, t.underlay, t.overlay, state, cause, css,
+                       _sample_loss(over) if over else None, _sample_loss(under) if under else None, since)
+        ins = instability(store, t.name, now)
+        day = [d for d in ins.drops if d.start >= now - 86400]
+        c.hourly, c.drops, c.micro = hourly(ins.drops, now), len(day), sum(1 for d in day if d.windows < 2)
+        u = shaky.get(t.name)
+        if u is not None:
+            c.unstable, c.unstable_since = u.code, fmt_duration(now - u.opened)
+            every = (u.details or {}).get("every")
+            c.every = fmt_every(every) if every else ""
+            c.route_changed = bool((u.details or {}).get("route_event"))
+            if state == "up":
+                c.css = CAUSE_CLASS.get(u.code, "warn")
+        cards.append(c)
     return cards
 
 
@@ -346,7 +370,7 @@ def incident_rows(store: Store, t: dict, days: int = 30, now: float | None = Non
     now = now or time.time()
     rows = []
     for i in reversed(store.incidents_between(now - days * 86400, now, scope=None)):
-        bare = i.scope.removeprefix("route:")
+        bare = i.scope.removeprefix("route:").removeprefix("unstable:")
         scope = t["scope_internet"] if bare == "internet" else bare.split(":", 1)[-1]
         rows.append(IncidentRow(i.id, i.details if i.code in ("access", "isp") else None, scope, i.code,
                                 CAUSE_CLASS.get(i.code, "muted"), i.opened, i.closed,

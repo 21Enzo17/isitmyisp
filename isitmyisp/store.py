@@ -229,6 +229,12 @@ class Store:
         with self._lock:
             self.db.execute("UPDATE incidents SET peak_loss = MAX(peak_loss, ?) WHERE id = ?", (loss, incident_id))
 
+    def update_incident(self, incident_id: int, code: str, evidence: list[str]) -> None:
+        """What is known about an open incident got better (an unstable tunnel's cause, #99)."""
+        with self._lock:
+            self.db.execute("UPDATE incidents SET code = ?, evidence = ? WHERE id = ?",
+                            (code, json.dumps(evidence), incident_id))
+
     def close_incident(self, incident_id: int, ts: float | None = None) -> None:
         with self._lock:
             self.db.execute("UPDATE incidents SET closed = ? WHERE id = ?", (ts or time.time(), incident_id))
@@ -346,12 +352,15 @@ class Store:
             return [dict(zip(cols, r)) for r in cur.fetchall()]
 
     def incidents_between(self, start: float, end: float, scope: str | None = "internet") -> list[Incident]:
-        """scope='internet' (default), 'tunnel:<name>', 'tunnels' (any tunnel) or None (everything)."""
+        """scope='internet' (default), 'tunnel:<name>', 'tunnels' (any tunnel), 'unstable' (unstable tunnels),
+        'unstable:tunnel:<name>' or None (everything)."""
         q = ("SELECT id, opened, closed, code, evidence, peak_loss, scope, details FROM incidents"
              " WHERE opened <= ? AND (closed IS NULL OR closed >= ?)")
         args: list = [end, start]
         if scope == "tunnels":
             q += " AND scope LIKE 'tunnel:%'"
+        elif scope == "unstable":
+            q += " AND scope LIKE 'unstable:%'"
         elif scope is not None:
             q += " AND scope = ?"
             args.append(scope)
@@ -447,6 +456,13 @@ class Store:
         for r in rows:
             out.setdefault(r[1], []).append(Capture(r[0], r[1], r[2], r[3], r[4], json.loads(r[5])))
         return out
+
+    def tunnel_names_between(self, start: float, end: float) -> list[str]:
+        """Tunnels measured in the period (from their samples), sorted."""
+        with self._lock:
+            rows = self.db.execute("SELECT DISTINCT role FROM samples WHERE role LIKE 'tunnel_over:%'"
+                                   " AND ts BETWEEN ? AND ?", (start, end)).fetchall()
+        return sorted(r[0].split(":", 1)[1] for r in rows)
 
     def network_at(self, ts: float) -> dict | None:
         with self._lock:
