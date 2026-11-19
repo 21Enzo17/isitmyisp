@@ -9,6 +9,7 @@ Reliability rules:
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
 import smtplib
@@ -39,13 +40,13 @@ T = {
     "en": {"opened": "🔴 {what}", "closed": "✅ Resolved: {what}", "test": "isitmyisp test alert",
            "test_body": "If you can read this, alerts work.", "scope_tunnel": "Tunnel {name}",
            "scope_service": "Service {name}", "scope_device": "Device {name}", "scope_internet": "Internet", "scope_failover": "Internet link", "since": "Since", "lasted": "Lasted", "intermittent": "It comes and goes: the connection keeps dropping and coming back", "drops": "{n} drops",
-           "evidence": "Evidence", "todo": "What to do", "open_dash": "Dashboard",
+           "evidence": "Evidence", "path": "Path", "todo": "What to do", "open_dash": "Dashboard",
            "digest": "🌅 While closed: {n} {problems}", "digest_problems": ("problem", "problems"), "days": ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
            "digest_intro": "Alerts were held while the business was closed. All of these are resolved:"},
     "es": {"opened": "🔴 {what}", "closed": "✅ Resuelto: {what}", "test": "isitmyisp: alerta de prueba",
            "test_body": "Si leés esto, las alertas funcionan.", "scope_tunnel": "Túnel {name}",
            "scope_service": "Servicio {name}", "scope_device": "Dispositivo {name}", "scope_internet": "Internet", "scope_failover": "Enlace a internet", "since": "Desde", "lasted": "Duró", "intermittent": "Intermitente: la conexión se corta y vuelve una y otra vez", "drops": "{n} cortes",
-           "evidence": "Evidencia", "todo": "Qué hacer", "open_dash": "Panel",
+           "evidence": "Evidencia", "path": "Camino", "todo": "Qué hacer", "open_dash": "Panel",
            "digest": "🌅 Con el local cerrado: {n} {problems}", "digest_problems": ("problema", "problemas"), "days": ("lun", "mar", "mié", "jue", "vie", "sáb", "dom"),
            "digest_intro": "Las alertas se retuvieron mientras el local estaba cerrado. Ya se resolvieron todos:"},
 }
@@ -158,6 +159,9 @@ def _what(inc: Incident, lang: str) -> str:
         where = t["scope_service"].format(name=inc.scope.split(":", 1)[1])
     elif inc.scope == "failover":
         where = t["scope_failover"]
+    elif inc.scope.startswith("route:"):   # route:internet, route:tunnel:<name>, route:service:<name>
+        inner = dataclasses.replace(inc, scope=inc.scope.split(":", 1)[1])
+        return f"{_what(inner, lang).split(' · ')[0]} · {verdict.get(inc.code, inc.code)}"
     else:
         where = t["scope_internet"]
     return f"{where} · {verdict.get(inc.code, inc.code)}"
@@ -179,8 +183,8 @@ def digest(incidents: list[Incident], lang: str, public_url: str = "", now: floa
 
 
 def describe(inc: Incident, kind: str, lang: str, public_url: str = "", now: float | None = None,
-             drops: int = 0) -> tuple[str, str]:
-    """(title, body) in plain language: what happened, where, evidence, what to do."""
+             drops: int = 0, path: list[str] | None = None) -> tuple[str, str]:
+    """(title, body) in plain language: what happened, where, evidence, what the paths say, what to do."""
     now = now or time.time()
     t, advice = T[lang], ADVICE[lang]
     what = _what(inc, lang)
@@ -193,6 +197,8 @@ def describe(inc: Incident, kind: str, lang: str, public_url: str = "", now: flo
             lines.append(t["intermittent"])
         if inc.evidence:
             lines.append(f"{t['evidence']}: " + "; ".join(inc.evidence[:3]))
+        for line in path or []:
+            lines.append(f"{t['path']}: {line}")
         if inc.code in advice:
             lines.append(f"{t['todo']}: {advice[inc.code]}")
     else:
@@ -360,9 +366,13 @@ class Alerter:
     def _send(self, cfg: dict, inc: Incident, kind: str, lang: str, now: float) -> None:
         intermittent = bool((inc.details or {}).get("intermittent"))
         drops = self.store.drops(inc.opened, inc.closed or now) if intermittent and kind == "closed" else 0
-        title, body = describe(inc, kind, lang, cfg.get("public_url", ""), now, drops=drops)
+        path = []
+        if kind == "opened":
+            from .routes import diagnosis_lines
+            path = diagnosis_lines(self.store, inc, lang)
+        title, body = describe(inc, kind, lang, cfg.get("public_url", ""), now, drops=drops, path=path)
         extra = {"event": f"incident_{kind}", "scope": inc.scope, "code": inc.code, "opened": inc.opened,
-                 "closed": inc.closed, "evidence": inc.evidence, "intermittent": intermittent}
+                 "closed": inc.closed, "evidence": inc.evidence, "intermittent": intermittent, "path": path}
         results = self.sender(cfg, title, body, extra)
         if any(r == "ok" for r in results.values()):
             self.store.mark_alerted(inc.id, kind)

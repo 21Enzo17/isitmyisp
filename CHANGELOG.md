@@ -5,6 +5,15 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 
 ## [Unreleased]
 
+### Added
+- **Path changes**: every 10 minutes isitmyisp traces the path to each internet destination, tunnel
+  and service, and notices when your ISP moves your traffic to another one. A change that makes things
+  clearly slower opens an incident and alerts ("Your ISP changed the path: slower now") with the
+  latency before and after; it closes when the path goes back or the latency recovers. When any
+  incident opens, the path is traced right away and the alert, the incidents page and the report say
+  where it stops, or that the ISP changed it just before. The dashboard lists the last 7 days' changes
+  with before and after, the chart marks them and the report has a section for them (#97).
+
 ## [0.5.2] - 2026-11-17
 
 ### Fixed

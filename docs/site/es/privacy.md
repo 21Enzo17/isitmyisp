@@ -15,6 +15,7 @@ isitmyisp está pensado para correr meses en tu red. Por defecto **nunca manda t
 | TCP a 1.1.1.1, 8.8.8.8 y 9.9.9.9, puerto 443 | siempre | SYN y cierra (sin datos ni TLS) | sí |
 | Consultas DNS a tus propios servidores | siempre | consultas A de www.google.com, www.cloudflare.com y www.wikipedia.org | sí |
 | `mtr` a 1.1.1.1 | al descubrir el camino y en incidentes | sondas ICMP | sí |
+| `mtr` a cada destino de internet, extremo de túnel y servicio | cada 10 min y cuando se abre un incidente | 3 rondas de sondas ICMP, para ver si tu proveedor cambió el camino | sí |
 | [El chequeo de la red](doctor.md): pings con "no fragmentar" a 1.1.1.1 | una vez por día y cuando lo corrés | pings de distintos tamaños, para medir el MTU | sí |
 | El chequeo: una consulta DNS a 192.0.2.53 | una vez por día y cuando lo corrés | una consulta A de www.google.com a una dirección que no existe en internet: si alguien contesta, intercepta tu DNS | sí |
 | iptoasn.com | solo cuando apretás el botón en Configuración → Tu conexión o corrés `update-asn` | una descarga HTTPS del dataset público (sin consultas por IP) | manual |

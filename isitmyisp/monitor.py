@@ -8,20 +8,22 @@ from __future__ import annotations
 
 import threading
 import time
-from urllib.parse import urlparse
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
+from urllib.parse import urlparse
 
 from . import asn
-from .failover import Change, Provider, compare as compare_provider
 from .classifier import Measurements, Verdict, assess, classify
 from .config import Tunnel
+from .failover import Change, Provider
+from .failover import compare as compare_provider
 from .probes.icmp import WindowStats
 from .probes.mtr import MtrError, analyze_path, path_to_dict, run_mtr
+from .services import CHECK_EVERY, FAILS_TO_DOWN, OKS_TO_UP, Check, Service
+from .services import state as service_state
 from .stats import Baseline, Hysteresis, Transition
 from .store import Store
-from .services import CHECK_EVERY, FAILS_TO_DOWN, OKS_TO_UP, Check, Service, state as service_state
 from .tunnels import TunnelVerdict, classify_tunnel
 
 CaptureFn = Callable[[str, int], None]  # (target, incident_id)
@@ -30,6 +32,7 @@ CaptureFn = Callable[[str, int], None]  # (target, incident_id)
 TunnelSample = tuple[Tunnel, "WindowStats | None", "WindowStats | None"]  # (tunnel, underlay, overlay)
 
 INTERNET_OK = ("ok", "remote", "dns")  # your own connection works in these states
+ROUTE_CODES = ("access", "isp", "remote")  # internet incidents a path change can explain (#97)
 
 
 @dataclass
@@ -49,8 +52,10 @@ class _TunnelState:
 
 class Monitor:
     def __init__(self, store: Store, window_seconds: float, capture: CaptureFn | None = None,
-                 recapture_every: float = 600.0, open_after: int = 2, close_after: int = 2):
+                 recapture_every: float = 600.0, open_after: int = 2, close_after: int = 2,
+                 on_open: Callable[[str, int], None] | None = None):
         self.store = store
+        self.on_open = on_open   # (scope, incident id): the route watcher traces what it depends on (#97)
         self.window = window_seconds
         self.capture = capture
         self.recapture_every = recapture_every
@@ -166,6 +171,8 @@ class Monitor:
                 self._details["intermittent"] = True    # it came and went: the report and alerts say so
             self.store.set_incident_details(self.incident_id, self._details)
             self._capture(m, now, force=True)
+            if tr.opened in ROUTE_CODES:
+                self._opened("internet", self.incident_id)
         elif self.incident_id is not None:
             self._capture(m, now)
         if self.incident_id is not None:
@@ -201,6 +208,7 @@ class Monitor:
             iid = self.store.open_incident("service_down", evidence, ts=checks[-FAILS_TO_DOWN].ts,
                                            scope=f"service:{svc.name}")
             self._services[svc.name] = iid
+            self._opened(f"service:{svc.name}", iid)
             if self.capture is not None:
                 host = urlparse(svc.target).hostname if svc.kind == "http" else svc.target.rpartition(":")[0]
                 if host:
@@ -246,11 +254,20 @@ class Monitor:
             st.incident_id = None
         if tr.opened:
             st.incident_id = self.store.open_incident(tr.opened, tv.evidence, ts=opened, scope=f"tunnel:{t.name}")
+            if tr.opened != "config":   # a clean path already says it is not the route
+                self._opened(f"tunnel:{t.name}", st.incident_id)
             if self.capture is not None:  # evidence of the path to the far end, outside the tunnel
                 self.capture(t.underlay, st.incident_id)
         if st.incident_id is not None and over is not None:
             self.store.bump_peak_loss(st.incident_id, over.loss)
         return tv, tr
+
+    def _opened(self, scope: str, incident_id: int) -> None:
+        if self.on_open is not None:
+            try:
+                self.on_open(scope, incident_id)
+            except Exception as exc:  # noqa: BLE001 - the diagnosis is extra, the incident is not
+                print(f"routes: {exc}")
 
     def _capture(self, m: Measurements, now: float, force: bool = False) -> None:
         if self.capture is None or self.incident_id is None:

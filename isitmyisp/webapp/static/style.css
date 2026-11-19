@@ -340,6 +340,8 @@ b, strong { font-weight: 600; }
 .row-1 { grid-row: 1; } .row-2 { grid-row: 2; } .row-3 { grid-row: 3; } .row-4 { grid-row: 4; } .row-5 { grid-row: 5; } .row-6 { grid-row: 6; }
 .hv.upto-4 { grid-row: 1 / 4; } .hv.upto-5 { grid-row: 1 / 5; } .hv.upto-6 { grid-row: 1 / 6; }
 .strip .backup { fill: var(--other); }
+.strip .route-mark { fill: var(--ink); } .strip .route-mark.restored { fill: var(--good); }
+.tip .tip-route { color: var(--isp); max-width: 28em; white-space: normal; }
 table.kv { width: auto; margin: 8px 0 4px; }
 table.kv th { width: 150px; color: var(--ink-2); font-weight: 500; padding-left: 0; }
 table.kv td, table.kv th { border-bottom: 0; padding-top: 6px; padding-bottom: 6px; }
@@ -776,6 +778,7 @@ label.check input { width: 17px; height: 17px; accent-color: var(--accent); }
 .ev-w { font-size: 13px; color: var(--ink-3); margin-top: 2px; font-variant-numeric: tabular-nums; }
 .ev-int { color: var(--ink-2); font-weight: 500; }
 .ev-sum { margin: 0 0 4px; color: var(--ink); }
+.ev-path { margin: 4px 0 0; color: var(--ink); }
 .ev-list li.now .ev-t { color: var(--ink); font-weight: 600; }
 
 /* three columns only when the 24-hour chart (and its table) gets real width: on a 1366 or 1440 laptop
@@ -1089,3 +1092,12 @@ details.chan { border-top: 1px solid var(--line); padding: 10px 0; }
 details.chan > summary { cursor: pointer; display: flex; gap: 8px; align-items: center; }
 details.risk-fold { margin: 6px 0 14px; }
 details.risk-fold > summary { cursor: pointer; font-size: 14px; color: var(--ink-2); }
+
+/* path changes (#97) */
+.route-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.route-list li { border-left: 3px solid var(--ink-3); padding: 4px 0 4px 10px; margin-bottom: 6px; }
+.route-list li.sev-worse, .route-list li.sev-much_worse { border-left-color: var(--isp); }
+.route-list summary { cursor: pointer; }
+.route-imp { margin-left: 6px; color: var(--isp); }
+.route-cmp { margin-top: 6px; width: 100%; }
+.route-cmp td { vertical-align: top; }

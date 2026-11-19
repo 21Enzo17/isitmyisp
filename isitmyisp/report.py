@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
 from . import __version__
+from .routes import change_line, diagnosis_lines
 from .store import Capture, Incident, Store
 from .texts import remote_summary
 from .tunnels import periodic_interval
@@ -82,6 +83,8 @@ R = {
         "legend": {"ok": "healthy", "local": "your side", "access": "ISP access", "isp": "ISP backbone",
                    "remote": "remote", "dns": "DNS", "saturation": "link full (yours)", "loop": "LAN loop",
                    "no_data": "not measuring (start-up, re-discovery, settings change)"},
+        "routes": "Path changes", "routes_intro": "Times your ISP moved your traffic to another path. "
+        "Latency is the median in the hour before and since then.", "routes_what": "What changed", "routes_lat": "Latency",
         "incident_list": "Incidents", "start": "Start", "end": "End", "where": "Where", "evidence": "Evidence",
         "ongoing": "ongoing", "capture": "mtr",
         "message": "Message for your ISP",
@@ -205,6 +208,8 @@ R = {
         "legend": {"ok": "sana", "local": "tu lado", "access": "acceso ISP", "isp": "troncal ISP",
                    "remote": "remoto", "dns": "DNS", "saturation": "enlace lleno (tuyo)", "loop": "loop en tu red",
                    "no_data": "sin medir (arranque, redescubrimiento, cambio de configuración)"},
+        "routes": "Cambios de camino", "routes_intro": "Las veces que tu proveedor movió tu tráfico por otro camino. "
+        "La latencia es la mediana de la hora anterior y la de después.", "routes_what": "Qué cambió", "routes_lat": "Latencia",
         "incident_list": "Incidentes", "start": "Inicio", "end": "Fin", "where": "Dónde", "evidence": "Evidencia",
         "ongoing": "en curso", "capture": "mtr",
         "message": "Mensaje para tu ISP",
@@ -1069,6 +1074,7 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
                 ev = f'<b>{_e(t["intermittent"].format(n=drops[inc.id]))}</b><br>' + ev
             if inc.code == "remote" and (summary := remote_summary(inc.evidence, lang)):
                 ev = f'<b>{_e(summary)}</b><br>' + ev
+            ev += "".join(f'<br><b>{_e(line)}</b>' for line in diagnosis_lines(store, inc, lang))
             ev += ruled_out_html(inc, lang)
             rows.append(
                 f'<tr><td class="num">{idx}</td><td class="dt">{_dt_html(inc.opened)}</td>'
@@ -1150,6 +1156,20 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
                    f'<table class="incidents"><thead><tr><th class="num">{t["start"]}</th><th class="num">{t["end"]}</th>'
                    f'<th class="num">{t["duration"]}</th><th>{t["fo_col"]}</th><th>{t["evidence"]}</th></tr>'
                    f'</thead><tbody>{rows}</tbody></table>')
+
+    # ---- path changes (#97)
+    route_evs = store.route_events_between(start, end, kinds=("changed", "restored"))
+    if route_evs:
+        def _lat(d: dict) -> str:
+            imp = d.get("impact")
+            return f'{imp["before_ms"]:.0f} → {imp["after_ms"]:.0f} ms' if imp else "—"
+        rows = "".join(
+            f'<tr><td class="dt">{_dt_html(e["ts"])}</td><td>{_e(e["data"].get("label", ""))}</td>'
+            f'<td class="ev">{_e(change_line(e["data"], lang))}</td><td class="num">{_e(_lat(e["data"]))}</td></tr>'
+            for e in route_evs[-40:])
+        out.append(f'<h2>{_e(t["routes"])}</h2><p class="muted">{_e(t["routes_intro"])}</p>'
+                   f'<table class="incidents"><thead><tr><th class="num">{t["start"]}</th><th>{t["where"]}</th>'
+                   f'<th>{t["routes_what"]}</th><th class="num">{t["routes_lat"]}</th></tr></thead><tbody>{rows}</tbody></table>')
 
     # ---- appendix
     caps_all = [c for i in incidents for c in captures.get(i.id, [])]

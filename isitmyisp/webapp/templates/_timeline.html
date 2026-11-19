@@ -18,6 +18,7 @@
       <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
         <rect class="track" x="0" y="0" width="1000" height="100"/>
         {% for x, w, g, code in tl.strip %}<rect class="g-{{ g }}" x="{{ x }}" y="{{ 72 if g == 'good' else 0 }}" width="{{ w }}" height="{{ 28 if g == 'good' else 100 }}"/>{% endfor %}
+        {% for x, kind in tl.route_marks %}<rect class="route-mark {{ kind }}" x="{{ x }}" y="0" width="3" height="100"/>{% endfor %}
       </svg>
     </div>
     <span class="tl-name row-{{ 2 + o }}">{{ t.row_loss }}</span>
@@ -35,7 +36,8 @@
         <span>{{ t.row_loss }} {{ num(b.loss) }}%{% if b.loss_max is not none and b.loss_max - (b.loss or 0) >= 0.1 %} · {{ t.peak_word }} {{ num(b.loss_max) }}%{% endif %}</span>
         <span>{{ t.row_latency }} {{ num(b.lat) }} ms</span>{% if b.mos is not none %}
         <span>{{ t.row_calls }} {{ '%.1f'|format(b.mos) }} ({{ t.band[band_of(b.mos)] }})</span>{% endif %}{% if b.backup %}
-        <span>{{ t.tip_backup }}</span>{% endif %}{% if z %}
+        <span>{{ t.tip_backup }}</span>{% endif %}{% for line in b.route %}
+        <span class="tip-route">{{ line }}</span>{% endfor %}{% if z %}
         <span class="tip-zoom">{{ t.chart_click_zoom }}</span>{% endif %}</div></{{ 'a' if z else 'div' }}>{% endfor %}
     </div>
     {{ xaxis(tl.xticks, 'row-%d' % (last + 1)) }}

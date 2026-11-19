@@ -6,17 +6,25 @@ import statistics
 import time
 from dataclasses import dataclass, field
 
-from ..report import _anchor_series, _midnight, availability, daily, fmt_duration, fmt_pct
+from .. import mos as mos_mod
+from ..api import is_stale
+from ..report import (
+    _anchor_series,
+    _midnight,
+    availability,
+    daily,
+    fmt_duration,
+    fmt_pct,
+)
 from ..settings import Settings
 from ..store import Store
-from ..api import is_stale
 from . import charts
-from .. import mos as mos_mod
 
 ROLE_ORDER = {"home": 0, "isp": 1, "anchor": 2, "voip": 3, "tcp": 4, "dns": 5}
 CAUSE_CLASS = {"ok": "ok", "local": "warn", "access": "bad", "isp": "bad", "remote": "info", "dns": "info",
                "no_data": "muted", "stale": "muted", "config": "warn", "path_local": "bad",
-               "path_remote": "info", "unknown": "muted", "saturation": "warn", "loop": "warn", "speedtest": "muted"}
+               "path_remote": "info", "unknown": "muted", "saturation": "warn", "loop": "warn", "speedtest": "muted",
+               "route_slower": "bad"}
 
 
 @dataclass
@@ -144,6 +152,7 @@ class Dashboard:
     link: dict | None = None
     link_enabled: bool = False
     recent: list = field(default_factory=list)
+    routes: list = field(default_factory=list)    # path changes of the last days (#97)
     failover: dict | None = None   # on the backup link right now
     calls: dict | None = None      # estimated call quality (E-model)
     speed: dict | None = None      # speed test state and last results
@@ -195,7 +204,8 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
         backup = [(i.opened, i.closed or now) for i in store.incidents_between(start, now, scope="failover")]
         d.calls = call_summary(store, settings, start, end)
         d.timeline = charts.timeline(windows, series, start, end, backup=backup,
-                                     calls=d.calls["series"] if d.calls else None)
+                                     calls=d.calls["series"] if d.calls else None,
+                                     routes=route_marks(store, start, end, settings.lang))
         d.brief = list(reversed(store.brief_events(start, end)))[:12]
         d.kpi = kpis(store, windows, series, start, now)
         d.month = month_view(store, now)
@@ -221,6 +231,7 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
     d.isp_name = net.get("isp_name") or ""
     d.path = _path(d, net)
     d.recent = recent_incidents(store, now)
+    d.routes = route_changes(store, settings.lang, now=now, limit=5)
     d.speed = speed_status(store, settings, now)
     fo = next((i for i in store.incidents_between(now - 400 * 86400, now, scope="failover") if i.closed is None), None)
     if fo:
@@ -325,21 +336,25 @@ class IncidentRow:
     evidence: list[str]
     drops: int = 0      # an intermittent one: how many times it dropped and came back
     summary: str = ""   # one plain sentence, for "only some destinations failed"
+    path: list[str] = field(default_factory=list)   # what the route tracing says about it (#97)
 
 
 def incident_rows(store: Store, t: dict, days: int = 30, now: float | None = None,
                   lang: str = "en") -> list[IncidentRow]:
+    from ..routes import diagnosis_lines
     from ..texts import remote_summary
     now = now or time.time()
     rows = []
     for i in reversed(store.incidents_between(now - days * 86400, now, scope=None)):
-        scope = t["scope_internet"] if i.scope == "internet" else (i.tunnel or i.scope.split(":", 1)[-1])
+        bare = i.scope.removeprefix("route:")
+        scope = t["scope_internet"] if bare == "internet" else bare.split(":", 1)[-1]
         rows.append(IncidentRow(i.id, i.details if i.code in ("access", "isp") else None, scope, i.code,
                                 CAUSE_CLASS.get(i.code, "muted"), i.opened, i.closed,
                                 fmt_duration(i.duration(now)), i.evidence[:3],
                                 store.drops(i.opened, i.closed or now)
                                 if (i.details or {}).get("intermittent") and i.scope == "internet" else 0,
-                                remote_summary(i.evidence, lang) if i.code == "remote" else ""))
+                                remote_summary(i.evidence, lang) if i.code == "remote" else "",
+                                diagnosis_lines(store, i, lang)))
     return rows
 
 
@@ -479,6 +494,8 @@ def recent_incidents(store: Store, now: float | None = None, limit: int = 6, day
         if len(out) == limit:
             continue
         kind, _, name = i.scope.partition(":")
+        if kind == "route":   # route:internet, route:tunnel:<name>: named after what it slowed down
+            name = "" if name == "internet" else name.partition(":")[2]
         row = RecentIncident(i.code, charts.GROUP.get(i.code, "other"), kind, name, i.opened,
                              fmt_duration(i.duration(now)), i.closed is None)
         if (i.details or {}).get("intermittent") and kind == "internet":
@@ -644,6 +661,33 @@ def parse_when(value) -> float | None:
     return None
 
 
+def route_marks(store: Store, start: float, end: float, lang: str) -> list[tuple[float, str, str]]:
+    """Path changes in a span, for the chart: (ts, kind, one line saying what changed)."""
+    from ..routes import change_line
+    return [(e["ts"], e["kind"], change_line(e["data"], lang))
+            for e in store.route_events_between(start, end, kinds=("changed", "restored"))]
+
+
+def route_changes(store: Store, lang: str, days: int = 7, now: float | None = None, limit: int = 20) -> list[dict]:
+    """The path changes of the last days, newest first, with before and after, for the dashboard list."""
+    from ..routes import T as RT
+    from ..routes import change_line, path_text, severity
+    now = now or time.time()
+    out = []
+    for e in reversed(store.route_events_between(now - days * 86400, now, kinds=("changed", "restored"))):
+        d = e["data"]
+        out.append({"ts": e["ts"], "kind": e["kind"], "title": RT[lang]["kind_" + e["kind"]],
+                    "label": d.get("label", ""), "line": change_line(d, lang),
+                    "before": path_text(d.get("from"), lang), "after": path_text(d.get("to"), lang),
+                    "before_hops": [h[1] for h in (d.get("from") or {}).get("hops", []) if h[3] != "home"],
+                    "after_hops": [h[1] for h in (d.get("to") or {}).get("hops", []) if h[3] != "home"],
+                    "unstable": bool(d.get("unstable")), "impact": d.get("impact"),
+                    "severity": d.get("severity") or severity(d.get("impact"))})
+        if len(out) == limit:
+            break
+    return out
+
+
 def chart_view(store: Store, settings: Settings, span: str = "24h", k: int = 0,
                now: float | None = None, spans: list[str] | None = None, who: str | None = None,
                frm: float | None = None, to: float | None = None) -> ChartView:
@@ -699,7 +743,8 @@ def chart_view(store: Store, settings: Settings, span: str = "24h", k: int = 0,
         backup = [(i.opened, i.closed or now) for i in store.incidents_between(start, end, scope="failover")]
         calls = call_summary(store, settings, start, end) if seconds <= 86400 and not who else None
         tl = charts.timeline(windows, series, start, end, n=n, backup=backup,
-                             calls=calls["series"] if calls else None)
+                             calls=calls["series"] if calls else None,
+                             routes=route_marks(store, start, end, settings.lang))
 
     extra = {"who": who} if who else {}
     mid = (start + end) / 2

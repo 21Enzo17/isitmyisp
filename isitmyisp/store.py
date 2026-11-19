@@ -94,6 +94,19 @@ CREATE TABLE IF NOT EXISTS speedtests (
 );
 CREATE INDEX IF NOT EXISTS speedtests_ts ON speedtests (ts);
 
+-- route changes (#97): kind changed | restored | diagnosis; data is JSON (routes.py)
+CREATE TABLE IF NOT EXISTS route_events (
+    id INTEGER PRIMARY KEY,
+    ts REAL NOT NULL,
+    target TEXT NOT NULL,        -- routes.Target.key, or "group:<group>" for a diagnosis
+    grp TEXT NOT NULL,           -- the incident scope it explains: internet, tunnel:<name>, service:<name>
+    kind TEXT NOT NULL,
+    data TEXT NOT NULL,
+    incident_id INTEGER
+);
+CREATE INDEX IF NOT EXISTS route_events_ts ON route_events (ts);
+CREATE INDEX IF NOT EXISTS route_events_incident ON route_events (incident_id);
+
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -258,7 +271,7 @@ class Store:
         with self._lock:
             n = self.db.execute("DELETE FROM samples WHERE ts < ?", (now - samples_days * 86400,)).rowcount
             n += self.db.execute("DELETE FROM link_usage WHERE ts < ?", (now - samples_days * 86400,)).rowcount
-            for table in ("windows", "networks", "speedtests"):
+            for table in ("windows", "networks", "speedtests", "route_events"):
                 n += self.db.execute(f"DELETE FROM {table} WHERE ts < ?", (now - windows_days * 86400,)).rowcount
             # incidents closed that long ago go too, with their mtr evidence (one still open never does)
             cutoff = now - windows_days * 86400
@@ -399,9 +412,10 @@ class Store:
 
     def active_incidents(self) -> list[Incident]:
         with self._lock:
-            rows = self.db.execute("SELECT id, opened, closed, code, evidence, peak_loss, scope FROM incidents"
-                                   " WHERE closed IS NULL ORDER BY opened").fetchall()
-        return [Incident(r[0], r[1], r[2], r[3], json.loads(r[4]), r[5], r[6]) for r in rows]
+            rows = self.db.execute("SELECT id, opened, closed, code, evidence, peak_loss, scope, details"
+                                   " FROM incidents WHERE closed IS NULL ORDER BY opened").fetchall()
+        return [Incident(r[0], r[1], r[2], r[3], json.loads(r[4]), r[5], r[6], json.loads(r[7]) if r[7] else None)
+                for r in rows]
 
     def last_window(self) -> tuple[float, float, str] | None:
         with self._lock:
@@ -447,6 +461,60 @@ class Store:
             row = self.db.execute("SELECT data FROM doctor_runs WHERE ts <= ? ORDER BY ts DESC LIMIT 1",
                                   (until if until is not None else time.time() + 1,)).fetchone()
         return json.loads(row[0]) if row else None
+
+    # ------------------------------------------------------------ route changes (#97)
+
+    def add_route_event(self, ts: float, target: str, group: str, kind: str, data: dict,
+                        incident_id: int | None = None) -> int:
+        with self._lock:
+            cur = self.db.execute("INSERT INTO route_events (ts, target, grp, kind, data, incident_id)"
+                                  " VALUES (?,?,?,?,?,?)", (ts, target, group, kind, json.dumps(data), incident_id))
+            self.db.commit()
+            return int(cur.lastrowid)
+
+    def update_route_event(self, event_id: int, data: dict) -> None:
+        with self._lock:
+            self.db.execute("UPDATE route_events SET data = ? WHERE id = ?", (json.dumps(data), event_id))
+            self.db.commit()
+
+    @staticmethod
+    def _route_row(r) -> dict:
+        return {"id": r[0], "ts": r[1], "target": r[2], "group": r[3], "kind": r[4], "data": json.loads(r[5]),
+                "incident_id": r[6]}
+
+    def route_event(self, event_id: int | None) -> dict | None:
+        if event_id is None:
+            return None
+        with self._lock:
+            r = self.db.execute("SELECT id, ts, target, grp, kind, data, incident_id FROM route_events WHERE id = ?",
+                                (event_id,)).fetchone()
+        return self._route_row(r) if r else None
+
+    def route_events_between(self, start: float, end: float, group: str | None = None,
+                             kinds: tuple[str, ...] | None = None) -> list[dict]:
+        """Oldest first."""
+        q, args = "SELECT id, ts, target, grp, kind, data, incident_id FROM route_events WHERE ts BETWEEN ? AND ?", [start, end]
+        if group is not None:
+            q += " AND grp = ?"
+            args.append(group)
+        if kinds:
+            q += f" AND kind IN ({','.join('?' * len(kinds))})"
+            args += list(kinds)
+        with self._lock:
+            rows = self.db.execute(q + " ORDER BY ts, id", args).fetchall()
+        return [self._route_row(r) for r in rows]
+
+    def route_events_for(self, incident_ids: list[int]) -> dict[int, list[dict]]:
+        if not incident_ids:
+            return {}
+        marks = ",".join("?" * len(incident_ids))
+        with self._lock:
+            rows = self.db.execute(f"SELECT id, ts, target, grp, kind, data, incident_id FROM route_events"
+                                   f" WHERE incident_id IN ({marks}) ORDER BY ts, id", incident_ids).fetchall()
+        out: dict[int, list[dict]] = {}
+        for r in rows:
+            out.setdefault(r[6], []).append(self._route_row(r))
+        return out
 
     def add_device_check(self, data: dict) -> int:
         with self._lock:

@@ -63,6 +63,16 @@ With a dual-WAN router, isitmyisp notices within about a minute when traffic mov
 
 ![The dashboard while the office runs on the backup link](/docs/img/failover.png)
 
+## Path changes
+
+Your ISP can move your traffic to another path without you noticing: a different exit, another carrier, a longer way round. Every 10 minutes isitmyisp traces the path (3 rounds of `mtr`) to each internet destination, each tunnel's far end and each of your services, and notices when the ISP changes it. A hop that doesn't answer, or load balancing between routers of the same network, is not a change; a new path needs two traces in a row.
+
+- **When the new path is clearly slower**, it opens an incident and alerts: "Your ISP changed the path: slower now", with the latency before and after (at least +15 ms and +25 %, or 1 point more loss, 15 minutes after the change). It closes when the path goes back or the latency recovers.
+- **When any incident opens**, it traces right away what that incident depends on and says what the path shows: the usual path and where it stops (inside your ISP or past it), or that the ISP changed it a few minutes before. That line goes in the alert, on the incidents page and in the report.
+- The dashboard lists the changes of the last 7 days with the path before and after, the chart marks them, and the report has a "Path changes" section. Several changes within 2 hours are marked unstable.
+
+Paths are compared by network (/24) and organisation, so it needs no ASN database to work, but with one (Settings → Your connection) it names each network.
+
 ## Call quality
 
 Would a call sound good right now? An estimated MOS from 1 to 5 (ITU-T G.107 E-model), from the latency, jitter and loss it already measures. If you have a phone system or SIP provider, set its address to measure against it. It's an estimate, not a real call, and the dashboard says so.
