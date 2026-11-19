@@ -57,6 +57,14 @@ Si un turno pasa la medianoche, cargalo en dos partes: hasta 24:00, y desde 00:0
 
 Si las caídas por configuración se repiten a intervalos regulares, el informe lo marca: casi siempre son tiempos de renegociación distintos en cada extremo.
 
+### Túneles inestables
+
+Un túnel puede no caerse nunca "del todo" y aun así cortar las llamadas o las transferencias: cortes de 30 segundos que no llegan a ser una caída, o caídas que vuelven cada una o dos horas. isitmyisp cuenta cada corte adentro del túnel, aunque dure una sola medición:
+
+- **Con 3 cortes o más sin una hora tranquila entre ellos**, el túnel queda **inestable**: abre un solo incidente (no uno por corte) y avisa una sola vez, con la causa probable. Se cierra después de una hora sin cortes, en el último corte.
+- **La causa probable** sale de lo mismo que la tabla de arriba, mirando todos los cortes juntos: si se repiten cada tanto con el camino limpio, **tiempos de vida o renegociación** ("se repiten cada 2 h"); sin un patrón y con el camino limpio, **la configuración del túnel**; con el camino perdiendo también, **la otra sede** o **tu conexión**; si el otro extremo no responde ping, no se puede saber. Si el proveedor cambió el camino al otro sitio justo antes, también lo dice.
+- La página de túneles muestra los cortes de las últimas 24 horas hora por hora, cuántos fueron demasiado cortos para contar como caída y qué revisar. En el panel y en el modo TV el túnel aparece en ámbar, "Inestable", en vez de "Arriba". El informe tiene una sección "Inestabilidad dentro de los túneles".
+
 ## Enlace de respaldo (failover)
 
 Con un router con dos proveedores, isitmyisp nota en alrededor de un minuto cuándo el tráfico pasa al enlace de respaldo y cuándo vuelve. Lo detecta viendo cuál es el primer router del ISP en el camino. El panel muestra "en respaldo" y el informe dice desde cuándo hasta cuándo el ISP principal no estuvo llevando el tráfico.
@@ -138,7 +146,7 @@ El código vence a los 10 minutos y sirve una sola vez. En **Configuración → 
 
 Tiene dos vistas:
 
-- **Tablero** (por defecto): el veredicto y tres indicadores (la nota del [chequeo de la red](/docs/es/doctor/) con su primer problema, o la disponibilidad de 24 horas si todavía no corrió; tiempo sin cortes o con problemas; latencia), la disponibilidad de los últimos 30 días día por día, las últimas 24 horas junto a los últimos eventos y la calidad para llamadas, la última prueba de velocidad contra tu plan (si la tenés activada), cada destino medido y tus servicios, dispositivos y túneles. Cada bloque aparece solo cuando tiene datos. Lo que falla se nombra arriba en rojo, los destinos con pérdida se marcan en rojo y las listas largas rotan en cada actualización. Se acomoda a cualquier pantalla, de 720p a 4K, sin barras de desplazamiento.
+- **Tablero** (por defecto): el veredicto y tres indicadores (la nota del [chequeo de la red](/docs/es/doctor/) con su primer problema, o la disponibilidad de 24 horas si todavía no corrió; tiempo sin cortes o con problemas; latencia), la disponibilidad de los últimos 30 días día por día, las últimas 24 horas junto a los últimos eventos y la calidad para llamadas, la última prueba de velocidad contra tu plan (si la tenés activada), cada destino medido y tus servicios, dispositivos y túneles. Cada bloque aparece solo cuando tiene datos. Lo que falla se nombra arriba en rojo, los destinos con pérdida se marcan en rojo y las listas largas rotan en cada actualización (lo caído o inestable queda fijo). Un [cambio de camino](#cambios-de-camino) que sigue empeorando las cosas va arriba en una línea, si no pasa nada más grave; durante una caída baja al pie de los últimos eventos. Se acomoda a cualquier pantalla, de 720p a 4K, sin barras de desplazamiento.
 - **Simple** (`?layout=simple`): solo el veredicto, para el mostrador. [Verla en la demo](/es/isp/tv/simple/).
 
 ![La vista simple del modo TV](/docs/img/es/tv-simple.png)

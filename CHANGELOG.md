@@ -13,6 +13,17 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
   incident opens, the path is traced right away and the alert, the incidents page and the report say
   where it stops, or that the ISP changed it just before. The dashboard lists the last 7 days' changes
   with before and after, the chart marks them and the report has a section for them (#97).
+- **Unstable tunnels**: every drop inside a tunnel counts, even one too short to be an outage. Three
+  or more without a quiet hour between them make the tunnel *unstable*: one incident and one alert,
+  with the likely cause (lifetimes or rekey when they repeat on a timer, the tunnel's configuration, the
+  far site or your connection) and a path change just before, if there was one. It closes after an hour
+  without drops. The tunnels page shows the last 24 hours' drops hour by hour; the dashboard and the TV
+  board show the tunnel in amber as "Unstable" instead of "Up"; the report has a section for it (#99).
+
+### Changed
+- **TV board**: a path change that is still making things worse goes on top only when nothing worse is
+  going on; during an outage it is one line at the foot of the latest events. The simple (counter) view
+  doesn't show it. What's down or unstable stays put while long lists rotate (#97, #99).
 
 ## [0.5.2] - 2026-11-17
 

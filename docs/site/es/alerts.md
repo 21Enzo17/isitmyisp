@@ -11,6 +11,7 @@ Un mensaje cuando se cae internet, un servicio o un túnel. Cada uno dice **de q
 - **Solo si dura.** Por defecto avisa cuando el problema lleva al menos 2 minutos; podés cambiarlo de 0 a 240. Un corte de segundos no te despierta.
 - **También cuando se resuelve**, con la duración total. Se puede apagar.
 - **Con un link al panel**, si completás la dirección del panel. El asistente la completa sola con la dirección desde la que entraste.
+- **Un túnel inestable avisa una sola vez**, no por cada corte, con la causa probable ([túneles inestables](features.md#tuneles-inestables)).
 - **Con lo que muestra el camino.** Cuando se abre un incidente, traza el camino en el momento y el aviso dice dónde se corta, o que tu proveedor lo cambió justo antes ([cambios de camino](features.md#cambios-de-camino)). El webhook lo recibe como `path`.
 
 ## Telegram
