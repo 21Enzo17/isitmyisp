@@ -5,6 +5,8 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-19
+
 ### Added
 - **Path changes**: every 10 minutes isitmyisp traces the path to each internet destination, tunnel
   and service, and notices when your ISP moves your traffic to another one. A change that makes things
@@ -242,6 +244,7 @@ and to prove it.
 ### Install
 - One-line installer (`install.sh`) that shows every Docker command before running it, and a Raspberry Pi guide.
 
+[0.6.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.6.0
 [0.5.2]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.5.2
 [0.5.1]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.5.1
 [0.5.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.5.0
