@@ -57,6 +57,9 @@ def _net(hop: str, asn: str, name: str) -> dict:
                 {"index": 2, "host": hop, "segment": "isp", "asn": asn, "as_name": name}]}
 
 
+SLOW_PATH = (15 * 3600, 13 * 3600)   # seconds before the end: the ISP sends traffic the long way (#97)
+SLOW_EXTRA = 31.0                    # what the longer path adds, in ms
+
 MAIN = _net("203.0.113.1", "AS64500", "Example ISP S.A.")
 BACKUP = _net("198.51.100.1", "AS64501", "Backup Wireless S.R.L.")
 
@@ -71,6 +74,7 @@ class State:
     path_drop: bool = False
     backup: bool = False
     loop: bool = False      # a cable closing a circle between two switches
+    slow_path: bool = False  # the ISP moved traffic to a longer path
 
 
 class Simulator:
@@ -130,7 +134,7 @@ class Simulator:
         lost_a = (round(n * rng.uniform(.25, .4)) if st.isp_bad else round(n * .35) if st.wifi_bad or st.loop
                   else (1 if rng.random() < .03 else 0))
         lost_h = round(n * .35) if st.wifi_bad else round(n * .3) if st.loop else 0
-        lat = 30 + rng.gauss(0, 1.2) + (45 if st.isp_bad else 0) + (6 if st.backup else 0)
+        lat = 30 + rng.gauss(0, 1.2) + (45 if st.isp_bad else 0) + (6 if st.backup else 0) + (SLOW_EXTRA if st.slow_path else 0)
         home = [w("192.168.1.1", n, n - lost_h, 2.0 + (20 if st.wifi_bad else 0))]
         anchors = [w(a, n, n - lost_a, lat + rng.gauss(0, .6)) for a in ANCHORS]
         tcp = {a: w(f"tcp://{a}:443", 10, 10 - round(10 * lost_a / n), lat + 1) for a in ANCHORS}
@@ -183,7 +187,8 @@ class Simulator:
             flaky = 0.12 <= f < 0.14 and i % 3 == 0     # half an hour of a link that drops and comes back
             st = State(isp_bad=0.58 <= f < 0.66 or 0.86 <= f < 0.94 or flaky, wifi_bad=0.26 <= f < 0.285,
                        erp_down=0.72 <= f < 0.75, pos_down=0.79 <= f < 0.81, rekey_drop=minute % 120 < 2.5 and minute > 5,
-                       path_drop=0.40 <= f < 0.42, backup=0.47 <= f < 0.55)
+                       path_drop=0.40 <= f < 0.42, backup=0.47 <= f < 0.55,
+                       slow_path=end - SLOW_PATH[0] <= now < end - SLOW_PATH[1])
             if i >= total - tail:
                 st = self.scenario_state(scenario, now)
             self.step(now, st)
@@ -256,7 +261,7 @@ def add_device_checks(store: Store, now: float | None = None) -> None:
 
 
 def add_route_changes(store: Store, now: float | None = None) -> None:
-    """Path changes (#97): the ISP sends 1.1.1.1 the long way for two hours, which is slower, and the
+    """Path changes (#97): the ISP sends internet traffic the long way for two hours, which is slower, and the
     ISP outages carry what the path showed when they opened."""
     from . import routes
     from .probes.mtr import Hop
@@ -274,7 +279,7 @@ def add_route_changes(store: Store, now: float | None = None) -> None:
 
     t = routes.Target("anchor:1.1.1.1", "1.1.1.1", "internet", "1.1.1.1", "anchor", "1.1.1.1")
     tr = routes.Tracker()
-    change, back = now - 15 * 3600, now - 13 * 3600
+    change, back = now - SLOW_PATH[0], now - SLOW_PATH[1]
     for k in range(6):
         tr.observe(obs(usual, change - (6 - k) * routes.ROUND))
     events = []
@@ -282,8 +287,9 @@ def add_route_changes(store: Store, now: float | None = None) -> None:
         for k in range(routes.CONFIRM):
             ev = tr.observe(obs(path, ts + k * routes.ROUND, ms))
         events.append(ev)
-    impacts = ({"before_ms": 24.0, "after_ms": 61.0, "before_loss": 0.0, "after_loss": 0.0},
-               {"before_ms": 61.0, "after_ms": 24.0, "before_loss": 0.0, "after_loss": 0.0})
+    fast, slow = 30.0, 30.0 + SLOW_EXTRA
+    impacts = ({"before_ms": fast, "after_ms": slow, "before_loss": 0.0, "after_loss": 0.0},
+               {"before_ms": slow, "after_ms": fast, "before_loss": 0.0, "after_loss": 0.0})
     for ev, imp in zip(events, impacts):
         ev.update({"label": t.label, "host": t.host, "impact": imp, "severity": routes.severity(imp)})
         ev["id"] = store.add_route_event(ev["ts"], t.key, t.group, ev["kind"], ev)
