@@ -124,7 +124,7 @@
       <details>
         <summary><b>{{ r.title }}</b> · {{ r.label }}{% if r.unstable %} · <span class="ev-int">{{ t.routes_unstable }}</span>{% endif %}
           <span class="muted" title="{{ r.ts|dt }}">{{ r.ts|ago }}</span>
-          {% if r.impact %}<span class="route-imp">{{ '%.0f'|format(r.impact.before_ms) }} → {{ '%.0f'|format(r.impact.after_ms) }} ms</span>{% endif %}</summary>
+          {% if r.impact %}<span class="route-imp{{ ' better' if r.impact.after_ms < r.impact.before_ms else '' }}">{{ '%.0f'|format(r.impact.before_ms) }} → {{ '%.0f'|format(r.impact.after_ms) }} ms</span>{% endif %}</summary>
         <p>{{ r.line }}</p>
         <table class="route-cmp"><thead><tr><th>{{ t.routes_before }}</th><th>{{ t.routes_after }}</th></tr></thead>
           <tbody><tr><td>{{ r.before }}</td><td>{{ r.after }}</td></tr>

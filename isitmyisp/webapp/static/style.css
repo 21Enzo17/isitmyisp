@@ -1098,6 +1098,8 @@ details.risk-fold > summary { cursor: pointer; font-size: 14px; color: var(--ink
 .route-list li { border-left: 3px solid var(--ink-3); padding: 4px 0 4px 10px; margin-bottom: 6px; }
 .route-list li.sev-worse, .route-list li.sev-much_worse { border-left-color: var(--isp); }
 .route-list summary { cursor: pointer; }
-.route-imp { margin-left: 6px; color: var(--isp); }
+.route-imp { margin-left: 6px; color: var(--ink-2); }
+.sev-worse .route-imp, .sev-much_worse .route-imp { color: var(--isp); }
+.route-imp.better { color: var(--good-ink); }
 .route-cmp { margin-top: 6px; width: 100%; }
 .route-cmp td { vertical-align: top; }

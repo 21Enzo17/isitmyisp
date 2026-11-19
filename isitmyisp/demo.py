@@ -255,6 +255,55 @@ def add_device_checks(store: Store, now: float | None = None) -> None:
         store.add_device_check(rec)
 
 
+def add_route_changes(store: Store, now: float | None = None) -> None:
+    """Path changes (#97): the ISP sends 1.1.1.1 the long way for two hours, which is slower, and the
+    ISP outages carry what the path showed when they opened."""
+    from . import routes
+    from .probes.mtr import Hop
+    now = now or time.time()
+    asn = {"203.0.113.1": ("64500", "Example ISP S.A."), "203.0.113.9": ("64500", "Example ISP S.A."),
+           "192.0.2.10": ("64502", "Transit One LLC"), "198.18.4.1": ("64503", "Long Haul Carrier Inc."),
+           "198.18.9.1": ("64503", "Long Haul Carrier Inc."), "1.1.1.1": ("13335", "Cloudflare, Inc.")}
+    usual = ["192.168.1.1", "203.0.113.1", "203.0.113.9", "192.0.2.10", "1.1.1.1"]
+    longer = ["192.168.1.1", "203.0.113.1", "203.0.113.9", "198.18.4.1", "198.18.9.1", "1.1.1.1"]
+    cut = ["192.168.1.1", "203.0.113.1", "203.0.113.9", "???", "???", "???"]
+
+    def obs(hosts, ts, ms=4.0):
+        return routes.observe([Hop(i, h, 100.0 if h == "???" else 0.0, 3, ms * i, ms * i, ms * i + 2, 0.4)
+                               for i, h in enumerate(hosts, 1)], asn, ts=ts)
+
+    t = routes.Target("anchor:1.1.1.1", "1.1.1.1", "internet", "1.1.1.1", "anchor", "1.1.1.1")
+    tr = routes.Tracker()
+    change, back = now - 15 * 3600, now - 13 * 3600
+    for k in range(6):
+        tr.observe(obs(usual, change - (6 - k) * routes.ROUND))
+    events = []
+    for path, ts, ms in ((longer, change, 10.0), (usual, back, 4.0)):
+        for k in range(routes.CONFIRM):
+            ev = tr.observe(obs(path, ts + k * routes.ROUND, ms))
+        events.append(ev)
+    impacts = ({"before_ms": 24.0, "after_ms": 61.0, "before_loss": 0.0, "after_loss": 0.0},
+               {"before_ms": 61.0, "after_ms": 24.0, "before_loss": 0.0, "after_loss": 0.0})
+    for ev, imp in zip(events, impacts):
+        ev.update({"label": t.label, "host": t.host, "impact": imp, "severity": routes.severity(imp)})
+        ev["id"] = store.add_route_event(ev["ts"], t.key, t.group, ev["kind"], ev)
+    first = events[0]
+    iid = store.open_incident("route_slower", routes.evidence_lines(first, store.get_setting("lang") or "en"),
+                              ts=first["ts"], scope="route:internet")
+    store.set_incident_details(iid, {"route_event": first["id"], "target": t.key})
+    store.close_incident(iid, ts=events[1]["ts"])
+    usual_sample = routes.Obs.from_dict(obs(usual, 0).to_dict()).to_dict()
+    for inc in store.incidents_between(now - 86400, now):
+        if inc.code in ("isp", "access", "remote") and not (change - 1800 <= inc.opened <= back):
+            row = {"target": t.key, "label": t.label, "host": t.host, "verdict": "cut",
+                   "before": usual_sample, "now": obs(cut, inc.opened + 30).to_dict()}
+            store.add_route_event(inc.opened + 30, "group:internet", "internet", "diagnosis",
+                                  {"incident_id": inc.id, "group": "internet", "rows": [row], "recent": []},
+                                  incident_id=inc.id)
+    store.set_settings({"_routes": {t.key: tr.to_dict()}}, bump=False)
+    store.commit()
+
+
 def build(path, hours: float = 24.0, seed: int = 7, scenario: str = "healthy", lang: str = "en",
           speed: bool = False) -> Simulator:
     store = Store(path)
@@ -262,6 +311,7 @@ def build(path, hours: float = 24.0, seed: int = 7, scenario: str = "healthy", l
     sim.history(hours, scenario)
     add_doctor_run(store)
     add_device_checks(store)
+    add_route_changes(store)
     if speed:
         add_speed_result(store)
     return sim
