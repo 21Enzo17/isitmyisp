@@ -64,6 +64,7 @@
     <h2 id="tl-h"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-bars"/></svg>{{ t.last24 }}</h2>
     <ul class="key" aria-label="{{ t.row_status }}">
       {% for g in tl.groups %}<li><i class="sw g-{{ g }}" aria-hidden="true"></i>{{ t.group[g] }}</li>{% endfor %}
+      {% if tl.route_marks %}<li><i class="sw route" aria-hidden="true"></i>{{ t.route_mark_legend }}</li>{% endif %}
     </ul>
     <a class="card-link" href="{{ url_for('chart', span='24h') }}">{{ t.chart_open }} <span aria-hidden="true">↗</span></a>
   </div>
