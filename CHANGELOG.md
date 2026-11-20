@@ -3,6 +3,15 @@
 Versions follow [semantic versioning](https://semver.org). Each release has a Docker image
 (`21enzo03/isitmyisp:<version>` on Docker Hub, amd64 and arm64) and a git tag `v<version>`.
 
+## [Unreleased]
+
+### Added
+- **More in `/metrics`**: jitter, call quality (MOS), time spent in incidents (for availability),
+  route changes, the latest speed test (with bufferbloat), the router's link over SNMP and the
+  check-up grade. Nothing is exported as a zero when it isn't set up.
+- **Grafana dashboard** in `contrib/grafana`, ready to import, with the scrape config and optional
+  alert rules.
+
 ## [0.6.2] - 2026-11-20
 
 ### Changed
