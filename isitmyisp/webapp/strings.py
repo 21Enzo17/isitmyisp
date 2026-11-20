@@ -270,6 +270,10 @@ S = {
         "reports_sub": "Plain-language summary for you, evidence for your ISP's support team.",
         "r24": "Last 24 hours", "r7": "Last 7 days", "r30": "Last 30 days", "html": "Open", "pdf": "PDF",
         "custom": "Custom period", "from": "From", "to": "To", "generate": "Generate",
+        "report_bad_date": "“{v}” isn't a date: write 2026-11-01, 2026-11-01 08:00, or 7d, 24h, 90m for “that long ago”.",
+        "report_future": "That period hasn't happened yet: pick dates up to now.",
+        "pdf_missing": ("PDF export isn't installed here (it needs WeasyPrint, which the Docker image includes). "
+                        "Open the report and print it to PDF from your browser."),
         "settings_tabs": {"monitoring": "Monitoring", "connection": "Your connection", "alerts": "Alerts", "access": "Access"},
         "settings_tabs_sub": {"monitoring": "What is measured and how often.", "connection": "Your ISP, your plan and your router.",
                               "alerts": "When and how you hear about it.", "access": "Who gets into the dashboard, and how."},
@@ -661,6 +665,10 @@ S = {
         "reports_sub": "Resumen simple para vos, evidencia para el soporte de tu ISP.",
         "r24": "Últimas 24 horas", "r7": "Últimos 7 días", "r30": "Últimos 30 días", "html": "Abrir", "pdf": "PDF",
         "custom": "Período personalizado", "from": "Desde", "to": "Hasta", "generate": "Generar",
+        "report_bad_date": "«{v}» no es una fecha: escribí 2026-11-01, 2026-11-01 08:00, o 7d, 24h, 90m para «hace tanto».",
+        "report_future": "Ese período todavía no pasó: elegí fechas hasta hoy.",
+        "pdf_missing": ("La exportación a PDF no está instalada acá (necesita WeasyPrint, que la imagen de Docker trae). "
+                        "Abrí el informe e imprimilo como PDF desde el navegador."),
         "settings_tabs": {"monitoring": "Monitoreo", "connection": "Tu conexión", "alerts": "Avisos", "access": "Acceso"},
         "settings_tabs_sub": {"monitoring": "Qué se mide y cada cuánto.", "connection": "Tu ISP, tu plan y tu router.",
                               "alerts": "Cuándo y por dónde te enterás.", "access": "Quién entra al panel y cómo."},
