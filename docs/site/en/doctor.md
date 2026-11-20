@@ -12,7 +12,7 @@ Each check comes out **green** (fine), **yellow** (worth a look) or **red** (wro
 ## How to run it
 
 - **On its own**: the monitor runs it once a day.
-- **In the dashboard**: in **Check-up**, with the **Check now** button. The monitor picks it up on its next round.
+- **In the dashboard**: in **Check-up → Whole network**, with the **Check now** button. The monitor picks it up on its next round.
 - **In the terminal**:
 
 ```bash

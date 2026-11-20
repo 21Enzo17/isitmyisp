@@ -12,7 +12,7 @@ Cada revisión sale en **verde** (bien), **amarillo** (para mirar) o **rojo** (m
 ## Cómo se corre
 
 - **Solo**: el monitor lo corre una vez por día.
-- **En el panel**: en **Chequeo**, con el botón **Revisar ahora**. El monitor lo toma en la siguiente vuelta.
+- **En el panel**: en **Chequeo → Toda la red**, con el botón **Revisar ahora**. El monitor lo toma en la siguiente vuelta.
 - **En la terminal**:
 
 ```bash
