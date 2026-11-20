@@ -38,7 +38,7 @@
     <p class="kpi-name"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-bars"/></svg>{{ t.kpi_avail }}</p>
     <p class="kpi-val">{{ '%.1f'|format(k.avail.value) if k.avail.value is not none else '—' }}%</p>
     {{ delta(k.avail.delta, '%+.1f', ' pp')|minus }}
-    {% if not k.avail.spark.empty %}<div class="kpi-spark s-good" aria-hidden="true"><svg viewBox="0 0 1000 100" preserveAspectRatio="none"><path class="area" d="{{ k.avail.spark.area }}"/><path class="ln" d="{{ k.avail.spark.line }}"/></svg></div>{% endif %}
+    {% if not k.avail.spark.empty %}<div class="kpi-spark s-{{ k.avail.tone }}" aria-hidden="true"><svg viewBox="0 0 1000 100" preserveAspectRatio="none"><path class="area" d="{{ k.avail.spark.area }}"/><path class="ln" d="{{ k.avail.spark.line }}"/></svg></div>{% endif %}
   </section>
   <section class="card kpi{{ frozen }}" aria-label="{{ t.kpi_down_for if k.uptime.ongoing else t.kpi_uptime }}">
     <p class="kpi-name"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-clock"/></svg>{{ t.kpi_down_for if k.uptime.ongoing else t.kpi_uptime }}</p>

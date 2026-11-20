@@ -728,7 +728,7 @@ label.check input { width: 17px; height: 17px; accent-color: var(--accent); }
 .kpi-spark svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .kpi-spark .ln { fill: none; stroke: var(--sc); stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .kpi-spark .area { fill: var(--sc); opacity: .16; }
-.kpi-spark.s-good { --sc: var(--good); } .kpi-spark.s-blue { --sc: var(--series); } .kpi-spark.s-violet { --sc: var(--violet); }
+.kpi-spark.s-good { --sc: var(--good); } .kpi-spark.s-warn { --sc: var(--amber); } .kpi-spark.s-bad { --sc: var(--bad); } .kpi-spark.s-blue { --sc: var(--series); } .kpi-spark.s-violet { --sc: var(--violet); }
 .kpi-spark .area { opacity: .2; }
 
 .where { margin-top: 18px; }

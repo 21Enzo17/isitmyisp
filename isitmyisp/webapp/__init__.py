@@ -17,7 +17,7 @@ from datetime import timedelta
 mimetypes.add_type("font/woff2", ".woff2")  # slim images ship without it
 mimetypes.add_type("application/manifest+json", ".webmanifest")
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 from flask import (Flask, Response, abort, flash, g, make_response, redirect, render_template, request,
                    send_from_directory, session, url_for)
@@ -199,6 +199,16 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                             httponly=True, secure=secure_cookies)
         return resp
 
+    @app.errorhandler(404)
+    @app.errorhandler(405)
+    def http_error(e):
+        """A styled page with a way back, not Werkzeug's bare HTML. The API and /metrics keep plain answers."""
+        if request.path.startswith("/api/") or request.path == "/metrics":
+            return e
+        t = g.get("t", S["en"])
+        return render_template("message.html", message=t["err_404" if e.code == 404 else "err_405"],
+                               back=True), e.code
+
     @app.errorhandler(CSRFError)
     def csrf_error(e):
         return render_template("message.html", message=str(e.description)), 400
@@ -325,7 +335,12 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                 "auth_mode": g.settings.auth_mode if g.get("settings") else "local", "css_v": css_v, "js_v": js_v,
                 "check_v": check_v,
                 "theme": request.cookies.get("theme") if request.cookies.get("theme") in ("light", "dark") else None,
-                "live": _live()}
+                "live": _live(), "lang_url": _lang_url}
+
+    def _lang_url(code):
+        """The language links keep the page's other query args (range, tab, id…): only ?lang changes."""
+        args = {k: v for k, v in request.args.to_dict(flat=False).items() if k != "lang"}
+        return "?" + urlencode({**args, "lang": code}, doseq=True)
 
     def _live():
         """The sidebar's "system running" note: when the last measurement window finished."""

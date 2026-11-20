@@ -459,6 +459,11 @@ def month_view(store: Store, now: float, days: int = 30) -> dict:
             "dur": fmt_duration(max(0.0, now - first)) if young else ""}
 
 
+def avail_tone(pct: float | None) -> str:
+    """The availability sparkline's color follows the number: green only when the day really was good."""
+    return "good" if pct is None or pct >= 99.5 else ("warn" if pct >= 98 else "bad")
+
+
 def kpis(store: Store, windows, series, start: float, now: float) -> dict:
     """The three figures next to the verdict, each with the last 24 h as a small line and the change
     against the 24 h before (None when there's nothing to compare with)."""
@@ -473,6 +478,7 @@ def kpis(store: Store, windows, series, start: float, now: float) -> dict:
     pct = availability(windows)
     prev = availability(store.windows_between(now - 2 * 86400, now - 86400))
     out["avail"] = {"value": pct, "delta": (pct - prev) if pct is not None and prev is not None else None,
+                    "tone": avail_tone(pct),
                     # scaled to the day's own range, so a good day still shows its dips
                     "spark": charts.plot(hourly, now - 86400, now, unit="%", ymax=100, floor=10,
                                          ymin=max(0.0, 10 * (min((v for _, v in hourly), default=90) // 10) - 10))}

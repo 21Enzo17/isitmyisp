@@ -63,7 +63,7 @@
       <details class="acct">
         <summary>
           {% if user %}<span class="avatar" aria-hidden="true">{{ user.username[:1]|upper }}</span>
-          <span class="acct-who"><b>{{ user.username }}</b><small>{{ t.roles.get(user.role, '') }}</small></span>
+          <span class="acct-who"><b>{{ user.username }}</b><small>{{ t.roles.get('viewer' if readonly else user.role, '') }}</small></span>
           {% else %}<span class="avatar" aria-hidden="true"><svg class="ico"><use href="#i-globe"/></svg></span>
           <span class="acct-who"><b>{{ t.lang_switch }}</b><small>{{ 'Español' if lang == 'es' else 'English' }}</small></span>{% endif %}
           <span class="caret" aria-hidden="true"></span>
@@ -71,7 +71,7 @@
         <div class="acct-menu">
           <p class="acct-h">{{ t.lang_switch }}</p>
           <nav class="lang" aria-label="{{ t.lang_switch }}">
-            <a href="?lang=es" lang="es"{% if lang == 'es' %} aria-current="true"{% endif %}>Español</a><a href="?lang=en" lang="en"{% if lang == 'en' %} aria-current="true"{% endif %}>English</a></nav>
+            <a href="{{ lang_url('es') }}" lang="es"{% if lang == 'es' %} aria-current="true"{% endif %}>Español</a><a href="{{ lang_url('en') }}" lang="en"{% if lang == 'en' %} aria-current="true"{% endif %}>English</a></nav>
           {% if user and user.source == 'local' %}
           <form method="post" action="{{ url_for('logout') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
