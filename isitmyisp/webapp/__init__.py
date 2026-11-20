@@ -515,6 +515,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         f = request.form
         return _save({"anchors": f.get("anchors", "").split(), "interval": f.get("interval"),
                       "window": f.get("window"), "lang": f.get("lang"), "voip_target": f.get("voip_target", ""),
+                      "static_ip": f.get("static_ip", ""),
                       "dns": f.get("dns", "").replace(",", " ").split()})
 
     @app.post("/settings/tunnels/add")

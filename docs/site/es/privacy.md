@@ -20,7 +20,7 @@ isitmyisp está pensado para correr meses en tu red. Por defecto **nunca manda t
 | El chequeo: una consulta DNS a 192.0.2.53 | una vez por día y cuando lo corrés | una consulta A de www.google.com a una dirección que no existe en internet: si alguien contesta, intercepta tu DNS | sí |
 | iptoasn.com | solo cuando apretás el botón en Configuración → Tu conexión o corrés `update-asn` | una descarga HTTPS del dataset público (sin consultas por IP) | manual |
 | Team Cymru whois | solo con `--asn-online` | las IP públicas de tu camino | **no** |
-| api.ipify.org | solo con `--public-ip` | un pedido HTTPS (les revela tu IP pública) | **no** |
+| api.ipify.org | solo con `--public-ip`, o cada 10 min si configurás una IP fija | un pedido HTTPS (les revela tu IP pública) | **no** |
 | Tus servicios | solo los que agregues | un GET HTTP (o conexión TCP) cada 30 s | **no** |
 | speed.cloudflare.com | solo si activás el test de velocidad | descargas y subidas de unos 15 s; Cloudflare ve tu IP pública | **no** |
 | Tus servidores iperf3 | solo los que agregues al test de velocidad | descargas y subidas de unos 15 s cada uno; cada servidor ve tu IP pública | **no** |

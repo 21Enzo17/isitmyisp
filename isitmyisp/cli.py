@@ -363,6 +363,8 @@ def cmd_monitor(args, t) -> int:
     print(f"💾 {store.path}  {t['stop_hint']}")
     hops_by_provider: dict[str, set[str]] = {}  # ISP routers already seen per provider (ECMP is not a failover)
     speed = SpeedRunner(store, data_dir=data_dir(), asn_online=args.asn_online)  # off unless enabled in Settings (it fills the link)
+    from .publicip import Checker as PublicIP
+    public_ip = PublicIP(store)   # only asks ipify when a static IP is set in Settings (#102)
     speed_seen = max((r["ts"] for r in store.speedtests_between(time.time() - 86400, 2e10)), default=0.0)
     try:
         while True:  # one session per (network, settings); rebuilt on route change, timer or new settings
@@ -412,6 +414,9 @@ def cmd_monitor(args, t) -> int:
                     for r in store.speedtests_between(speed_seen + 0.001, 2e10):
                         speed_seen = r["ts"]
                         print(f"\n{t['speed_done'].format(down=r.get('down_mbps') or 0, up=r.get('up_mbps') or 0, err=r.get('error') or '')}")
+                    ip_change = public_ip.tick(cfg_now.static_ip)
+                    if ip_change:
+                        print(f"\n{t['public_ip_' + ip_change].format(ip=cfg_now.static_ip)}")
                     alerter.tick()
                     monthly.tick()
                     _doctor_if_due(store, net, cfg_now.link)

@@ -5,6 +5,19 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 
 ## [Unreleased]
 
+### Added
+- **Static public IP**: if you pay for a fixed IP, set it in Settings → Your connection and you get an
+  alert when your connection goes out with another one; it closes when yours is back. Empty (the
+  default) means nothing is checked: on most connections the IP changes now and then and that's normal.
+  When set, api.ipify.org is asked every 10 minutes.
+
+### Fixed
+- **Path changes were too noisy**: load balancing inside the ISP or a CDN (two paths that alternate
+  and cost nothing) was shown as a stream of changes, marked "unstable", put on the chart and on the
+  TV. Now a path that alternates without effect is learned as one path, and only changes that made
+  something worse (slower, losing packets, or no longer getting there) are shown open, marked on the
+  chart and shown on the TV; the rest stay folded under "no effect".
+
 ## [0.6.0] - 2026-11-19
 
 ### Added
