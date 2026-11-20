@@ -3,7 +3,7 @@
 Versions follow [semantic versioning](https://semver.org). Each release has a Docker image
 (`21enzo03/isitmyisp:<version>` on Docker Hub, amd64 and arm64) and a git tag `v<version>`.
 
-## [Unreleased]
+## [0.6.2] - 2026-11-20
 
 ### Changed
 - **Dashboard order**: where the problem is and what to do (with the button for your ISP's report)
@@ -16,7 +16,7 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 - **Red means the ISP only where it says so**: the verdict, the charts and their legend keep the ISP's
   red; errors, badges, bad changes and down tunnels use their own (#107).
 - **Incidents on a phone** are cards instead of a table that scrolled sideways, and the report's mtr
-  tables scroll inside their own box (#107, #108).
+  tables scroll inside their own box on screen and print whole (#107, #108, #110).
 - **Clearer texts**: service failures say the cause in words ("connection dropped"), dates in
   sentences read one way ("at 11:34" today, "Thu 19 Nov, 17:02" another day), Check-up hides counts of
   zero and grades only the whole-network checks, repeated failures of the same service, device or
@@ -298,6 +298,7 @@ and to prove it.
 ### Install
 - One-line installer (`install.sh`) that shows every Docker command before running it, and a Raspberry Pi guide.
 
+[0.6.2]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.6.2
 [0.6.1]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.6.1
 [0.6.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.6.0
 [0.5.2]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.5.2
