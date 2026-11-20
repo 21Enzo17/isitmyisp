@@ -1,0 +1,5 @@
+{# one "Check-up" in the nav, two ways to run it; both URLs stay #}
+<nav class="tabs" aria-label="{{ t.nav.doctor }}">
+  <a href="{{ url_for('doctor') }}"{% if active == 'doctor' %} aria-current="page"{% endif %}>{{ t.check_tab_net }}</a>
+  <a href="{{ url_for('device_check') }}"{% if active == 'device' %} aria-current="page"{% endif %}>{{ t.check_tab_dev }}</a>
+</nav>

@@ -5,6 +5,7 @@
   {% if not readonly %}<form class="inline" method="post" action="{{ url_for('doctor_run') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button class="btn primary" type="submit"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>{{ t.doctor_run }}</button></form>{% endif %}
   {% include "_theme.html" %}</div></div>
+{% include "_checktabs.html" %}
 <p class="muted lead-narrow">{{ t.doctor_intro }}</p>
 {% if doc.pending %}<div class="flash ok" role="status">{{ t.doctor_pending }}</div>{% endif %}
 {% if not doc.run %}

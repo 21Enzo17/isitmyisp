@@ -4,14 +4,14 @@
 <div class="topbar"><h1>{{ t.incidents_title }}</h1><div class="right">{% include "_theme.html" %}</div></div>
 <div class="card">
 {% if not rows %}<p class="muted">{{ t.no_incidents }}</p>{% else %}
-<table>
+<table class="inc-table">
   <thead><tr><th>{{ t.start }}</th><th>{{ t.end }}</th><th class="num">{{ t.duration }}</th><th>{{ t.where }}</th><th>{{ t.evidence }}</th></tr></thead>
   <tbody>
   {% for r in rows %}
-  <tr><td class="num">{{ r.first|dt }}</td><td class="num">{{ r.closed|dt if r.closed else t.ongoing }}</td>
-      <td class="num">{{ r.duration }}</td>
-      <td><span class="dot {{ r.css }}"></span> {{ r.scope }} · {{ r.code|cause }}{% if r.count > 1 %} <span class="muted" title="{{ t.inc_folded.format(n=r.count) }}">×{{ r.count }}</span>{% endif %}{% if r.drops %}<br><span class="ev-int">{{ t.intermittent_n.format(n=r.drops) }}</span>{% endif %}</td>
-      <td>{% if r.summary %}<p class="ev-sum">{{ r.summary }}</p>{% endif %}<span class="mono">{% for e in r.evidence %}{{ e|ev }}<br>{% endfor %}</span>
+  <tr><td class="num" data-label="{{ t.start }}">{{ r.first|dt }}</td><td class="num" data-label="{{ t.end }}">{{ r.closed|dt if r.closed else t.ongoing }}</td>
+      <td class="num" data-label="{{ t.duration }}">{{ r.duration }}</td>
+      <td class="inc-where"><span class="dot {{ r.css }}"></span> {{ r.scope }} · {{ r.code|cause }}{% if r.count > 1 %} <span class="muted" title="{{ t.inc_folded.format(n=r.count) }}">×{{ r.count }}</span>{% endif %}{% if r.drops %}<br><span class="ev-int">{{ t.intermittent_n.format(n=r.drops) }}</span>{% endif %}</td>
+      <td class="inc-ev">{% if r.summary %}<p class="ev-sum">{{ r.summary }}</p>{% endif %}<span class="mono">{% for e in r.evidence %}{{ e|ev }}<br>{% endfor %}</span>
         {% for line in r.path %}<p class="ev-path">{{ line }}</p>{% endfor %}
         {% with details = r.details %}{% include "_ruled.html" %}{% endwith %}</td></tr>
   {% endfor %}

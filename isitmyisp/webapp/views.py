@@ -212,7 +212,8 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None, l
                                      calls=d.calls["series"] if d.calls else None,
                                      routes=route_marks(store, start, end, lang))
         d.brief = list(reversed(store.brief_events(start, end)))[:12]
-        d.kpi = kpis(store, windows, series, start, now)
+        # stale: the KPIs are the last known state, as of the last window ("8 d without outages" stops growing)
+        d.kpi = kpis(store, windows, series, start, d.updated if d.code == "stale" else now)
         d.month = month_view(store, now)
 
     # the latest measurement of every target (they make up the path in the hero), with 6 h of history
