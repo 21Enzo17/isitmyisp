@@ -9,7 +9,7 @@ La sonda mide desde un solo lugar: la máquina donde corre isitmyisp. Si la sond
 
 ## Cómo se corre
 
-Abrí el panel desde el equipo que querés probar (la PC, el celular, la notebook) y entrá en **Este equipo**. Tocá **Empezar** y esperá unos 15 segundos sin cerrar la página.
+Abrí el panel desde el equipo que querés probar (la PC, el celular, la notebook) y entrá en **Chequeo → Desde este equipo**. Tocá **Empezar** y esperá unos 15 segundos sin cerrar la página.
 
 El navegador mide:
 

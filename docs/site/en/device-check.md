@@ -9,7 +9,7 @@ The probe measures from a single place: the machine running isitmyisp. If the pr
 
 ## How to run it
 
-Open the dashboard from the device you want to test (the PC, the phone, the laptop) and go to **This device**. Tap **Start** and wait about 15 seconds without closing the page.
+Open the dashboard from the device you want to test (the PC, the phone, the laptop) and go to **Check-up → From this device**. Tap **Start** and wait about 15 seconds without closing the page.
 
 The browser measures:
 

@@ -803,6 +803,7 @@ nav.bar a:hover { text-decoration: underline; }
 /* a wide mtr scrolls inside itself on a phone, not the whole page */
 .tscroll { overflow-x: auto; }
 @media print {
+  .tscroll { overflow: visible; }
   nav.bar { display: none; }
   body { background:#ffffff; }
   main { margin:0; padding:0; border:0; border-radius:0; box-shadow:none; max-width:none; }
