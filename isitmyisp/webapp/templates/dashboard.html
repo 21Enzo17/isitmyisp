@@ -31,7 +31,7 @@
     </div>
   </section>
   {% if d.kpi %}{% set k = d.kpi %}
-  {% macro delta(v, fmt, unit, good_if_up=True) %}{% if v is not none %}{% set up = v >= 0 %}{% set ok = up if good_if_up else not up %}
+  {% macro delta(v, fmt, unit, good_if_up=True) %}{% if v is not none and (fmt|format(v))|float != 0 %}{# +0 ms says nothing #}{% set up = v >= 0 %}{% set ok = up if good_if_up else not up %}
     <p class="kpi-delta {{ 'up' if ok else 'down' }}"><svg class="ico" aria-hidden="true"><use href="#i-{{ 'up' if up else 'down' }}"/></svg>{{ fmt|format(v) }}{{ unit }}</p>{% endif %}{% endmacro %}
   <section class="card kpi" aria-label="{{ t.kpi_avail }}">
     <p class="kpi-name"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-bars"/></svg>{{ t.kpi_avail }}</p>

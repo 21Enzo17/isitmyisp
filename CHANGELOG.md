@@ -5,6 +5,10 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 
 ## [Unreleased]
 
+### Fixed
+- The dashboard no longer shows a change of "+0 ms" (or "+0.0 %") under latency and availability:
+  a change that rounds to zero is left out.
+
 ## [0.6.1] - 2026-11-20
 
 ### Added

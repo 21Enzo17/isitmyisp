@@ -311,6 +311,21 @@ class NoneModeExposed(WebAppBase):
         self.assertEqual(self.client.get("/").status_code, 403)
 
 
+
+class KpiDelta(WebAppBase):
+    def render(self, v, fmt, unit):
+        # the macro alone: the dashboard needs a whole page's context to render
+        src = (Path(__file__).resolve().parents[1] / "isitmyisp/webapp/templates/dashboard.html").read_text()
+        macro = re.search(r"{% macro delta.*?{% endmacro %}", src, re.S).group(0)
+        tpl = self.app.jinja_env.from_string(macro + "{{ delta(v, fmt, unit) }}")
+        return tpl.render(v=v, fmt=fmt, unit=unit).strip()
+
+    def test_a_change_that_rounds_to_zero_is_not_shown(self):
+        self.assertEqual(self.render(0.3, "%+.0f", " ms"), "")
+        self.assertEqual(self.render(-0.04, "%+.1f", "%"), "")
+        self.assertEqual(self.render(None, "%+.0f", " ms"), "")
+        self.assertIn("+3 ms", self.render(3.2, "%+.0f", " ms"))
+
 if __name__ == "__main__":
     unittest.main()
 
