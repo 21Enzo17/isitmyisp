@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from isitmyisp.api import metrics_text
 from isitmyisp.classifier import Measurements
 from isitmyisp.config import ConfigError, Tunnel, parse
 from isitmyisp.monitor import Monitor
@@ -9,7 +10,6 @@ from isitmyisp.probes.icmp import WindowStats
 from isitmyisp.store import Store
 from isitmyisp.timeutil import parse_when
 from isitmyisp.tunnels import classify_tunnel, periodic_interval
-from isitmyisp.api import metrics_text
 
 T = Tunnel("branch", "198.51.100.20", "10.10.0.1", "ipsec-l2tp")
 T0 = 1_794_000_000.0
@@ -128,6 +128,48 @@ class Metrics(unittest.TestCase):
             m, rows = healthy_internet()
             mon.step(m, [r for r in rows if r[1].target != "8.8.8.8"], now=T0 + 10 * WIN)
             self.assertNotIn("8.8.8.8", {s["target"] for s in store.latest_samples()})
+            store.close()
+
+    def test_metrics_beyond_the_verdict(self):
+        """Jitter, call quality, downtime, speed test, SNMP link, check-up and route changes."""
+        from types import SimpleNamespace
+
+        from isitmyisp import demo
+        with tempfile.TemporaryDirectory() as d:
+            store = Store(Path(d) / "m.db")
+            mon = Monitor(store, WIN)
+            for i in range(3):
+                m, rows = healthy_internet()
+                mon.step(m, rows, now=T0 + (i + 1) * WIN)
+            now = T0 + 4 * WIN
+            store.close_incident(store.open_incident("isp", ["x"], ts=now - 600), ts=now - 300)
+            store.open_incident("service_down", ["y"], ts=now - 120, scope="service:Outlook")
+            body = metrics_text(store, now=now)
+            self.assertRegex(body, r'isitmyisp_jitter_ms\{role="anchor",target="1\.1\.1\.1"\} [\d.]+')
+            self.assertRegex(body, r'isitmyisp_call_quality_mos\{source="anchors"\} 4\.\d+')
+            self.assertIn('isitmyisp_incident_seconds_total{scope="internet",code="isp"} 300.0', body)
+            self.assertIn('isitmyisp_incident_seconds_total{scope="service:Outlook",code="service_down"} 120.0', body)
+            self.assertIn("isitmyisp_route_changes_total 0", body)
+            self.assertIn('isitmyisp_build_info{version="', body)
+            self.assertNotIn("speedtest_download", body)       # nothing measured: no made-up zeros
+            self.assertNotIn("isitmyisp_link_mbps", body)
+            self.assertNotIn("isitmyisp_doctor_grade", body)
+
+            demo.add_speed_result(store, now=now)
+            demo.add_doctor_run(store, now=now)
+            store.add_link_usage(now - 30, SimpleNamespace(down_mbps=120.5, up_mbps=8.0, down_pct=40.2, up_pct=8.0,
+                                                           cpu_pct=12.0))
+            body = metrics_text(store, now=now)
+            self.assertIn("isitmyisp_speedtest_download_mbps 58.3", body)    # the latest one
+            self.assertIn("isitmyisp_speedtest_loaded_latency_ms 64.8", body)
+            self.assertIn('isitmyisp_link_mbps{direction="down"} 120.5', body)
+            self.assertIn('isitmyisp_link_utilization_ratio{direction="down"} 0.402', body)
+            self.assertIn("isitmyisp_router_cpu_ratio 0.12", body)
+            self.assertRegex(body, r'isitmyisp_doctor_grade\{grade="[A-F]"\} 1')
+            self.assertIn('isitmyisp_doctor_check{check="dns",scope="network"} ', body)
+            self.assertNotIn("isitmyisp_link_mbps", metrics_text(store, now=now + 3600))   # stale SNMP reading
+            for line in body.splitlines():
+                self.assertTrue(line.startswith(("# HELP isitmyisp_", "# TYPE isitmyisp_", "isitmyisp_")), line)
             store.close()
 
 

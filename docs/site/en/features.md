@@ -166,7 +166,7 @@ Admins invite people with one-time links that expire in 48 hours, reset password
 
 | Path | What |
 |---|---|
-| `/metrics` | Prometheus, with a token shown in **Settings → Access** |
+| `/metrics` | Prometheus, with a token shown in **Settings → Access**. What it exports, a ready-made Grafana dashboard and alert rules are in [`contrib/grafana`](https://github.com/21Enzo17/isitmyisp/tree/main/contrib/grafana) |
 | `/api/status` | Current state as JSON (when logged in) |
 | `/healthz` | Public; only says whether it's alive |
 | `/report?since=7d` | The report as HTML |
