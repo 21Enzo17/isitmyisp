@@ -18,9 +18,9 @@
     <a href="{{ url_for('welcome', step=k) }}"><span class="wiz-n">{{ loop.index }}</span>{{ t.wiz_step[k] }}</a></li>
   {% endfor %}
 </ol>
-{% if error %}<div class="flash err">{{ error }}</div>{% endif %}
+{% if error %}<div class="flash err">{{ error|errtext }}</div>{% endif %}
 {% if test_results %}<div class="flash {{ 'ok' if test_results.values()|select('equalto','ok')|list|length == test_results|length else 'err' }}">
-  <b>{{ t.test_results }}:</b> {% for ch, r in test_results.items() %}{{ ch }}: {{ r }}{{ ' · ' if not loop.last }}{% endfor %}</div>{% endif %}
+  <b>{{ t.test_results }}:</b> {% for ch, r in test_results.items() %}{{ ch }}: {{ r|errtext }}{{ ' · ' if not loop.last }}{% endfor %}</div>{% endif %}
 
 <div class="card wiz">
 {% if step == 'plan' %}

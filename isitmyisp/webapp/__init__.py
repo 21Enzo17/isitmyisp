@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hmac
 import mimetypes
+import re
 import secrets
 import threading
 import time
@@ -255,6 +256,11 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         n = float(n or 0)
         return f"{n / 1e9:.1f} GB" if n >= 1e9 else f"{n / 1e6:.0f} MB"
 
+    @app.template_filter("errtext")
+    def _errtext(msg) -> str:
+        from .errtext import localize
+        return localize(msg if msg is None else str(msg), g.get("lang", "en"))
+
     @app.template_filter("group")
     def _group(code: str) -> str:
         return charts.GROUP.get(code, "none")
@@ -321,7 +327,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     @app.get("/")
     def dashboard():
         return render_template("dashboard.html", active="dashboard",
-                               d=views.dashboard_data(store, g.settings),
+                               d=views.dashboard_data(store, g.settings, lang=g.lang),
                                wizard_pending=not g.readonly and not store.get_setting("wizard_done"))
 
     @app.get("/chart")
@@ -335,7 +341,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         frm, to = (None, None) if demo else (views.parse_when(request.args.get("from")), views.parse_when(request.args.get("to")))
         cv = views.chart_view(store, g.settings, request.args.get("span", "24h"), k,
                               spans=(["6h", "24h"] if request.args.get("who") else ["1h", "6h", "24h"]) if demo else None,
-                              who=request.args.get("who") or None, frm=frm, to=to)
+                              who=request.args.get("who") or None, frm=frm, to=to, lang=g.lang)
         return render_template("chart.html", active="dashboard", cv=cv)
 
     @app.get("/incidents")
@@ -344,11 +350,18 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
 
     @app.get("/tunnels")
     def tunnels():
-        return render_template("tunnels.html", active="tunnels", tunnels=views.tunnel_cards(store, g.settings))
+        return render_template("tunnels.html", active="tunnels", tunnels=views.tunnel_cards(store, g.settings, lang=g.lang))
+
+    def _pdf_ok() -> bool:
+        if "PDF_OK" not in app.config:
+            from ..pdf import available
+            app.config["PDF_OK"] = available()
+        return app.config["PDF_OK"]
 
     @app.get("/reports")
-    def reports():
-        return render_template("reports.html", active="reports")
+    def reports(error: str | None = None, status: int = 200):
+        return render_template("reports.html", active="reports", error=error, pdf_ok=_pdf_ok(),
+                               since=request.args.get("since", ""), until=request.args.get("until", "")), status
 
     @app.get("/doctor")
     def doctor():
@@ -361,6 +374,8 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         try:
             check_id = int(request.args.get("id", 0))
         except ValueError:
+            check_id = 0
+        if not 0 <= check_id < 2**63:      # SQLite's integers end there
             check_id = 0
         anchors = [a for a in g.settings.anchors if ":" not in a]   # CSP and URLs: IPv4 literals only
         return render_template("check.html", active="device", anchors=anchors,
@@ -417,30 +432,43 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         flash(g.t["doctor_requested"])
         return redirect(url_for("doctor"))
 
-    def _period() -> tuple[float, float]:
+    def _period() -> tuple[float, float] | str:
+        """The report's (start, end), or what's wrong with the dates typed in Reports."""
         now = time.time()
-        try:
-            start = parse_when(request.args.get("since") or "7d")
-            end = parse_when(request.args["until"]) if request.args.get("until") else now
-        except ValueError:
-            abort(400)
-        return start, end
+        since, until = (request.args.get("since") or "7d").strip(), (request.args.get("until") or "").strip()
+        times = []
+        for v in (since, until):
+            try:
+                times.append(parse_when(v.lower() if v[-1:].isalpha() else v, now=now) if v else now)
+            except ValueError:
+                return g.t["report_bad_date"].format(v=v)
+        # typed the other way round: the same period
+        (start, _), (end, last) = sorted(zip(times, (since, until or "now"), strict=True))
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", last):
+            end += 86400                        # "until the 7th" includes the 7th
+        if start >= now:
+            return g.t["report_future"]
+        return start, min(end, now)
 
     @app.get("/report")
     def report():
-        start, end = _period()
-        pdf = None if app.config.get("DEMO_STATIC") else url_for("report_pdf", **request.args)
-        return Response(build_report(store, start, end, lang=g.lang, back=url_for("dashboard"), pdf=pdf),
+        period = _period()
+        if isinstance(period, str):
+            return reports(period, 400)
+        pdf = None if app.config.get("DEMO_STATIC") or not _pdf_ok() else url_for("report_pdf", **request.args)
+        return Response(build_report(store, *period, lang=g.lang, back=url_for("dashboard"), pdf=pdf),
                         mimetype="text/html")
 
     @app.get("/report.pdf")
     def report_pdf():
         from ..pdf import PdfUnavailable, html_to_pdf
-        start, end = _period()
+        period = _period()
+        if isinstance(period, str):
+            return reports(period, 400)
         try:
-            data = html_to_pdf(build_report(store, start, end, lang=g.lang))
-        except PdfUnavailable as exc:
-            return Response(str(exc), 501, mimetype="text/plain")
+            data = html_to_pdf(build_report(store, *period, lang=g.lang))
+        except PdfUnavailable:
+            return reports(g.t["pdf_missing"], 501)
         name = f"isitmyisp-report-{time.strftime('%Y%m%d')}.pdf"
         return Response(data, mimetype="application/pdf", headers={"Content-Disposition": f'inline; filename="{name}"'})
 
@@ -488,8 +516,15 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                        tv_screens=tvpair.listing(store), tv_short=request.host_url.rstrip("/") + "/tv",
                        tv_url=(url_for("tv", token=store.get_setting("tv_token"), _external=True)
                                if is_admin and store.get_setting("tv_token") else None))
-        return render_template("settings.html", active="settings", s=g.settings, error=error, tab=tab,
-                               tabs=SETTINGS_TABS, focus=focus, **ctx), status
+        return _kept(render_template("settings.html", active="settings", s=g.settings, error=error, tab=tab,
+                                     tabs=SETTINGS_TABS, focus=focus, **ctx), status), status
+
+    def _kept(html: str, status: int) -> str:
+        """A form sent back with an error shows what was typed, not the saved values."""
+        if request.method != "POST" or status < 400:
+            return html
+        from .refill import refill
+        return refill(html, request.path, request.form)
 
     @app.get("/settings")
     @app.get("/settings/<any(connection, alerts, access):tab>")
@@ -661,7 +696,8 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
             client = SnmpClient(values["host"], values["community"], int(values["port"]), timeout=2, retries=1)
             found = [name for _, name in interfaces(client)]
         except (SnmpError, ValueError, OSError) as exc:
-            return _settings_page(f"{g.t['link_err']}: {exc}", 400)
+            from .errtext import localize
+            return _settings_page(f"{g.t['link_err']}: {localize(str(exc), g.lang)}", 400)
         g.settings.link = {**g.settings.link, **{k: v for k, v in values.items() if k != "community"}}
         return _settings_page(ifaces=found)
 
@@ -782,7 +818,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         return _tv_board()
 
     def _tv_board():
-        d = views.dashboard_data(store, g.settings)
+        d = views.dashboard_data(store, g.settings, lang=g.lang)
         simple = request.args.get("layout") == "simple"
         return render_template("tv.html", d=d, b=views.board(d), simple=simple, now=time.time(),
                                doc=None if simple else views.board_doctor(store, g.lang))
@@ -793,6 +829,10 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         """The short address for a wall screen. A paired screen (its device cookie) or a signed-in user
         sees the board; any other browser gets a short code to pair it from Settings, and waits."""
         from .. import tvpair
+        if g.settings.auth_mode == "none":   # no sign-in: whoever reaches the dashboard sees it, nothing to pair
+            if not app.config["LOOPBACK"]:
+                return render_template("message.html", message=g.t["none_denied"]), 403
+            return _tv_board()
         if tvpair.device(store, request.cookies.get("tv_device")) or (
                 g.settings.auth_mode == "local" and current_user.is_authenticated):
             return _tv_board()
@@ -948,11 +988,11 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         cfg = alerts_mod.masked(alerts_mod.load(store))
         if not cfg["public_url"]:
             cfg["public_url"] = request.host_url.rstrip("/")     # links in alerts open this same address
-        return render_template("welcome.html", active="settings", step=step, steps=WIZARD, s=g.settings,
-                               error=error, test_results=results, alerts=cfg, presets=_presets_view(),
-                               hours=_hours_view(),
-                               net=store.network_at(time.time()),
-                               isp=views.isp_status(store, data_dir, ASN_JOB)), status
+        return _kept(render_template("welcome.html", active="settings", step=step, steps=WIZARD, s=g.settings,
+                                     error=error, test_results=results, alerts=cfg, presets=_presets_view(),
+                                     hours=_hours_view(),
+                                     net=store.network_at(time.time()),
+                                     isp=views.isp_status(store, data_dir, ASN_JOB)), status), status
 
     @app.get("/welcome")
     def welcome_start():

@@ -829,6 +829,7 @@ class LocalDevicesWeb(WebAppBase):
         self.assertIn("Card terminal", dash)
         self.assertIn("it&#39;s the device", dash)
         self.store.close_incident(iid, ts=now - 60)
+        self.app.config["PDF_OK"] = True     # the PDF link shows only when the PDF engine is there
         report = self.client.get("/report?since=1d&lang=en").get_data(as_text=True)
         self.assertIn("Devices on your network", report)
         self.assertIn('<nav class="bar"><a href="/">← Back to the dashboard</a>', report)   # a way back
