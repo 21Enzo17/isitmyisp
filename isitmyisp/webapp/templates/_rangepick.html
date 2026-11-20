@@ -9,9 +9,9 @@
       <p class="rp-h">{{ t.rp_abs }}</p>
       {% for k, v in extra.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
       <label for="rp-from{{ uid }}">{{ t.rp_from }}</label>
-      <input type="datetime-local" id="rp-from{{ uid }}" name="from" value="{{ start|dtlocal }}" min="{{ first|dtlocal }}" max="{{ now|dtlocal }}" required>
+      <input type="datetime-local" id="rp-from{{ uid }}" name="from" value="{{ start|dtlocal }}"{% if first %} min="{{ first|dtlocal }}"{% endif %} max="{{ now|dtlocal }}" required>
       <label for="rp-to{{ uid }}">{{ t.rp_to }}</label>
-      <input type="datetime-local" id="rp-to{{ uid }}" name="to" value="{{ end|dtlocal }}" min="{{ first|dtlocal }}" max="{{ now|dtlocal }}" required>
+      <input type="datetime-local" id="rp-to{{ uid }}" name="to" value="{{ end|dtlocal }}"{% if first %} min="{{ first|dtlocal }}"{% endif %} max="{{ now|dtlocal }}" required>
       <button class="btn primary" type="submit">{{ t.rp_apply }}</button>
     </form>{% endif %}
     <div class="rp-quick">

@@ -645,9 +645,9 @@ def _capture_table(c: Capture, t: dict) -> str:
         verdict = t["cap_bad"].format(l=d["destination_loss"], h=d["loss_starts_at"], host=hop["host"])
     else:
         verdict = t["cap_ok"].format(l=d.get("destination_loss", 0))
-    return (head + f'<table class="mtr"><thead><tr><th>{t["hop"]}</th><th>{t["host"]}</th><th>{t["loss"]}</th>'
+    return (head + f'<div class="tscroll"><table class="mtr"><thead><tr><th>{t["hop"]}</th><th>{t["host"]}</th><th>{t["loss"]}</th>'
             f'<th>{t["avg"]}</th><th>{t["result"]}</th><th>{t["asn"]}</th></tr></thead><tbody>'
-            + "".join(rows) + f'</tbody></table><p class="verdict-line">{_e(verdict)}</p>')
+            + "".join(rows) + f'</tbody></table></div><p class="verdict-line">{_e(verdict)}</p>')
 
 
 def tunnel_section(incidents: list[Incident], t: dict, now: float) -> str:
@@ -800,6 +800,8 @@ footer { margin-top:38px; color:var(--muted); font-size:12px; border-top:1px sol
 nav.bar { max-width: 1000px; margin: 18px auto -12px; padding: 0 4px; display: flex; justify-content: space-between; gap: 16px; }
 nav.bar a { color: #2563eb; font-weight: 600; text-decoration: none; font-size: 14px; }
 nav.bar a:hover { text-decoration: underline; }
+/* a wide mtr scrolls inside itself on a phone, not the whole page */
+.tscroll { overflow-x: auto; }
 @media print {
   nav.bar { display: none; }
   body { background:#ffffff; }
