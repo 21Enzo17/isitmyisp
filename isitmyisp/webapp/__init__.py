@@ -215,6 +215,41 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         lt = time.localtime(ts)
         return f"{rt['days'][lt.tm_wday]} {lt.tm_mday} {rt['months'][lt.tm_mon - 1]}"
 
+    def _when(ts) -> tuple[bool, str]:
+        """(is today, 'HH:MM' today / 'Thu 19 Nov, 17:02' another day), the year only when it isn't this one."""
+        lt, now = time.localtime(ts), time.localtime()
+        hm = time.strftime("%H:%M", lt)
+        if lt[:3] == now[:3]:
+            return True, hm
+        return False, f"{_tvdate(ts)}{f' {lt.tm_year}' if lt.tm_year != now.tm_year else ''}, {hm}"
+
+    @app.template_filter("when")
+    def _when_filter(ts):
+        """A moment in a sentence, one way everywhere: the time if it's today, the day and time if not."""
+        return _when(ts)[1] if ts else ""
+
+    @app.template_filter("at")
+    def _at_filter(ts):
+        """'at 11:34' / 'a las 11:34' today, 'on Thu 19 Nov, 17:02' / 'el jue 19 nov, 17:02' another day."""
+        if not ts:
+            return ""
+        today, text = _when(ts)
+        return g.t["at_today" if today else "at_day"].format(when=text)
+
+    @app.template_filter("since")
+    def _since_filter(ts):
+        """'since 11:34' / 'desde las 11:34' today, 'since Thu 19 Nov, 17:02' / 'desde el jue 19 nov, 17:02'."""
+        if not ts:
+            return ""
+        today, text = _when(ts)
+        return g.t["since_today" if today else "since_day"].format(when=text)
+
+    @app.template_filter("minus")
+    def _minus(html):
+        """A KPI delta with a real minus sign ('−21.0 pp', not '-21.0 pp'); the delta macro prints %+ formats."""
+        from markupsafe import Markup
+        return Markup(str(html).replace("</svg>-", "</svg>\u2212"))
+
     @app.template_filter("ago")
     def _ago(ts):
         """'2 h ago' / 'hace 2 h', for the latest events."""

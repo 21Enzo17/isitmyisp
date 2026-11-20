@@ -10,6 +10,7 @@ timeouts, DNS failures, TLS errors and 5xx count as failures. TLS certificates a
 
 from __future__ import annotations
 
+import http.client
 import re
 import socket
 import ssl
@@ -121,7 +122,15 @@ def _reason(err: object) -> str:
         return "timeout"
     if isinstance(err, ConnectionRefusedError) or "refused" in text:
         return "connection refused"
-    return type(err).__name__ if not isinstance(err, str) else text[:60]
+    if isinstance(err, str):
+        return text[:60]
+    # never a Python class name on screen: say what happened to the connection
+    if isinstance(err, (ConnectionResetError, ConnectionAbortedError, BrokenPipeError, http.client.RemoteDisconnected)) \
+            or "reset" in text or "closed" in text:
+        return "connection dropped"
+    if "unreachable" in text or "No route" in text:
+        return "network unreachable"
+    return "network error"
 
 
 class ServiceProber:
