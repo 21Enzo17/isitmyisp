@@ -200,8 +200,10 @@ def run_checks(f: Facts) -> list[Check]:
 
 
 def grade(checks: list[Check]) -> str:
-    """A–F from the reds (2 points) and yellows (1); only ever shown next to the list."""
-    pts = sum({"bad": 2, "warn": 1}.get(c.status, 0) for c in checks)
+    """A–F from the reds (2 points) and yellows (1) of the whole-network checks; only ever shown next
+    to the list. A check about the probe machine alone (its card, its Wi-Fi) says nothing about the
+    rest of the network, so it is listed but doesn't lower the grade."""
+    pts = sum({"bad": 2, "warn": 1}.get(c.status, 0) for c in checks if c.scope == "network")
     return "A" if pts == 0 else "B" if pts == 1 else "C" if pts <= 3 else "D" if pts <= 5 else "F"
 
 

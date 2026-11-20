@@ -59,7 +59,7 @@
     <div class="side-end">
       {% if live %}<p class="sys{{ ' stale' if live.stale }}" title="{{ t.sys_updated }} {{ live.ts|dt }}">
         <span class="live{{ ' stale' if live.stale }}" aria-hidden="true"></span>{{ t.sys_stale if live.stale else t.sys_ok }}
-        <span class="sys-when">{% if live.stale %}{{ t.sys_since }} {{ live.ts|dt }}{% else %}· {{ (live.ts|dt)[11:] }}{% endif %}</span></p>{% endif %}
+        <span class="sys-when">{% if live.stale %}{{ live.ts|since }}{% else %}· {{ (live.ts|dt)[11:] }}{% endif %}</span></p>{% endif %}
       {# account, language and version: a <details>, so it opens with no JavaScript #}
       <details class="acct">
         <summary>

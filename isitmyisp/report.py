@@ -9,6 +9,7 @@ Print it to PDF from any browser, or attach the HTML to your ticket.
 from __future__ import annotations
 
 import html
+import re
 import statistics
 import time
 from collections import defaultdict
@@ -544,7 +545,8 @@ EVIDENCE_ES = [
     ("% loss", "% de pérdida"), ("latency", "latencia"), ("vs usual", "vs. habitual"),
     ("your internet: OK at the same time", "tu internet: bien al mismo tiempo"), ("checks failed", "chequeos fallidos"),
     ("DNS failure", "falla de DNS"), ("timeout", "sin respuesta (timeout)"), ("connection refused", "conexión rechazada"),
-    ("TLS error", "error de TLS"), ("through the tunnel", "por dentro del túnel"), ("outside the tunnel", "por fuera del túnel"),
+    ("TLS error", "error de TLS"), ("connection dropped", "se cortó la conexión"),
+    ("network unreachable", "red inalcanzable"), ("network error", "error de red"), ("through the tunnel", "por dentro del túnel"), ("outside the tunnel", "por fuera del túnel"),
     ("never answers ICMP", "nunca responde ICMP"), ("all anchors degraded (worst", "todos los destinos afectados (peor"),
     ("duplicate replies (DUP) out of", "respuestas duplicadas (DUP) de"), ("gateway ping", "ping al gateway"),
     ("broadcast on your network card", "broadcast en tu placa de red"), ("broadcast on your router", "broadcast en tu router"),
@@ -554,7 +556,19 @@ EVIDENCE_ES = [
 ]
 
 
+# what older versions stored as a service's reason: a Python class name, said now in plain words
+_LEGACY_REASON = re.compile(r"(?<=: )(RemoteDisconnected|ConnectionResetError|ConnectionAbortedError|BrokenPipeError"
+                            r"|IncompleteRead|OSError|ValueError|URLError|[A-Z]\w*(?:Error|Exception))(?= \(|$)")
+
+
+def _legacy_reason(m: re.Match) -> str:
+    name = m.group(1)
+    return ("connection dropped" if name in ("RemoteDisconnected", "ConnectionResetError", "ConnectionAbortedError",
+                                             "BrokenPipeError", "IncompleteRead") else "network error")
+
+
 def localize_evidence(line: str, lang: str) -> str:
+    line = _LEGACY_REASON.sub(_legacy_reason, line)
     if lang == "es":
         for en, es in EVIDENCE_ES:
             line = line.replace(en, es)

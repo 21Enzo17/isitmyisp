@@ -12,8 +12,8 @@
 {% else %}
 <div class="card doctor-sum">
   <p class="doctor-grade g-{{ doc.grade|lower }}" aria-label="{{ t.doctor_grade.format(g=doc.grade) }}">{{ doc.grade }}</p>
-  <div><p><strong>{{ t.doctor_counts.format(**doc.counts) }}</strong></p>
-    <p class="muted">{{ t.doctor_when.format(when=doc.ts|dt) }} · {{ t.doctor_grade_note }}</p></div>
+  <div><p><strong>{% for s in ('ok', 'warn', 'bad', 'skip') if doc.counts[s] %}{{ ' · ' if not loop.first }}{{ t.doctor_counts[s].format(n=doc.counts[s]) }}{% endfor %}</strong></p>
+    <p class="muted">{{ t.doctor_when.format(when=doc.ts|at) }} · {{ t.doctor_grade_note }}</p></div>
 </div>
 {% for grp in doc.groups %}
 <div class="card mt-16"><h3>{{ grp.title }}</h3>

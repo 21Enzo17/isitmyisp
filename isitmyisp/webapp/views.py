@@ -367,6 +367,11 @@ class IncidentRow:
     drops: int = 0      # an intermittent one: how many times it dropped and came back
     summary: str = ""   # one plain sentence, for "only some destinations failed"
     path: list[str] = field(default_factory=list)   # what the route tracing says about it (#97)
+    count: int = 1      # back-to-back repeats of the same failure folded into this row
+    first: float = 0.0  # when the earliest of them opened (== opened when count is 1)
+
+
+FOLD_SCOPES = ("service:", "device:", "tunnel:")   # a service failing 28 times in a night is one story
 
 
 def incident_rows(store: Store, t: dict, days: int = 30, now: float | None = None,
@@ -374,8 +379,20 @@ def incident_rows(store: Store, t: dict, days: int = 30, now: float | None = Non
     from ..routes import diagnosis_lines
     from ..texts import remote_summary
     now = now or time.time()
-    rows = []
+    rows: list[IncidentRow] = []
+    keys: list[tuple] = []
+    totals: list[float] = []
     for i in reversed(store.incidents_between(now - days * 86400, now, scope=None)):
+        key = (i.scope, i.code)
+        if rows and keys[-1] == key and i.scope.startswith(FOLD_SCOPES) and i.closed is not None:
+            last = rows[-1]          # newest first: this one is older than the row it folds into
+            last.count += 1
+            last.first = i.opened
+            totals[-1] += i.duration(now)
+            last.duration = fmt_duration(totals[-1])
+            continue
+        keys.append(key)
+        totals.append(i.duration(now))
         bare = i.scope.removeprefix("route:").removeprefix("unstable:")
         scope = t["scope_internet"] if bare == "internet" else bare.split(":", 1)[-1]
         rows.append(IncidentRow(i.id, i.details if i.code in ("access", "isp") else None, scope, i.code,
@@ -384,7 +401,7 @@ def incident_rows(store: Store, t: dict, days: int = 30, now: float | None = Non
                                 store.drops(i.opened, i.closed or now)
                                 if (i.details or {}).get("intermittent") and i.scope == "internet" else 0,
                                 remote_summary(i.evidence, lang) if i.code == "remote" else "",
-                                diagnosis_lines(store, i, lang)))
+                                diagnosis_lines(store, i, lang), first=i.opened))
     return rows
 
 
@@ -436,7 +453,9 @@ def month_view(store: Store, now: float, days: int = 30) -> dict:
     young = first is not None and first > rows[0].start
     return {"days": rows, "internet": _share(rows, "internet"), "isp": _share(rows, "isp"),
             "since": first if young else None,
-            "n": len([x for x in rows if not x.before]) if young else days}
+            # elapsed time, not calendar days: a day and a bit since yesterday evening is not "2 days"
+            "n": int((now - first) // 86400) if young else days,
+            "dur": fmt_duration(max(0.0, now - first)) if young else ""}
 
 
 def kpis(store: Store, windows, series, start: float, now: float) -> dict:
@@ -716,6 +735,9 @@ def route_marks(store: Store, start: float, end: float, lang: str) -> list[tuple
 BAD_CASES = ("worse", "loss", "cut", "unstable")
 
 
+ROUTE_BACK_FOLD_S = 6 * 3600.0   # a bad path change that ended longer ago than this folds
+
+
 def route_cards(store: Store, settings: Settings, now: float | None = None, lang: str | None = None) -> dict | None:
     """The path changes of the last week as event cards (#97): the ones that made something worse first, with
     their latency around the change; the ones that didn't, folded."""
@@ -726,6 +748,11 @@ def route_cards(store: Store, settings: Settings, now: float | None = None, lang
     cs = cards(store, tg, lang, now=now, overlays={x.name: x.overlay for x in settings.tunnels})
     if not cs:
         return None
+    # a change that made things worse but is long over (back on the usual path hours ago) no longer earns a
+    # card with its chart: it folds into the list of the others, saying when it came back
+    for c in cs:
+        if not c["quiet"] and c["state"] == "back" and c["until"] and now - c["until"] > ROUTE_BACK_FOLD_S:
+            c["quiet"], c["back_ago"] = True, fmt_duration(now - c["until"])
     loud = [c for c in cs if not c["quiet"]][:3]
     for c in loud:
         start, end = c["window"]
@@ -840,7 +867,7 @@ def chart_view(store: Store, settings: Settings, span: str = "24h", k: int = 0,
 
 def doctor_view(store: Store, lang: str, now: float | None = None) -> dict | None:
     """The latest `isitmyisp doctor` run, grouped by scope, with each check's text in ``lang``."""
-    from ..doctor import from_dict
+    from ..doctor import from_dict, grade
     from ..texts import DOCTOR_NAME, DOCTOR_SCOPE, doctor_text
     run = store.last_doctor()
     now = now or time.time()
@@ -859,7 +886,7 @@ def doctor_view(store: Store, lang: str, now: float | None = None) -> dict | Non
                              "advice": advice if c.status in ("warn", "bad") else ""})
         groups.append({"scope": scope, "title": scopes[scope], "rows": rows})
     counts = {s: sum(c.status == s for c in checks) for s in ("ok", "warn", "bad", "skip")}
-    return {"run": run, "ts": run["ts"], "grade": run["grade"], "counts": counts, "groups": groups,
+    return {"run": run, "ts": run["ts"], "grade": grade(checks) if checks else run["grade"], "counts": counts, "groups": groups,
             "pending": requested > run["ts"] and requested > now - 600}
 
 

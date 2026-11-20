@@ -98,19 +98,19 @@
     <div class="tvb-card kpi">
       <p class="kpi-name"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-bars"/></svg>{{ t.kpi_avail }}</p>
       <p class="kpi-val">{{ '%.1f'|format(k.avail.value) if k.avail.value is not none else '—' }}%</p>
-      {{ delta(k.avail.delta, '%+.1f', '%') }}
+      {{ delta(k.avail.delta, '%+.1f', ' pp')|minus }}
       {% if not k.avail.spark.empty %}<div class="kpi-spark s-good" aria-hidden="true"><svg viewBox="0 0 1000 100" preserveAspectRatio="none"><path class="area" d="{{ k.avail.spark.area }}"/><path class="ln" d="{{ k.avail.spark.line }}"/></svg></div>{% endif %}
     </div>
     {% endif %}
     <div class="tvb-card kpi">
       <p class="kpi-name"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-clock"/></svg>{{ t.kpi_down_for if k.uptime.ongoing else t.kpi_uptime }}</p>
       {% if k.uptime.ongoing %}<p class="kpi-val bad">{{ d.active_for or '—' }}</p><p class="kpi-delta down">{{ t.kpi_now_down }}</p>
-      {% else %}<p class="kpi-val">{{ k.uptime.value }}</p><p class="kpi-delta"><span>{{ t.kpi_since_at.format(when=k.uptime.since|tm) }}</span></p>{% endif %}
+      {% else %}<p class="kpi-val">{{ k.uptime.value }}</p><p class="kpi-delta"><span>{{ k.uptime.since|since }}</span></p>{% endif %}
     </div>
     <div class="tvb-card kpi">
       <p class="kpi-name"><svg class="ico hi-violet" aria-hidden="true"><use href="#i-bolt"/></svg>{{ t.kpi_lat }}</p>
       <p class="kpi-val">{{ '%.0f'|format(k.lat.value) if k.lat.value is not none else '—' }} ms</p>
-      {{ delta(k.lat.delta, '%+.0f', ' ms', good_if_up=False) }}
+      {{ delta(k.lat.delta, '%+.0f', ' ms', good_if_up=False)|minus }}
       {% if not k.lat.spark.empty %}<div class="kpi-spark s-violet" aria-hidden="true"><svg viewBox="0 0 1000 100" preserveAspectRatio="none"><path class="area" d="{{ k.lat.spark.area }}"/><path class="ln" d="{{ k.lat.spark.line }}"/></svg></div>{% endif %}
     </div>
     {% endif %}
@@ -120,7 +120,7 @@
   <section class="tvb-card tvb-month">
     <div class="tvb-month-label">
       <h2><svg class="ico hi-blue" aria-hidden="true"><use href="#i-calendar"/></svg>{{ t.month_title }}</h2>
-      {% if m.since %}<p>{{ (t.month_since_1 if m.n == 1 else t.month_since).format(when=m.since|tvdate, n=m.n) }}</p>{% endif %}
+      {% if m.since %}<p>{{ (t.month_since_1 if m.n < 2 else t.month_since).format(when=m.since|tvdate, n=m.n, dur=m.dur) }}</p>{% endif %}
     </div>
     <dl class="tvb-month-figs">
       <div><dt>{{ t.month_internet }}</dt><dd>{{ '%.2f'|format(m.internet) if m.internet is not none else '—' }}%</dd></div>

@@ -280,7 +280,7 @@
   {% call card('monthly', t.monthly_title, t.monthly_sub, folded=not m.cfg.enabled, state=t.fold_off) %}
     {% if not m.email_ready %}<p class="note"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><span>{{ t.monthly_no_email }} <a href="#alerts">{{ t.monthly_go_email }}</a></span></p>{% endif %}
     {% if m.error %}<div class="flash err"><b>{{ t.monthly_failed }}</b> {{ m.error.error|errtext }}</div>{% endif %}
-    {% if m.last %}<p class="small muted">{{ t.monthly_last.format(month=m.last.month, when=m.last.ts|dt) }}</p>{% endif %}
+    {% if m.last %}<p class="small muted">{{ t.monthly_last.format(month=m.last.month, when=m.last.ts|at) }}</p>{% endif %}
     <form method="post" action="{{ url_for('settings_monthly') }}">{{ csrf() }}
       <label class="check"><input type="checkbox" name="enabled" value="1" {{ 'checked' if m.cfg.enabled }} {{ 'disabled' if readonly }}> {{ t.monthly_enabled }}</label>
       <div class="form-row">
@@ -328,7 +328,7 @@
             <button class="btn small" name="action" value="reset">{{ t.users_reset }}</button></form></td></tr>
       {% endfor %}</tbody>
     </table>
-    {% if invites %}<p class="muted small">{{ t.users_pending }}: {% for i in invites %}{{ i.username }} ({{ t.roles[i.role] }}, {{ t.users_until }} {{ i.expires|dt }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+    {% if invites %}<p class="muted small">{{ t.users_pending }}: {% for i in invites %}{{ i.username }} ({{ t.roles[i.role] }}, {{ t.users_until }} {{ i.expires|when }}){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
     <h4>{{ t.users_invite_title }}</h4>
     <form method="post" action="{{ url_for('users_invite') }}">{{ csrf() }}
       <div class="form-row">
