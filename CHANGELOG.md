@@ -26,6 +26,8 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
   below (#108).
 
 ### Fixed
+- The dashboard no longer shows a change of "+0 ms" (or "+0.0 pp") under latency and availability:
+  a change that rounds to zero is left out (#104).
 - **Bad inputs no longer give an error 500**: plan speeds that aren't numbers, `/chart?from=nan`, a
   huge `?k` and `/check?id=` out of range (#105).
 - Validation and delivery errors show in the page's language, and a rejected form keeps what you
