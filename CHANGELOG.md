@@ -5,6 +5,8 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-20
+
 ### Added
 - **Static public IP**: if you pay for a fixed IP, set it in Settings → Your connection and you get an
   alert when your connection goes out with another one; it closes when yours is back. Empty (the
@@ -257,6 +259,7 @@ and to prove it.
 ### Install
 - One-line installer (`install.sh`) that shows every Docker command before running it, and a Raspberry Pi guide.
 
+[0.6.1]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.6.1
 [0.6.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.6.0
 [0.5.2]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.5.2
 [0.5.1]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.5.1
