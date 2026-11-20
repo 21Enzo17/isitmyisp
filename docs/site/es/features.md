@@ -71,13 +71,17 @@ Con un router con dos proveedores, isitmyisp nota en alrededor de un minuto cuá
 
 ![El panel mientras la oficina está en el enlace de respaldo](/docs/img/es/failover.png)
 
+## IP pública fija
+
+Si pagás por una IP pública fija, ponela en Configuración → Tu conexión. Cada 10 minutos isitmyisp le pregunta tu IP pública a api.ipify.org y, si dos veces seguidas no es la tuya, abre un incidente y avisa con la IP que tenés ahora; se cierra solo cuando vuelve la tuya. Vacío (lo normal), no se pregunta nada ni se avisa nada: en la mayoría de las conexiones la IP cambia cada tanto y es normal.
+
 ## Cambios de camino
 
 Tu proveedor puede mandar tu tráfico por otro camino sin que te enteres: otra salida, otro carrier, una vuelta más larga. Cada 10 minutos isitmyisp traza el camino (3 rondas de `mtr`) a cada destino de internet, al otro extremo de cada túnel y a cada uno de tus servicios, y nota cuando el proveedor lo cambia. Un salto que no contesta, o el balanceo entre routers de la misma red, no es un cambio; un camino nuevo necesita dos trazas seguidas.
 
 - **Cuando el camino nuevo es claramente más lento**, abre un incidente y avisa: "Tu proveedor cambió el camino: ahora es más lento", con la latencia de antes y de después (al menos +15 ms y +25 %, o 1 punto más de pérdida, 15 minutos después del cambio). Se cierra cuando el camino vuelve o la latencia se recupera.
 - **Cuando se abre cualquier incidente**, traza en el momento lo que ese incidente usa y dice qué muestra el camino: que es el de siempre y dónde se corta (dentro de tu proveedor o más allá), o que el proveedor lo cambió unos minutos antes. Esa línea va en el aviso, en la página de incidentes y en el informe.
-- El panel lista los cambios de los últimos 7 días con el camino de antes y el de ahora, el gráfico los marca y el informe tiene una sección "Cambios de camino". Varios cambios en menos de 2 horas se marcan como inestables.
+- El panel lista los cambios de los últimos 7 días con el camino de antes y el de ahora, y el informe tiene una sección "Cambios de camino". Solo los que empeoraron algo (más lento, con pérdida o que ya no llega) se muestran abiertos y se marcan en el gráfico; el resto queda plegado en "sin efecto". Un camino que va y vuelve sin costar nada es balanceo: después de la primera vez se aprende como un solo camino y no se cuenta más como cambio. El ir y venir se marca inestable solo cuando perjudica.
 
 Los caminos se comparan por red (/24) y por organización, así que no necesita la base de ASN para funcionar, pero con ella (Configuración → Tu conexión) nombra cada red.
 

@@ -20,7 +20,7 @@ isitmyisp is meant to run on your network for months. By default it **never send
 | The check-up: one DNS query to 192.0.2.53 | once a day and when you run it | an A query for www.google.com to an address that doesn't exist on the internet: if anyone answers, something intercepts your DNS | on |
 | iptoasn.com | only when you press the button in Settings → Your connection or run `update-asn` | one HTTPS download of the public dataset (no per-IP queries) | manual |
 | Team Cymru whois | only with `--asn-online` | the public IPs of your path | **off** |
-| api.ipify.org | only with `--public-ip` | one HTTPS request (reveals your public IP to them) | **off** |
+| api.ipify.org | only with `--public-ip`, or every 10 min if you set a static IP | one HTTPS request (reveals your public IP to them) | **off** |
 | Your services | only the ones you add | an HTTP GET (or TCP connect) every 30 s | **off** |
 | speed.cloudflare.com | only if you turn on the speed test | ~15 s of downloads and uploads; Cloudflare sees your public IP | **off** |
 | Your iperf3 servers | only the ones you add to the speed test | ~15 s of downloads and uploads each; each server sees your public IP | **off** |

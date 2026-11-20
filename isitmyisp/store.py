@@ -244,7 +244,7 @@ class Store:
         """Incidents left open by a crash/restart are closed at the last window we have."""
         with self._lock:
             last = self.db.execute("SELECT MAX(ts) FROM windows").fetchone()[0]
-            self.db.execute("UPDATE incidents SET closed = ? WHERE closed IS NULL AND scope != 'failover'",
+            self.db.execute("UPDATE incidents SET closed = ? WHERE closed IS NULL AND scope NOT IN ('failover', 'public_ip')",
                             (last or ts or time.time(),))
             self.db.commit()
 

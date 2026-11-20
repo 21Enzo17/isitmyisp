@@ -33,6 +33,9 @@
       <label for="voip">{{ t.voip_label }}</label>
       <input type="text" id="voip" name="voip_target" value="{{ s.voip_target }}" placeholder="{{ t.voip_placeholder }}" {{ 'disabled' if readonly }}>
       <p class="muted small">{{ t.voip_hint }}</p>
+      <label for="static_ip">{{ t.static_ip_label }}</label>
+      <input type="text" id="static_ip" name="static_ip" value="{{ s.static_ip }}" placeholder="{{ t.static_ip_placeholder }}" {{ 'disabled' if readonly }}>
+      <p class="muted small">{{ t.static_ip_hint }}</p>
       <label for="dns">{{ t.dns_label }}</label>
       <input type="text" id="dns" name="dns" value="{{ s.dns|join(' ') }}" placeholder="{{ t.dns_auto.format(found=dns_detected|join(', ') if dns_detected else '—') }}" {{ 'disabled' if readonly }}>
       <p class="muted small">{{ t.dns_hint }}</p>

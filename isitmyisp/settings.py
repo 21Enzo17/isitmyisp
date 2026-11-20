@@ -31,6 +31,7 @@ DEFAULTS: dict = {
     "auth_mode": "local",
     "proxy_header": "Remote-User",
     "trusted_proxies": ["127.0.0.1/32", "::1/128"],
+    "static_ip": "",           # your fixed public IPv4, if you pay for one: alert when it isn't (#102); empty = off
     "voip_target": "",         # optional: your SIP provider / cloud PBX, to judge call quality against it
     "dns": [],                 # DNS servers to measure; empty = the ones this machine uses (detected)
     "speedtest": {},           # see speedtest.DEFAULTS: OFF until you turn it on and accept the risks
@@ -63,6 +64,7 @@ class Settings:
     devices: list = field(default_factory=list)   # list[devices.Device]
     link: dict = field(default_factory=lambda: dict(DEFAULTS["link"]))
     voip_target: str = ""
+    static_ip: str = ""
     dns: list[str] = field(default_factory=list)
     speedtest: dict = field(default_factory=dict)
     version: int = 0
@@ -135,6 +137,16 @@ def validate(values: dict) -> dict:
             if not ip.is_global:
                 raise SettingsError(f"calls destination {target} must be a public address")
         out["voip_target"] = target
+    if "static_ip" in values:
+        sip = str(values["static_ip"] or "").strip()
+        if sip:
+            try:
+                ip = ipaddress.ip_address(sip)
+            except ValueError as exc:
+                raise SettingsError(f"static IP {sip!r} is not an IP address") from exc
+            if ip.version != 4 or not ip.is_global:
+                raise SettingsError(f"static IP {sip} must be a public IPv4 address")
+        out["static_ip"] = sip
     if "dns" in values:
         servers = [d.strip() for d in values["dns"] if d and d.strip()]
         if len(servers) > 3:
@@ -220,6 +232,7 @@ def load(store: Store, toml_path: str | None = None, data_dir: Path | None = Non
         devices=[Device(**dv) for dv in raw.get("devices") or []],
         link={**DEFAULTS["link"], **(raw.get("link") or {})},
         voip_target=str(raw.get("voip_target") or ""),
+        static_ip=str(raw.get("static_ip") or ""),
         dns=list(raw.get("dns") or []),
         speedtest={**SPEED_DEFAULTS, **(raw.get("speedtest") or {})},
     )

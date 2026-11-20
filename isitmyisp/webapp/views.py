@@ -24,7 +24,7 @@ ROLE_ORDER = {"home": 0, "isp": 1, "anchor": 2, "voip": 3, "tcp": 4, "dns": 5}
 CAUSE_CLASS = {"ok": "ok", "local": "warn", "access": "bad", "isp": "bad", "remote": "info", "dns": "info",
                "no_data": "muted", "stale": "muted", "config": "warn", "path_local": "bad",
                "path_remote": "info", "unknown": "muted", "saturation": "warn", "loop": "warn", "speedtest": "muted",
-               "route_slower": "bad", "unstable_rekey": "warn", "unstable_config": "warn",
+               "route_slower": "bad", "public_ip": "bad", "unstable_rekey": "warn", "unstable_config": "warn",
                "unstable_path_local": "bad", "unstable_path_remote": "info", "unstable_unknown": "muted"}
 
 
@@ -697,10 +697,11 @@ def parse_when(value) -> float | None:
 
 
 def route_marks(store: Store, start: float, end: float, lang: str) -> list[tuple[float, str, str]]:
-    """Path changes in a span, for the chart: (ts, kind, one line saying what changed)."""
-    from ..routes import change_line
+    """Path changes that made something worse, for the chart: (ts, kind, one line saying what changed).
+    The rest (load balancing, a change nobody would notice) stay off it (#102)."""
+    from ..routes import change_line, has_effect
     return [(e["ts"], e["kind"], change_line(e["data"], lang))
-            for e in store.route_events_between(start, end, kinds=("changed", "restored"))]
+            for e in store.route_events_between(start, end, kinds=("changed", "restored")) if has_effect(e["data"])]
 
 
 BAD_CASES = ("worse", "loss", "cut", "unstable")

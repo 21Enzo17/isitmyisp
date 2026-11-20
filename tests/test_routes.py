@@ -215,6 +215,32 @@ class WatcherFlow(unittest.TestCase):
         ev = self.store.route_events_between(0, 2e10, kinds=("changed",))[0]
         self.assertEqual(ev["data"]["severity"], "none")
 
+    def test_harmless_alternation_is_learned_as_one_path(self):
+        # two paths that alternate and cost nothing are load balancing: after the first change is judged
+        # harmless, going back and forth says nothing more (#102)
+        t0 = 1_800_000_000.0
+        for i in range(4):
+            self.w.round(t0 + i * routes.ROUND)
+        t = t0 + 4 * routes.ROUND
+        self.latency(t0, t + 20 * routes.ROUND, 440.0)
+        self.path = OTHER
+        for i in range(3):
+            self.w.round(t + i * routes.ROUND)
+        self.assertEqual(len(self.store.route_events_between(0, 2e10, kinds=("changed", "restored"))), 1)
+        ev = self.store.route_events_between(0, 2e10, kinds=("changed",))[0]
+        self.assertEqual(ev["data"]["severity"], "none")
+        self.assertTrue(ev["data"].get("merged"))
+        t += 3 * routes.ROUND
+        for k, path in enumerate((USUAL, USUAL, OTHER, OTHER, USUAL, USUAL)):
+            self.path = path
+            self.w.round(t + k * routes.ROUND)
+        self.assertEqual(len(self.store.route_events_between(0, 2e10, kinds=("changed", "restored"))), 1)
+        # and it survives a restart
+        w2 = routes.Watcher(self.store, lambda: [self.target], tracer=lambda host: hops(*OTHER))
+        for k in range(3):
+            w2.round(t + (10 + k) * routes.ROUND)
+        self.assertEqual(len(self.store.route_events_between(0, 2e10, kinds=("changed", "restored"))), 1)
+
     def test_diagnosis_of_an_incident(self):
         t0 = time.time() - 3600
         for i in range(4):
@@ -469,16 +495,37 @@ class Cards(unittest.TestCase):
     def test_too_soon_to_tell(self):
         self.event("anchor:1.1.1.1", "internet", self.now - 300)
         (c,) = self.cards()
-        self.assertEqual((c["case"], c["quiet"]), ("pending", False))
+        self.assertEqual((c["case"], c["quiet"]), ("pending", True))   # nothing on screen until it matters (#102)
         self.assertTrue(any("5 min ago" in line for line in c["lines"]))
 
     def test_a_path_that_keeps_changing_is_one_event(self):
+        self.samples("anchor", "1.1.1.1", 20, 60)
         for k in range(4):
             a, b = (USUAL, OTHER) if k % 2 == 0 else (OTHER, USUAL)
             self.event("anchor:1.1.1.1", "internet", self.at + 900 * k, a=a, b=b, unstable=k >= 2)
         cs = self.cards()
         self.assertEqual(cs[0]["case"], "unstable")
         self.assertTrue(any("times since" in line for line in cs[0]["lines"]))
+
+    def test_going_back_and_forth_for_free_is_folded(self):
+        # load balancing inside the ISP or a CDN: it alternates, latency doesn't move (#102)
+        self.samples("anchor", "1.1.1.1", 440, 450)
+        for k in range(4):
+            a, b = (USUAL, OTHER) if k % 2 == 0 else (OTHER, USUAL)
+            self.event("anchor:1.1.1.1", "internet", self.at + 900 * k, a=a, b=b, unstable=k >= 2)
+        cs = self.cards()
+        self.assertTrue(all(c["quiet"] for c in cs))
+        self.assertNotIn("unstable", {c["case"] for c in cs})
+
+    @unittest.skipUnless(HAVE_WEB, "web extra not installed")
+    def test_only_changes_with_effect_go_on_the_chart(self):
+        from isitmyisp.webapp import views
+        self.event("anchor:1.1.1.1", "internet", self.at, severity="none")
+        self.event("anchor:8.8.8.8", "internet", self.at + 60, severity="worse")
+        self.event("anchor:9.9.9.9", "internet", self.at + 120, b=CUT_ISP, severity="none")
+        self.store.commit()
+        marks = views.route_marks(self.store, self.at - 1, self.now, "en")
+        self.assertEqual([m[0] for m in marks], [self.at + 60, self.at + 120])
 
 
 if __name__ == "__main__":

@@ -71,13 +71,17 @@ With a dual-WAN router, isitmyisp notices within about a minute when traffic mov
 
 ![The dashboard while the office runs on the backup link](/docs/img/failover.png)
 
+## Static public IP
+
+If you pay for a fixed public IP, put it in Settings → Your connection. Every 10 minutes isitmyisp asks api.ipify.org for your public IP, and when it isn't yours two times in a row it opens an incident and alerts, with the IP you have now; it closes by itself when yours is back. Left empty (the default), nothing is asked and nothing is said: on most connections the IP changes now and then and that's normal.
+
 ## Path changes
 
 Your ISP can move your traffic to another path without you noticing: a different exit, another carrier, a longer way round. Every 10 minutes isitmyisp traces the path (3 rounds of `mtr`) to each internet destination, each tunnel's far end and each of your services, and notices when the ISP changes it. A hop that doesn't answer, or load balancing between routers of the same network, is not a change; a new path needs two traces in a row.
 
 - **When the new path is clearly slower**, it opens an incident and alerts: "Your ISP changed the path: slower now", with the latency before and after (at least +15 ms and +25 %, or 1 point more loss, 15 minutes after the change). It closes when the path goes back or the latency recovers.
 - **When any incident opens**, it traces right away what that incident depends on and says what the path shows: the usual path and where it stops (inside your ISP or past it), or that the ISP changed it a few minutes before. That line goes in the alert, on the incidents page and in the report.
-- The dashboard lists the changes of the last 7 days with the path before and after, the chart marks them, and the report has a "Path changes" section. Several changes within 2 hours are marked unstable.
+- The dashboard lists the changes of the last 7 days with the path before and after, and the report has a "Path changes" section. Only the ones that made something worse (slower, losing packets, or no longer getting there) are shown open and marked on the chart; the rest stay folded under "no effect". A path that goes back and forth without costing anything is load balancing: after the first time it is learned as one path and isn't counted as a change again. Going back and forth is marked unstable only when it hurts.
 
 Paths are compared by network (/24) and organisation, so it needs no ASN database to work, but with one (Settings → Your connection) it names each network.
 

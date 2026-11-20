@@ -161,6 +161,7 @@ class Known:
     ttls: dict[int, list[str]] = field(default_factory=dict)  # TTL -> /24s seen there
     reached: bool = False
     length: int | None = None    # TTL of the destination, when it answers
+    lengths: list[int] = field(default_factory=list)  # every distance it answered at (merged paths, #102)
     lasts: list[int] = field(default_factory=list)  # last TTL that answered, recent traces
     weight: float = 0.0          # seconds on this path, fading with HALF_LIFE
     stamp: float = 0.0           # when `weight` was last brought up to date
@@ -182,19 +183,38 @@ class Known:
                 del seen[:-8]
         if o.reached:
             self.reached, self.length = True, o.last
+            if o.last not in self.lengths:
+                self.lengths = (self.lengths + [o.last])[-4:]
         self.lasts = (self.lasts + [o.last])[-10:]
         self.sample = o.to_dict()
 
     def to_dict(self) -> dict:
         return {"id": self.id, "ttls": {str(k): v for k, v in self.ttls.items()}, "reached": self.reached,
-                "length": self.length, "lasts": self.lasts, "weight": self.weight, "stamp": self.stamp,
+                "length": self.length, "lengths": self.lengths, "lasts": self.lasts, "weight": self.weight, "stamp": self.stamp,
                 "sample": self.sample}
 
     @classmethod
     def from_dict(cls, d: dict) -> Known:
+        length = d.get("length")
         return cls(int(d["id"]), {int(k): list(v) for k, v in d.get("ttls", {}).items()}, bool(d.get("reached")),
-                   d.get("length"), list(d.get("lasts", [])), float(d.get("weight", 0.0)),
-                   float(d.get("stamp", 0.0)), d.get("sample") or {})
+                   length, list(d.get("lengths") or ([length] if length is not None else [])),
+                   list(d.get("lasts", [])), float(d.get("weight", 0.0)), float(d.get("stamp", 0.0)),
+                   d.get("sample") or {})
+
+    def absorb(self, other: Known) -> None:
+        """Take in another path as more members of this one: load balancing, not another route (#102)."""
+        for ttl, pfxs in other.ttls.items():
+            seen = self.ttls.setdefault(ttl, [])
+            for pfx in pfxs:
+                if pfx not in seen:
+                    seen.append(pfx)
+            del seen[:-8]
+        self.reached = self.reached or other.reached
+        self.lengths = list(dict.fromkeys(self.lengths + other.lengths))[-4:]
+        if self.length is None:
+            self.length = other.length
+        self.lasts = (self.lasts + other.lasts)[-10:]
+        self.weight += other.weight
 
 
 def compare(k: Known, o: Obs) -> str:
@@ -207,7 +227,7 @@ def compare(k: Known, o: Obs) -> str:
             return "diverged"
         if ttl > top + 1 and not k.reached:
             return "diverged"            # it goes on past where this path ever answered
-    if o.reached and k.reached and k.length is not None and o.last != k.length:
+    if o.reached and k.reached and k.lengths and o.last not in k.lengths:
         return "diverged"                # the destination is now at another distance
     if k.reached and not o.reached and o.last < k.reach_end - CUT_MARGIN:
         return "cut"
@@ -302,7 +322,23 @@ class Tracker:
         usual = self.usual
         kind = "restored" if usual is not None and usual.id == other.id and other.weight > 0 else "changed"
         return {"kind": kind, "ts": first.ts, "from": before, "to": other.sample,
-                "unstable": len(self.changes) >= UNSTABLE[0]}
+                "unstable": len(self.changes) >= UNSTABLE[0], "from_id": cur.id, "to_id": other.id}
+
+    def merge(self, a: int | None, b: int | None) -> bool:
+        """Two known paths are one: the destination went from one to the other and nothing changed (#102).
+        What's left is the one it is on now (or the heavier one), with the other's routers as members."""
+        ka, kb = self.get(a), self.get(b)
+        if ka is None or kb is None or ka is kb:
+            return False
+        keep, gone = (kb, ka) if kb.id == self.current or (ka.id != self.current and kb.weight > ka.weight) else (ka, kb)
+        keep.absorb(gone)
+        self.known.remove(gone)
+        if self.pending and self.pending.get("id") == gone.id:
+            self.pending["id"] = keep.id
+        if self.current == gone.id:
+            self.current = keep.id
+        self.changes = self.changes[:-1]     # it wasn't a change after all
+        return True
 
 
 # ------------------------------------------------------------------ impact
@@ -475,6 +511,11 @@ class Watcher:
                 continue
             e["data"]["impact"] = imp
             e["data"]["severity"] = severity(imp)
+            d = e["data"]
+            same_reach = bool((d.get("from") or {}).get("reached")) == bool((d.get("to") or {}).get("reached"))
+            tr = self.trackers.get(t.key)
+            if d["severity"] == "none" and same_reach and tr is not None and tr.merge(d.get("from_id"), d.get("to_id")):
+                d["merged"] = True       # load balancing: from now on both are the same path
             self.store.update_route_event(e["id"], e["data"])
             scope = f"route:{t.group}"
             if e["data"]["severity"] != "none" and t.group not in open_ and scope not in open_:
@@ -799,7 +840,7 @@ def diagnosis_lines(store, incident, lang: str = "en", limit: int = 3) -> list[s
 # ------------------------------------------------------------------ the dashboard card
 
 GROUP_GAP = 1800.0     # changes of one group this close together are one event (several destinations at once)
-QUIET = ("restored", "better", "none")
+QUIET = ("restored", "better", "none", "pending")   # nothing on screen until it matters (#102)
 _RANK = {"cut": 3, "much_worse": 2, "worse": 1}
 
 
@@ -819,6 +860,12 @@ def _clusters(events: list[dict]) -> list[list[dict]]:
             out.append(c)
             open_[e["group"]] = c
     return out
+
+
+def has_effect(d: dict) -> bool:
+    """A change worth showing: it no longer gets there, or it made latency or loss clearly worse (#102)."""
+    cut = bool((d.get("from") or {}).get("reached")) and not (d.get("to") or {}).get("reached")
+    return cut or (d.get("severity") or severity(d.get("impact"))) != "none"
 
 
 def _rank(e: dict) -> tuple:
@@ -868,8 +915,8 @@ def cards(store, targets_: list[Target], lang: str = "en", now: float | None = N
         cut = bool((d.get("from") or {}).get("reached")) and not (d.get("to") or {}).get("reached")
         lossy = bool(imp) and imp["after_loss"] - imp["before_loss"] >= 1.0
         flapping = d.get("unstable") or len(c) > len({e["target"] for e in c})
-        if flapping:
-            case = "unstable"
+        if flapping and (cut or lossy or (imp is not None and severity(imp) != "none")):
+            case = "unstable"        # going back and forth is load balancing unless it costs something (#102)
         elif p["kind"] == "restored":
             case = "restored"
         elif cut:
