@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import statistics
 import time
 from dataclasses import dataclass, field
@@ -9,6 +10,7 @@ from dataclasses import dataclass, field
 from .. import mos as mos_mod
 from ..api import is_stale
 from ..report import (
+    AVAILABLE,
     _anchor_series,
     _midnight,
     availability,
@@ -164,8 +166,10 @@ def _sample_loss(s: dict) -> float:
     return 100.0 * (s["sent"] - s["received"]) / s["sent"] if s["sent"] else 0.0
 
 
-def dashboard_data(store: Store, settings: Settings, now: float | None = None) -> Dashboard:
+def dashboard_data(store: Store, settings: Settings, now: float | None = None, lang: str | None = None) -> Dashboard:
+    """`lang`: the page's language (?lang= wins over the saved one)."""
     now = now or time.time()
+    lang = lang or settings.lang
     d = Dashboard()
     last = store.last_window()
     if not last:
@@ -206,9 +210,10 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
         d.calls = call_summary(store, settings, start, end)
         d.timeline = charts.timeline(windows, series, start, end, backup=backup,
                                      calls=d.calls["series"] if d.calls else None,
-                                     routes=route_marks(store, start, end, settings.lang))
+                                     routes=route_marks(store, start, end, lang))
         d.brief = list(reversed(store.brief_events(start, end)))[:12]
-        d.kpi = kpis(store, windows, series, start, now)
+        # stale: the KPIs are the last known state, as of the last window ("8 d without outages" stops growing)
+        d.kpi = kpis(store, windows, series, start, d.updated if d.code == "stale" else now)
         d.month = month_view(store, now)
 
     # the latest measurement of every target (they make up the path in the hero), with 6 h of history
@@ -232,7 +237,7 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
     d.isp_name = net.get("isp_name") or ""
     d.path = _path(d, net)
     d.recent = recent_incidents(store, now)
-    d.routes = route_cards(store, settings, now=now)
+    d.routes = route_cards(store, settings, now=now, lang=lang)
     d.speed = speed_status(store, settings, now)
     fo = next((i for i in store.incidents_between(now - 400 * 86400, now, scope="failover") if i.closed is None), None)
     if fo:
@@ -240,7 +245,7 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None) -
         d.failover = {"since": fo.opened, "for": fmt_duration(now - fo.opened),
                       "primary": (det.get("primary") or {}).get("name") or "",
                       "backup": (det.get("backup") or {}).get("name") or d.isp_name}
-    d.tunnels = tunnel_cards(store, settings, now)
+    d.tunnels = tunnel_cards(store, settings, now, lang)
     d.services = service_cards(store, settings, now)
     d.devices = device_cards(store, settings, now)
     d.link_enabled = bool(settings.link.get("enabled"))
@@ -313,8 +318,10 @@ class TunnelCard:
     route_changed: bool = False         # the stretch started right after a path change
 
 
-def tunnel_cards(store: Store, settings: Settings, now: float | None = None) -> list[TunnelCard]:
+def tunnel_cards(store: Store, settings: Settings, now: float | None = None,
+                 lang: str | None = None) -> list[TunnelCard]:
     now = now or time.time()
+    lang = lang or settings.lang
     latest = {s["role"]: s for s in store.latest_samples() if s["role"].startswith("tunnel_")}
     from ..tunnels import fmt_every, hourly, instability
     act = store.active_incidents()
@@ -361,6 +368,11 @@ class IncidentRow:
     drops: int = 0      # an intermittent one: how many times it dropped and came back
     summary: str = ""   # one plain sentence, for "only some destinations failed"
     path: list[str] = field(default_factory=list)   # what the route tracing says about it (#97)
+    count: int = 1      # back-to-back repeats of the same failure folded into this row
+    first: float = 0.0  # when the earliest of them opened (== opened when count is 1)
+
+
+FOLD_SCOPES = ("service:", "device:", "tunnel:")   # a service failing 28 times in a night is one story
 
 
 def incident_rows(store: Store, t: dict, days: int = 30, now: float | None = None,
@@ -368,8 +380,20 @@ def incident_rows(store: Store, t: dict, days: int = 30, now: float | None = Non
     from ..routes import diagnosis_lines
     from ..texts import remote_summary
     now = now or time.time()
-    rows = []
+    rows: list[IncidentRow] = []
+    keys: list[tuple] = []
+    totals: list[float] = []
     for i in reversed(store.incidents_between(now - days * 86400, now, scope=None)):
+        key = (i.scope, i.code)
+        if rows and keys[-1] == key and i.scope.startswith(FOLD_SCOPES) and i.closed is not None:
+            last = rows[-1]          # newest first: this one is older than the row it folds into
+            last.count += 1
+            last.first = i.opened
+            totals[-1] += i.duration(now)
+            last.duration = fmt_duration(totals[-1])
+            continue
+        keys.append(key)
+        totals.append(i.duration(now))
         bare = i.scope.removeprefix("route:").removeprefix("unstable:")
         scope = t["scope_internet"] if bare == "internet" else bare.split(":", 1)[-1]
         rows.append(IncidentRow(i.id, i.details if i.code in ("access", "isp") else None, scope, i.code,
@@ -378,7 +402,7 @@ def incident_rows(store: Store, t: dict, days: int = 30, now: float | None = Non
                                 store.drops(i.opened, i.closed or now)
                                 if (i.details or {}).get("intermittent") and i.scope == "internet" else 0,
                                 remote_summary(i.evidence, lang) if i.code == "remote" else "",
-                                diagnosis_lines(store, i, lang)))
+                                diagnosis_lines(store, i, lang), first=i.opened))
     return rows
 
 
@@ -430,7 +454,14 @@ def month_view(store: Store, now: float, days: int = 30) -> dict:
     young = first is not None and first > rows[0].start
     return {"days": rows, "internet": _share(rows, "internet"), "isp": _share(rows, "isp"),
             "since": first if young else None,
-            "n": len([x for x in rows if not x.before]) if young else days}
+            # elapsed time, not calendar days: a day and a bit since yesterday evening is not "2 days"
+            "n": int((now - first) // 86400) if young else days,
+            "dur": fmt_duration(max(0.0, now - first)) if young else ""}
+
+
+def avail_tone(pct: float | None) -> str:
+    """The availability sparkline's color follows the number: green only when the day really was good."""
+    return "good" if pct is None or pct >= 99.5 else ("warn" if pct >= 98 else "bad")
 
 
 def kpis(store: Store, windows, series, start: float, now: float) -> dict:
@@ -447,11 +478,13 @@ def kpis(store: Store, windows, series, start: float, now: float) -> dict:
     pct = availability(windows)
     prev = availability(store.windows_between(now - 2 * 86400, now - 86400))
     out["avail"] = {"value": pct, "delta": (pct - prev) if pct is not None and prev is not None else None,
+                    "tone": avail_tone(pct),
                     # scaled to the day's own range, so a good day still shows its dips
                     "spark": charts.plot(hourly, now - 86400, now, unit="%", ymax=100, floor=10,
                                          ymin=max(0.0, 10 * (min((v for _, v in hourly), default=90) // 10) - 10))}
     # time without outages: since the last internet incident ended (or since measuring started)
-    incs = store.incidents_between(now - 400 * 86400, now)
+    # "only some destinations failed" isn't a cut: your internet worked
+    incs = [i for i in store.incidents_between(now - 400 * 86400, now) if i.code not in AVAILABLE]
     ongoing = any(i.closed is None for i in incs)
     last_end = max((i.closed for i in incs if i.closed is not None), default=None)
     first = store.first_and_last_window()[0] or start
@@ -685,9 +718,11 @@ def parse_when(value) -> float | None:
     if value in (None, ""):
         return None
     try:
-        return float(value)
+        v = float(value)
     except (TypeError, ValueError):
         pass
+    else:   # nan, inf and dates no clock can show are no date at all
+        return v if math.isfinite(v) and 0 <= v < 4e9 else None
     for fmt in ("%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
         try:
             return time.mktime(time.strptime(str(value), fmt))
@@ -707,15 +742,24 @@ def route_marks(store: Store, start: float, end: float, lang: str) -> list[tuple
 BAD_CASES = ("worse", "loss", "cut", "unstable")
 
 
-def route_cards(store: Store, settings: Settings, now: float | None = None) -> dict | None:
+ROUTE_BACK_FOLD_S = 6 * 3600.0   # a bad path change that ended longer ago than this folds
+
+
+def route_cards(store: Store, settings: Settings, now: float | None = None, lang: str | None = None) -> dict | None:
     """The path changes of the last week as event cards (#97): the ones that made something worse first, with
     their latency around the change; the ones that didn't, folded."""
     from ..routes import cards, targets
     now = now or time.time()
+    lang = lang or settings.lang
     tg = targets(settings.anchors, settings.tunnels, settings.services)
-    cs = cards(store, tg, settings.lang, now=now, overlays={x.name: x.overlay for x in settings.tunnels})
+    cs = cards(store, tg, lang, now=now, overlays={x.name: x.overlay for x in settings.tunnels})
     if not cs:
         return None
+    # a change that made things worse but is long over (back on the usual path hours ago) no longer earns a
+    # card with its chart: it folds into the list of the others, saying when it came back
+    for c in cs:
+        if not c["quiet"] and c["state"] == "back" and c["until"] and now - c["until"] > ROUTE_BACK_FOLD_S:
+            c["quiet"], c["back_ago"] = True, fmt_duration(now - c["until"])
     loud = [c for c in cs if not c["quiet"]][:3]
     for c in loud:
         start, end = c["window"]
@@ -734,7 +778,7 @@ def route_cards(store: Store, settings: Settings, now: float | None = None) -> d
 
 def chart_view(store: Store, settings: Settings, span: str = "24h", k: int = 0,
                now: float | None = None, spans: list[str] | None = None, who: str | None = None,
-               frm: float | None = None, to: float | None = None) -> ChartView:
+               frm: float | None = None, to: float | None = None, lang: str | None = None) -> ChartView:
     """Any stretch of the 24-hour chart, at any zoom, for the internet as a whole or one destination.
 
     Two kinds of view, both plain links (the page works with no JavaScript; dragging is a bonus):
@@ -742,6 +786,7 @@ def chart_view(store: Store, settings: Settings, span: str = "24h", k: int = 0,
       which the static demo can render as files;
     - a from/to range: anything you pick or drag, from five minutes to 35 days."""
     spans = spans or SPAN_ORDER
+    lang = lang or settings.lang
     last = store.last_window()
     now = last[0] if last else (now or time.time())
     first = store.first_and_last_window()[0]
@@ -762,6 +807,8 @@ def chart_view(store: Store, settings: Settings, span: str = "24h", k: int = 0,
         span = span if span in spans else "24h" if "24h" in spans else spans[0]
         seconds, n = SPANS[span]
         k = max(0, int(k))
+        if first:   # no further back than the first window (a huge k drew the year -273 million)
+            k = min(k, int((now - first) // seconds) + 1)
         end = now - k * seconds
         start = end - seconds
 
@@ -788,7 +835,7 @@ def chart_view(store: Store, settings: Settings, span: str = "24h", k: int = 0,
         calls = call_summary(store, settings, start, end) if seconds <= 86400 and not who else None
         tl = charts.timeline(windows, series, start, end, n=n, backup=backup,
                              calls=calls["series"] if calls else None,
-                             routes=route_marks(store, start, end, settings.lang))
+                             routes=route_marks(store, start, end, lang))
 
     extra = {"who": who} if who else {}
     mid = (start + end) / 2
@@ -827,7 +874,7 @@ def chart_view(store: Store, settings: Settings, span: str = "24h", k: int = 0,
 
 def doctor_view(store: Store, lang: str, now: float | None = None) -> dict | None:
     """The latest `isitmyisp doctor` run, grouped by scope, with each check's text in ``lang``."""
-    from ..doctor import from_dict
+    from ..doctor import from_dict, grade
     from ..texts import DOCTOR_NAME, DOCTOR_SCOPE, doctor_text
     run = store.last_doctor()
     now = now or time.time()
@@ -846,7 +893,7 @@ def doctor_view(store: Store, lang: str, now: float | None = None) -> dict | Non
                              "advice": advice if c.status in ("warn", "bad") else ""})
         groups.append({"scope": scope, "title": scopes[scope], "rows": rows})
     counts = {s: sum(c.status == s for c in checks) for s in ("ok", "warn", "bad", "skip")}
-    return {"run": run, "ts": run["ts"], "grade": run["grade"], "counts": counts, "groups": groups,
+    return {"run": run, "ts": run["ts"], "grade": grade(checks) if checks else run["grade"], "counts": counts, "groups": groups,
             "pending": requested > run["ts"] and requested > now - 600}
 
 

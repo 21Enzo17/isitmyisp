@@ -5,9 +5,44 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 
 ## [Unreleased]
 
+### Changed
+- **Dashboard order**: where the problem is and what to do (with the button for your ISP's report)
+  now come right after the verdict and the numbers. On a phone they were near the bottom (#107).
+- **When the monitor stops reporting** the pill says "No new data" and the numbers and the 24 h chart
+  are dimmed, with a line saying when they were last measured. "No outages for" stops growing while
+  nothing is measured (#107).
+- **One "Check-up" in the menu** with two tabs, "Whole network" and "From this device"; the old
+  addresses (`/doctor`, `/check`) still work (#107).
+- **Red means the ISP only where it says so**: the verdict, the charts and their legend keep the ISP's
+  red; errors, badges, bad changes and down tunnels use their own (#107).
+- **Incidents on a phone** are cards instead of a table that scrolled sideways, and the report's mtr
+  tables scroll inside their own box (#107, #108).
+- **Clearer texts**: service failures say the cause in words ("connection dropped"), dates in
+  sentences read one way ("at 11:34" today, "Thu 19 Nov, 17:02" another day), Check-up hides counts of
+  zero and grades only the whole-network checks, repeated failures of the same service, device or
+  tunnel fold into one row in Incidents (×N, time added up), and the availability change is in
+  percentage points with a real minus sign (#106).
+- The availability sparkline follows the number: green only at 99.5 % or more, amber from 98 %, red
+  below (#108).
+
 ### Fixed
-- The dashboard no longer shows a change of "+0 ms" (or "+0.0 %") under latency and availability:
-  a change that rounds to zero is left out.
+- The dashboard no longer shows a change of "+0 ms" (or "+0.0 pp") under latency and availability:
+  a change that rounds to zero is left out (#104).
+- **Bad inputs no longer give an error 500**: plan speeds that aren't numbers, `/chart?from=nan`, a
+  huge `?k` and `/check?id=` out of range (#105).
+- Validation and delivery errors show in the page's language, and a rejected form keeps what you
+  typed (#105).
+- **Custom report period**: a bad date shows a message, reversed dates are put in order, "until"
+  includes that day, and a future or empty period says so. Without a PDF engine the PDF links are
+  hidden and the page explains how to print (#105).
+- "Only some destinations failed" isn't an outage: it no longer resets "no outages since" nor counts
+  as one in the report's summary (#105).
+- With sign-in off, `/tv` shows the board directly, and the account menu says "Viewer", not "Admin"
+  (#105, #108).
+- `?lang=` wins over the saved language everywhere, and the language links keep the page's other
+  settings (range, tab) (#105, #108).
+- Pages that don't exist (404) or can't be opened that way (405) show a styled page with a way back
+  (#108).
 
 ## [0.6.1] - 2026-11-20
 

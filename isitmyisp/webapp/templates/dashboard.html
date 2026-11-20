@@ -14,8 +14,9 @@
 
 {% set fo = d.failover %}
 {% set grp = 'other' if fo and d.code == 'ok' else d.group %}
+{% set frozen = ' frozen' if d.code == 'stale' else '' %}
 <div class="dash-top">
-  <p class="status-pill g-{{ grp }}"><span class="dot" aria-hidden="true"></span>{{ t.pill[grp] if d.has_data else t.pill.none }}</p>
+  <p class="status-pill g-{{ grp }}"><span class="dot" aria-hidden="true"></span>{{ t.pill.stale if d.code == 'stale' else (t.pill[grp] if d.has_data else t.pill.none) }}</p>
   <div class="dash-tools">
     {% if d.has_data %}{% with spans=(['1h', '6h', '24h'] if demo_static else ['15m', '1h', '3h', '6h', '12h', '24h', '2d', '7d', '30d']), span='24h', custom=false, start=d.updated - 86400, end=d.updated, first=none, now=d.updated, extra={}, uid='d' %}{% include "_rangepick.html" %}{% endwith %}{% endif %}
     {% include "_theme.html" %}
@@ -33,34 +34,102 @@
   {% if d.kpi %}{% set k = d.kpi %}
   {% macro delta(v, fmt, unit, good_if_up=True) %}{% if v is not none and (fmt|format(v))|float != 0 %}{# +0 ms says nothing #}{% set up = v >= 0 %}{% set ok = up if good_if_up else not up %}
     <p class="kpi-delta {{ 'up' if ok else 'down' }}"><svg class="ico" aria-hidden="true"><use href="#i-{{ 'up' if up else 'down' }}"/></svg>{{ fmt|format(v) }}{{ unit }}</p>{% endif %}{% endmacro %}
-  <section class="card kpi" aria-label="{{ t.kpi_avail }}">
+  <section class="card kpi{{ frozen }}" aria-label="{{ t.kpi_avail }}">
     <p class="kpi-name"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-bars"/></svg>{{ t.kpi_avail }}</p>
     <p class="kpi-val">{{ '%.1f'|format(k.avail.value) if k.avail.value is not none else '—' }}%</p>
-    {{ delta(k.avail.delta, '%+.1f', '%') }}
-    {% if not k.avail.spark.empty %}<div class="kpi-spark s-good" aria-hidden="true"><svg viewBox="0 0 1000 100" preserveAspectRatio="none"><path class="area" d="{{ k.avail.spark.area }}"/><path class="ln" d="{{ k.avail.spark.line }}"/></svg></div>{% endif %}
+    {{ delta(k.avail.delta, '%+.1f', ' pp')|minus }}
+    {% if not k.avail.spark.empty %}<div class="kpi-spark s-{{ k.avail.tone }}" aria-hidden="true"><svg viewBox="0 0 1000 100" preserveAspectRatio="none"><path class="area" d="{{ k.avail.spark.area }}"/><path class="ln" d="{{ k.avail.spark.line }}"/></svg></div>{% endif %}
   </section>
-  <section class="card kpi" aria-label="{{ t.kpi_down_for if k.uptime.ongoing else t.kpi_uptime }}">
+  <section class="card kpi{{ frozen }}" aria-label="{{ t.kpi_down_for if k.uptime.ongoing else t.kpi_uptime }}">
     <p class="kpi-name"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-clock"/></svg>{{ t.kpi_down_for if k.uptime.ongoing else t.kpi_uptime }}</p>
     {% if k.uptime.ongoing %}<p class="kpi-val bad">{{ d.active_for or '—' }}</p><p class="kpi-delta down">{{ t.kpi_now_down }}</p>
-    {% else %}<p class="kpi-val">{{ k.uptime.value }}</p><p class="kpi-delta"><span>{{ t.kpi_since_at.format(when=k.uptime.since|tm) }}</span></p>{% endif %}
+    {% else %}<p class="kpi-val">{{ k.uptime.value }}</p><p class="kpi-delta"><span>{{ k.uptime.since|since }}</span></p>{% endif %}
     {% if k.uptime.strip %}<a class="kpi-strip strip" href="{{ url_for('chart', span='24h') }}" title="{{ t.chart_open }}">
       <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true"><rect class="track" x="0" y="0" width="1000" height="100"/>
         {% for x, w, g, code in k.uptime.strip %}<rect class="g-{{ g }}" x="{{ x }}" y="{{ 60 if g == 'good' else 0 }}" width="{{ w }}" height="{{ 40 if g == 'good' else 100 }}"/>{% endfor %}</svg>
       <span class="kpi-strip-x"><span>−24 h</span><span>{{ t.now_word }}</span></span></a>{% endif %}
   </section>
-  <section class="card kpi" aria-label="{{ t.kpi_lat }}">
+  <section class="card kpi{{ frozen }}" aria-label="{{ t.kpi_lat }}">
     <p class="kpi-name"><svg class="ico hi-violet" aria-hidden="true"><use href="#i-bolt"/></svg>{{ t.kpi_lat }}</p>
     <p class="kpi-val">{{ '%.0f'|format(k.lat.value) if k.lat.value is not none else '—' }} ms</p>
-    {{ delta(k.lat.delta, '%+.0f', ' ms', good_if_up=False) }}
+    {{ delta(k.lat.delta, '%+.0f', ' ms', good_if_up=False)|minus }}
     {% if not k.lat.spark.empty %}<div class="kpi-spark s-violet" aria-hidden="true"><svg viewBox="0 0 1000 100" preserveAspectRatio="none"><path class="area" d="{{ k.lat.spark.area }}"/><path class="ln" d="{{ k.lat.spark.line }}"/></svg></div>{% endif %}
   </section>
   {% endif %}
 </div>
+{% if frozen and d.has_data %}<p class="stale-note">{{ t.stale_until.format(when=d.updated|at) }}</p>{% endif %}
+
+{# where and what to do right under the verdict: on a phone it was ~5,000 px down #}
+{% if d.has_data %}
+<section class="card where g-{{ grp }}" aria-labelledby="where-h">
+  <div class="card-head"><h2 id="where-h"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-tunnels"/></svg>{{ t.where_title }}</h2></div>
+  {% if fo %}
+  <div class="backup-note"><svg class="ico" aria-hidden="true"><use href="#i-tunnels"/></svg>
+    <p>{{ t.backup_note.format(backup=fo.backup, since=fo.since|since, dur=fo['for'], primary=fo.primary or t.isp_primary.lower()) }}
+      <a href="{{ url_for('settings_page', tab='connection') }}#isp">{{ t.backup_change }}</a></p></div>
+  {% endif %}
+  {% if d.has_data %}
+  <ol class="path" aria-label="{{ t.hop.home }}, {{ t.hop.isp }}, {{ t.hop.internet }}">
+    {% for h in d.path %}
+    <li class="hop s-{{ h.state }}{{ ' blamed' if h.blamed }}">
+      <span class="node" aria-hidden="true"></span>
+      <span class="hop-name">{{ t.hop[h.key] }}</span>
+      <span class="hop-id">{% if h.key == 'internet' %}{{ t.hop_dest.format(n=h.name) }}{% else %}{{ h.name }}{% endif %}</span>
+      {% if h.detail %}<span class="hop-id ip">{{ h.detail }}</span>{% endif %}
+      <span class="hop-val"><b>{{ num(h.median) }}</b> ms <span class="sep" aria-hidden="true">/</span> <b>{{ num(h.loss) }}</b>%</span>
+      {% if h.key == 'isp' and fo %}<span class="here alt">{{ t.isp_backup_badge }}</span>{% endif %}
+      {% if h.blamed %}<span class="here">{{ t.hop_here }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  {% endif %}
+  {% if fo and d.code == 'ok' %}
+  <div class="advice"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>
+    <p><b>{{ t.what_to_do }}.</b> {{ t.advice.failover }}</p></div>
+  {% elif d.code in t.advice and d.code != 'ok' %}
+  <div class="advice"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>
+    <p><b>{{ t.what_to_do }}.</b> {{ t.advice[d.code] }}</p></div>
+  {% endif %}
+  {% if d.active %}
+  <div class="evidence">
+    <p><b>{{ t.active }}</b>, {{ d.active.opened|since }} ({{ d.active_for }})</p>
+    <ul>{% for e in d.active.evidence[:3] %}<li class="ip">{{ e|ev }}</li>{% endfor %}</ul>
+    {% include "_ruled.html" %}
+  </div>
+  {% endif %}
+
+  {% if d.has_data %}
+  <div class="day">
+    <p>{% if not d.day.n %}{{ t.day_none }}{% else %}
+      {{ t.day_some.format(n=d.day.n, inc=t.day_inc[0 if d.day.n == 1 else 1], dur=d.day.dur) }}
+      {% for g in ('isp', 'you', 'other') if d.day.by.get(g) %}{{ t.day_by[g].format(k=d.day.by[g]) }}{{ ', ' if not loop.last else '.' }}{% endfor %}
+      {% if d.day.hours %}<b class="day-open">{{ t.day_open.format(dur=d.day.open_dur) if d.day.open_s >= 60 else t.day_open_none }}</b>{% endif %}
+      {% endif %} {{ t.healthy_of.format(pct=d.healthy_pct) }}</p>
+    <div class="actions">
+      <a class="btn{{ ' primary' if d.day.by.get('isp') }}" href="{{ url_for('report', since='7d') }}">{{ t.claim }}</a>
+      {% if not demo_static %}<a class="btn quiet" href="{{ url_for('report_pdf', since='7d') }}"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg>{{ t.claim_pdf }}</a>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+  <div class="brief">
+    <h3>{{ t.brief_title }}</h3>
+    {% if not d.brief %}<p class="muted">{{ t.brief_none }}</p>{% else %}
+    <p class="muted">{{ t.brief_sub }}</p>
+    <table><tbody>
+      {% for e in d.brief %}
+      <tr><td class="num-l">{{ e.start|tm }}–{{ e.end|tm }}</td>
+          <td><i class="sw g-{{ e.code|group }}" aria-hidden="true"></i>{{ t.verdict[e.code] }}</td>
+          <td class="ip">{% for x in e.evidence[:2] %}{{ x|ev }}<br>{% endfor %}</td></tr>
+      {% endfor %}
+    </tbody></table>{% endif %}
+  </div>
+</section>
+{% endif %}
 
 <div class="dash-row mid">
 {% if d.timeline %}
 {% set tl = d.timeline %}
-<section class="card chart" aria-labelledby="tl-h">
+<section class="card chart{{ frozen }}" aria-labelledby="tl-h">
   <div class="card-head">
     <h2 id="tl-h"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-bars"/></svg>{{ t.last24 }}</h2>
     <ul class="key" aria-label="{{ t.row_status }}">
@@ -108,7 +177,7 @@
     <li class="g-{{ r.group }}{{ ' now' if r.ongoing }}">
       <span class="ev-dot" aria-hidden="true"></span>
       <p class="ev-t">{{ t.verdict.get(r.code, r.code) }}{% if r.name %} · {{ r.name }}{% endif %}{% if r.drops %} · <span class="ev-int">{{ t.intermittent_n.format(n=r.drops) }}</span>{% endif %}{% if r.count > 1 %} <span class="muted">×{{ r.count }}</span>{% endif %}</p>
-      <p class="ev-w" title="{{ r.opened|dt }}">{% if r.ongoing %}<b>{{ t.ongoing_now }}</b> · {% endif %}{{ r.opened|ago }} ({{ r.duration }})</p>
+      <p class="ev-w" title="{{ r.opened|dt }}">{% if r.ongoing %}<b>{{ t.ongoing_now }}</b> · {{ r.opened|ago }}{% else %}{{ r.opened|ago }} ({{ r.duration }}){% endif %}</p>
     </li>
     {% endfor %}
   </ol>{% endif %}
@@ -177,8 +246,8 @@
   </article>
   {% endfor %}
   {% if d.routes.quiet %}{% set q = d.routes.quiet %}
-  <details class="rc-quiet"><summary>{{ t.routes_quiet_1 if q|length == 1 else t.routes_quiet.format(n=q|length) }}</summary>
-    <ul>{% for r in q %}<li>{{ r.headline }} <span class="muted" title="{{ r.ts|dt }}">· {{ r.ts|ago }}</span>{% if r.diagram.where %}<br><span class="muted small">{{ r.diagram.where }}</span>{% endif %}</li>{% endfor %}</ul>
+  <details class="rc-quiet">{% set over = q|selectattr('back_ago')|list %}<summary>{% if over %}{{ t.routes_more_1 if q|length == 1 else t.routes_more.format(n=q|length) }}{% else %}{{ t.routes_quiet_1 if q|length == 1 else t.routes_quiet.format(n=q|length) }}{% endif %}</summary>
+    <ul>{% for r in q %}<li>{{ r.headline }} <span class="muted" title="{{ r.ts|dt }}">· {{ r.ts|ago }}{% if r.back_ago %} · {{ t.routes_back.format(dur=r.back_ago) }}{% endif %}</span>{% if r.diagram.where %}<br><span class="muted small">{{ r.diagram.where }}</span>{% endif %}</li>{% endfor %}</ul>
   </details>
   {% endif %}
 </details>
@@ -188,7 +257,7 @@
 <section class="card month" aria-labelledby="month-h">
   <div class="card-head">
     <h2 id="month-h"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-calendar"/></svg>{{ t.month_title }}</h2>
-    {% if m.since %}<p class="month-since">{{ (t.month_since_1 if m.n == 1 else t.month_since).format(when=m.since|tvdate, n=m.n) }}</p>{% endif %}
+    {% if m.since %}<p class="month-since">{{ (t.month_since_1 if m.n < 2 else t.month_since).format(when=m.since|tvdate, n=m.n, dur=m.dur) }}</p>{% endif %}
   </div>
   <div class="month-figs">
     <p><span>{{ t.month_internet }}</span><b>{{ '%.2f'|format(m.internet) if m.internet is not none else '—' }}%</b></p>
@@ -210,72 +279,6 @@
         <td class="num">{{ x.down|dur if x.down >= 60 else '—' }}</td><td>{{ t.verdict.get(x.culprit, x.culprit) if x.down >= 60 else '' }}</td>{% endif %}</tr>{% endfor %}</tbody>
     </table>
   </details>
-</section>
-{% endif %}
-
-{% if d.has_data %}
-<section class="card where g-{{ grp }}" aria-labelledby="where-h">
-  <div class="card-head"><h2 id="where-h"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-tunnels"/></svg>{{ t.where_title }}</h2></div>
-  {% if fo %}
-  <div class="backup-note"><svg class="ico" aria-hidden="true"><use href="#i-tunnels"/></svg>
-    <p>{{ t.backup_note.format(backup=fo.backup, since=fo.since|tm, dur=fo['for'], primary=fo.primary or t.isp_primary.lower()) }}
-      <a href="{{ url_for('settings_page', tab='connection') }}#isp">{{ t.backup_change }}</a></p></div>
-  {% endif %}
-  {% if d.has_data %}
-  <ol class="path" aria-label="{{ t.hop.home }}, {{ t.hop.isp }}, {{ t.hop.internet }}">
-    {% for h in d.path %}
-    <li class="hop s-{{ h.state }}{{ ' blamed' if h.blamed }}">
-      <span class="node" aria-hidden="true"></span>
-      <span class="hop-name">{{ t.hop[h.key] }}</span>
-      <span class="hop-id">{% if h.key == 'internet' %}{{ t.hop_dest.format(n=h.name) }}{% else %}{{ h.name }}{% endif %}</span>
-      {% if h.detail %}<span class="hop-id ip">{{ h.detail }}</span>{% endif %}
-      <span class="hop-val"><b>{{ num(h.median) }}</b> ms <span class="sep" aria-hidden="true">/</span> <b>{{ num(h.loss) }}</b>%</span>
-      {% if h.key == 'isp' and fo %}<span class="here alt">{{ t.isp_backup_badge }}</span>{% endif %}
-      {% if h.blamed %}<span class="here">{{ t.hop_here }}</span>{% endif %}
-    </li>
-    {% endfor %}
-  </ol>
-  {% endif %}
-  {% if fo and d.code == 'ok' %}
-  <div class="advice"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>
-    <p><b>{{ t.what_to_do }}.</b> {{ t.advice.failover }}</p></div>
-  {% elif d.code in t.advice and d.code != 'ok' %}
-  <div class="advice"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>
-    <p><b>{{ t.what_to_do }}.</b> {{ t.advice[d.code] }}</p></div>
-  {% endif %}
-  {% if d.active %}
-  <div class="evidence">
-    <p><b>{{ t.active }}</b>, {{ t.since }} {{ d.active.opened|dt }} ({{ d.active_for }})</p>
-    <ul>{% for e in d.active.evidence[:3] %}<li class="ip">{{ e|ev }}</li>{% endfor %}</ul>
-    {% include "_ruled.html" %}
-  </div>
-  {% endif %}
-
-  {% if d.has_data %}
-  <div class="day">
-    <p>{% if not d.day.n %}{{ t.day_none }}{% else %}
-      {{ t.day_some.format(n=d.day.n, inc=t.day_inc[0 if d.day.n == 1 else 1], dur=d.day.dur) }}
-      {% for g in ('isp', 'you', 'other') if d.day.by.get(g) %}{{ t.day_by[g].format(k=d.day.by[g]) }}{{ ', ' if not loop.last else '.' }}{% endfor %}
-      {% if d.day.hours %}<b class="day-open">{{ t.day_open.format(dur=d.day.open_dur) if d.day.open_s >= 60 else t.day_open_none }}</b>{% endif %}
-      {% endif %} {{ t.healthy_of.format(pct=d.healthy_pct) }}</p>
-    <div class="actions">
-      <a class="btn{{ ' primary' if d.day.by.get('isp') }}" href="{{ url_for('report', since='7d') }}">{{ t.claim }}</a>
-      {% if not demo_static %}<a class="btn quiet" href="{{ url_for('report_pdf', since='7d') }}"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg>{{ t.claim_pdf }}</a>{% endif %}
-    </div>
-  </div>
-  {% endif %}
-  <div class="brief">
-    <h3>{{ t.brief_title }}</h3>
-    {% if not d.brief %}<p class="muted">{{ t.brief_none }}</p>{% else %}
-    <p class="muted">{{ t.brief_sub }}</p>
-    <table><tbody>
-      {% for e in d.brief %}
-      <tr><td class="num-l">{{ e.start|tm }}–{{ e.end|tm }}</td>
-          <td><i class="sw g-{{ e.code|group }}" aria-hidden="true"></i>{{ t.verdict[e.code] }}</td>
-          <td class="ip">{% for x in e.evidence[:2] %}{{ x|ev }}<br>{% endfor %}</td></tr>
-      {% endfor %}
-    </tbody></table>{% endif %}
-  </div>
 </section>
 {% endif %}
 
@@ -339,7 +342,7 @@
       <p class="muted">{{ t.speed_dash_none }}</p>
       {% else %}
       {% set r = sp.last %}
-      {% if r.error %}<p class="muted">{{ t.speed_dash_error.format(when=r.ts|dt, err=r.error) }}</p>{% else %}
+      {% if r.error %}<p class="muted">{{ t.speed_dash_error.format(when=r.ts|when, err=r.error) }}</p>{% else %}
       <div class="meters">
         {% for label, mbps, contract in [(t.link_down, r.down_mbps, sp.contract_down), (t.link_up, r.up_mbps, sp.contract_up)] %}
         {% set pct = (100 * mbps / contract) if (mbps and contract) else none %}
@@ -360,7 +363,7 @@
         {% if r.loaded_ms is not none and r.idle_ms is not none %}{% set bloat = r.loaded_ms - r.idle_ms %}
         {{ t.speed_loaded.format(loaded='%.0f'|format(r.loaded_ms), idle='%.0f'|format(r.idle_ms), extra='%.0f'|format(bloat)) }}
         {{ t.bloat_ok if bloat < 30 else (t.bloat_fair if bloat < 100 else t.bloat_bad) }}<br>{% endif %}
-        {{ t.speed_when.format(when=r.ts|dt, trigger=t.speed_trigger[r.trigger], size=r.bytes_used|size) }}
+        {{ t.speed_when.format(when=r.ts|at, trigger=t.speed_trigger[r.trigger], size=r.bytes_used|size) }}
         {% if r.wan_down_mbps %}{{ t.speed_wan.format(wan='%.0f'|format(r.wan_down_mbps)) }}{% endif %}
       </p>
       {% if r.servers %}
@@ -382,7 +385,7 @@
       {% endif %}
       {% if sp.on %}
       <p class="muted small">{{ t.speed_dash_budget.format(used=sp.used|size, budget=sp.budget|size) }}
-        {% if sp.next %}{{ t.speed_dash_next.format(when=sp.next|dt) }}{% endif %}</p>
+        {% if sp.next %}{{ t.speed_dash_next.format(when=sp.next|when) }}{% endif %}</p>
       {% if sp.pending %}<p class="muted small">{{ t.speed_pending }}</p>
       {% elif sp.blocked %}<p class="muted small">{{ t.speed_block[sp.blocked.reason] }}</p>{% endif %}
       {% if not readonly %}

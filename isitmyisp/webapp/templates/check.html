@@ -13,6 +13,7 @@
 {% endmacro %}
 {% block content %}
 <div class="topbar"><h1>{{ t.dev_title }}</h1><div class="right">{% include "_theme.html" %}</div></div>
+{% include "_checktabs.html" %}
 <p class="muted lead-narrow">{{ t.dev_intro }}</p>
 
 {% if demo %}
@@ -30,7 +31,7 @@
 
 {% if dc.current %}{% set r = dc.current %}
 <div class="card mt-16 dev-result st-{{ r.status }}"><h3>{{ t.dev_result }}</h3>
-  <p class="muted">{{ r.device }} · {{ r.ts|dt }}</p>
+  <p class="muted">{{ r.device }} · {{ r.ts|when }}</p>
   <p class="dev-head"><span class="badge {{ {'ok': 'ok', 'warn': 'warn', 'bad': 'bad', 'skip': 'muted'}[r.status] }}">{{ t.doctor_status[r.status] }}</span> {{ r.text }}</p>
   {% if r.advice %}<p class="doctor-todo"><strong>{{ t.doctor_todo }}:</strong> {{ r.advice }}</p>{% endif %}
   {{ facts(r) }}

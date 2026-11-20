@@ -50,21 +50,20 @@
     <nav class="nav" aria-label="{{ t.nav_label }}">
       {% for key, endpoint, icon in [('dashboard', 'dashboard', 'panel'), ('incidents', 'incidents', 'incidents'),
                                     ('tunnels', 'tunnels', 'tunnels'), ('reports', 'reports', 'reports'), ('doctor', 'doctor', 'check'),
-                                    ('device', 'device_check', 'bolt'),
                                     ('settings', 'settings_page', 'settings')] %}
-      <a href="{{ url_for(endpoint) }}"{% if active == key %} class="active" aria-current="page"{% endif %}>
+      <a href="{{ url_for(endpoint) }}"{% if active == key or (key == 'doctor' and active == 'device') %} class="active" aria-current="page"{% endif %}>
         <svg class="ico" aria-hidden="true"><use href="#i-{{ icon }}"/></svg>{{ t.nav[key] }}</a>
       {% endfor %}
     </nav>
     <div class="side-end">
       {% if live %}<p class="sys{{ ' stale' if live.stale }}" title="{{ t.sys_updated }} {{ live.ts|dt }}">
         <span class="live{{ ' stale' if live.stale }}" aria-hidden="true"></span>{{ t.sys_stale if live.stale else t.sys_ok }}
-        <span class="sys-when">{% if live.stale %}{{ t.sys_since }} {{ live.ts|dt }}{% else %}· {{ (live.ts|dt)[11:] }}{% endif %}</span></p>{% endif %}
+        <span class="sys-when">{% if live.stale %}{{ live.ts|since }}{% else %}· {{ (live.ts|dt)[11:] }}{% endif %}</span></p>{% endif %}
       {# account, language and version: a <details>, so it opens with no JavaScript #}
       <details class="acct">
         <summary>
           {% if user %}<span class="avatar" aria-hidden="true">{{ user.username[:1]|upper }}</span>
-          <span class="acct-who"><b>{{ user.username }}</b><small>{{ t.roles.get(user.role, '') }}</small></span>
+          <span class="acct-who"><b>{{ user.username }}</b><small>{{ t.roles.get('viewer' if readonly else user.role, '') }}</small></span>
           {% else %}<span class="avatar" aria-hidden="true"><svg class="ico"><use href="#i-globe"/></svg></span>
           <span class="acct-who"><b>{{ t.lang_switch }}</b><small>{{ 'Español' if lang == 'es' else 'English' }}</small></span>{% endif %}
           <span class="caret" aria-hidden="true"></span>
@@ -72,7 +71,7 @@
         <div class="acct-menu">
           <p class="acct-h">{{ t.lang_switch }}</p>
           <nav class="lang" aria-label="{{ t.lang_switch }}">
-            <a href="?lang=es" lang="es"{% if lang == 'es' %} aria-current="true"{% endif %}>Español</a><a href="?lang=en" lang="en"{% if lang == 'en' %} aria-current="true"{% endif %}>English</a></nav>
+            <a href="{{ lang_url('es') }}" lang="es"{% if lang == 'es' %} aria-current="true"{% endif %}>Español</a><a href="{{ lang_url('en') }}" lang="en"{% if lang == 'en' %} aria-current="true"{% endif %}>English</a></nav>
           {% if user and user.source == 'local' %}
           <form method="post" action="{{ url_for('logout') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

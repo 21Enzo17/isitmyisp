@@ -3,19 +3,21 @@
 {% block content %}
 <div class="topbar"><h1>{{ t.reports_title }}</h1><div class="right">{% include "_theme.html" %}</div></div>
 <p class="muted">{{ t.reports_sub }}</p>
+{% if error %}<div class="flash err">{{ error }}</div>{% endif %}
 <div class="grid cols-3">
-  {% for since, label in ([('24h', t.r24)] if demo_static else [('24h', t.r24), ('7d', t.r7), ('30d', t.r30)]) %}
+  {% for span, label in ([('24h', t.r24)] if demo_static else [('24h', t.r24), ('7d', t.r7), ('30d', t.r30)]) %}
   <div class="card"><h3>{{ label }}</h3>
-    <div class="actions"><a class="btn primary" href="{{ url_for('report', since=since) }}">{{ t.html }}</a>
-      {% if not demo_static %}<a class="btn" href="{{ url_for('report_pdf', since=since) }}">{{ t.pdf }}</a>{% endif %}</div></div>
+    <div class="actions"><a class="btn primary" href="{{ url_for('report', since=span) }}">{{ t.html }}</a>
+      {% if not demo_static and pdf_ok %}<a class="btn" href="{{ url_for('report_pdf', since=span) }}">{{ t.pdf }}</a>{% endif %}</div></div>
   {% endfor %}
 </div>
+{% if not demo_static and not pdf_ok %}<p class="muted small mt-16">{{ t.pdf_missing }}</p>{% endif %}
 {% if not demo_static %}
 <div class="card mt-16"><h3>{{ t.custom }}</h3>
   <form method="get" action="{{ url_for('report') }}">
     <div class="form-row">
-      <div><label for="since">{{ t.from }}</label><input type="text" id="since" name="since" placeholder="2026-11-01 08:00" required></div>
-      <div><label for="until">{{ t.to }}</label><input type="text" id="until" name="until" placeholder="2026-11-07 20:00"></div>
+      <div><label for="since">{{ t.from }}</label><input type="text" id="since" name="since" placeholder="2026-11-01 08:00" value="{{ since }}" required></div>
+      <div><label for="until">{{ t.to }}</label><input type="text" id="until" name="until" placeholder="2026-11-07 20:00" value="{{ until }}"></div>
     </div>
     <div class="actions"><button class="btn primary" type="submit">{{ t.generate }}</button></div>
   </form>

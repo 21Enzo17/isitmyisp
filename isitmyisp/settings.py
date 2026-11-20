@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import ipaddress
+import math
 import secrets
 import time
 from dataclasses import dataclass, field
@@ -202,6 +203,8 @@ def _validate_link(raw: dict) -> dict:
         link["up_mbps"] = float(link.get("up_mbps") or 0)
     except (TypeError, ValueError) as exc:
         raise SettingsError("port and speeds must be numbers") from exc
+    if not (math.isfinite(link["down_mbps"]) and math.isfinite(link["up_mbps"])):   # inf, nan, 1e400
+        raise SettingsError("port and speeds must be numbers")
     if not 0 < link["port"] < 65536 or link["down_mbps"] < 0 or link["up_mbps"] < 0:
         raise SettingsError("invalid port or speed")
     if link["enabled"]:
@@ -218,6 +221,18 @@ def _validate_link(raw: dict) -> dict:
 
 # ------------------------------------------------------------------ load / save
 
+def _loaded_link(raw: dict) -> dict:
+    """The stored link, with speeds an older version let through (inf, nan, text) read as unset."""
+    link = {**DEFAULTS["link"], **raw}
+    for k in ("down_mbps", "up_mbps"):
+        try:
+            v = float(link.get(k) or 0)
+        except (TypeError, ValueError):
+            v = 0.0
+        link[k] = v if math.isfinite(v) and v >= 0 else 0.0
+    return link
+
+
 def load(store: Store, toml_path: str | None = None, data_dir: Path | None = None,
          default_lang: str | None = None) -> Settings:
     raw = {k: store.get_setting(k, v) for k, v in DEFAULTS.items()}
@@ -230,7 +245,7 @@ def load(store: Store, toml_path: str | None = None, data_dir: Path | None = Non
         tunnels=[Tunnel(**t) for t in raw["tunnels"]], version=store.settings_version(),
         services=[Service(**sv) for sv in raw["services"]],
         devices=[Device(**dv) for dv in raw.get("devices") or []],
-        link={**DEFAULTS["link"], **(raw.get("link") or {})},
+        link=_loaded_link(raw.get("link") or {}),
         voip_target=str(raw.get("voip_target") or ""),
         static_ip=str(raw.get("static_ip") or ""),
         dns=list(raw.get("dns") or []),

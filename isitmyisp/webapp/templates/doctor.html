@@ -5,6 +5,7 @@
   {% if not readonly %}<form class="inline" method="post" action="{{ url_for('doctor_run') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button class="btn primary" type="submit"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>{{ t.doctor_run }}</button></form>{% endif %}
   {% include "_theme.html" %}</div></div>
+{% include "_checktabs.html" %}
 <p class="muted lead-narrow">{{ t.doctor_intro }}</p>
 {% if doc.pending %}<div class="flash ok" role="status">{{ t.doctor_pending }}</div>{% endif %}
 {% if not doc.run %}
@@ -12,8 +13,8 @@
 {% else %}
 <div class="card doctor-sum">
   <p class="doctor-grade g-{{ doc.grade|lower }}" aria-label="{{ t.doctor_grade.format(g=doc.grade) }}">{{ doc.grade }}</p>
-  <div><p><strong>{{ t.doctor_counts.format(**doc.counts) }}</strong></p>
-    <p class="muted">{{ t.doctor_when.format(when=doc.ts|dt) }} · {{ t.doctor_grade_note }}</p></div>
+  <div><p><strong>{% for s in ('ok', 'warn', 'bad', 'skip') if doc.counts[s] %}{{ ' · ' if not loop.first }}{{ t.doctor_counts[s].format(n=doc.counts[s]) }}{% endfor %}</strong></p>
+    <p class="muted">{{ t.doctor_when.format(when=doc.ts|at) }} · {{ t.doctor_grade_note }}</p></div>
 </div>
 {% for grp in doc.groups %}
 <div class="card mt-16"><h3>{{ grp.title }}</h3>

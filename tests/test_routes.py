@@ -395,6 +395,14 @@ class Pages(WebAppBase):
         simple = self.app.test_client().get("/tv/tok?layout=simple").get_data(as_text=True)
         self.assertNotIn("The path to 1.1.1.1 changed", simple)  # a shop counter can't act on it
 
+    def test_the_page_language_wins_over_the_saved_one(self):
+        self.store.set_settings({"lang": "es"})
+        es = self.client.get("/").get_data(as_text=True)
+        self.assertIn("El camino hacia", es)
+        for url in ("/?lang=en", "/chart?lang=en"):
+            with self.subTest(url=url):
+                self.assertNotIn("El camino hacia", self.client.get(url).get_data(as_text=True))
+
     def test_wall_screen_keeps_an_outage_on_top(self):
         from isitmyisp import settings as settings_mod
         from isitmyisp.webapp import views
