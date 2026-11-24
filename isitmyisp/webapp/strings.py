@@ -130,6 +130,8 @@ S = {
         "sub_backup": "Your main ISP isn't carrying the traffic: your router moved it to the backup link.",
         "backup_note": "Going out through {backup} {since} ({dur}). Your main ISP, {primary}, is not in use.",
         "backup_change": "Changed providers?", "row_backup": "Backup", "tip_backup": "On the backup link",
+        "tip_note": {"icmp_only": "Only ping lost packets; real traffic (TCP) was fine.",
+                     "noise": "Too little loss to be a fault."},
 
         "isp_title": "Main ISP and backup link",
         "isp_sub": "If your router has two internet links, isitmyisp notices when traffic moves to the backup and when it comes back.",
@@ -529,6 +531,8 @@ S = {
         "sub_backup": "Tu ISP principal no está llevando el tráfico: tu router lo pasó al enlace de respaldo.",
         "backup_note": "Salís por {backup} {since} ({dur}). Tu ISP principal, {primary}, no se está usando.",
         "backup_change": "¿Cambiaste de proveedor?", "row_backup": "Respaldo", "tip_backup": "Por el enlace de respaldo",
+        "tip_note": {"icmp_only": "Solo perdió el ping; el tráfico real (TCP) anduvo bien.",
+                     "noise": "Muy poca pérdida para ser una falla."},
 
         "isp_title": "ISP principal y enlace de respaldo",
         "isp_sub": "Si tu router tiene dos enlaces a internet, isitmyisp detecta cuándo el tráfico pasa al respaldo y cuándo vuelve.",

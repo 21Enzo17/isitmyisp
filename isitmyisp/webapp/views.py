@@ -210,7 +210,8 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None, l
         d.calls = call_summary(store, settings, start, end)
         d.timeline = charts.timeline(windows, series, start, end, backup=backup,
                                      calls=d.calls["series"] if d.calls else None,
-                                     routes=route_marks(store, start, end, lang))
+                                     routes=route_marks(store, start, end, lang),
+                                     tcp=_tcp_series(store, start, end))
         d.brief = list(reversed(store.brief_events(start, end)))[:12]
         # stale: the KPIs are the last known state, as of the last window ("8 d without outages" stops growing)
         d.kpi = kpis(store, windows, series, start, d.updated if d.code == "stale" else now)
@@ -462,6 +463,11 @@ def month_view(store: Store, now: float, days: int = 30) -> dict:
 def avail_tone(pct: float | None) -> str:
     """The availability sparkline's color follows the number: green only when the day really was good."""
     return "good" if pct is None or pct >= 99.5 else ("warn" if pct >= 98 else "bad")
+
+
+def _tcp_series(store: Store, start: float, end: float) -> list[tuple[float, float]]:
+    """[(ts, mean TCP connect failure %)] per window: is ping loss also real loss?"""
+    return [(ts, loss) for ts, loss, _ in _anchor_series(store.samples_between(start, end, role="tcp"))]
 
 
 def kpis(store: Store, windows, series, start: float, now: float) -> dict:
@@ -835,7 +841,8 @@ def chart_view(store: Store, settings: Settings, span: str = "24h", k: int = 0,
         calls = call_summary(store, settings, start, end) if seconds <= 86400 and not who else None
         tl = charts.timeline(windows, series, start, end, n=n, backup=backup,
                              calls=calls["series"] if calls else None,
-                             routes=route_marks(store, start, end, lang))
+                             routes=route_marks(store, start, end, lang),
+                             tcp=None if who else _tcp_series(store, start, end))
 
     extra = {"who": who} if who else {}
     mid = (start + end) / 2

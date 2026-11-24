@@ -9,6 +9,9 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 - **No more blind spot every 15 minutes**: the periodic re-discovery ran with the probes stopped, so
   about 40 s of every 15 minutes (~5% of the time) went unmeasured and the status strip looked dashed.
   It now runs beside the probes, and the session is only rebuilt when something it measures changed.
+- **"Healthy" next to 22% loss, explained**: when a window is healthy but ping lost packets, the
+  chart tooltip and the data table now say why: only ping lost (TCP connections to the same
+  destinations were fine), or too little loss to be a fault.
 - **Chart page**: the data table no longer sits flush against the chart card.
 
 ## [0.6.2] - 2026-11-20

@@ -346,6 +346,8 @@ b, strong { font-weight: 600; }
 .strip .route-mark { fill: var(--violet); }
 .sw.route { background: var(--violet); width: 4px; border-radius: 1px; }
 .tip .tip-route { color: var(--isp); max-width: 28em; white-space: normal; }
+.tip .tip-note { color: var(--ink-2); max-width: 24em; white-space: normal; }   /* why a healthy bucket shows loss */
+.row-note { display: block; color: var(--ink-2); font-size: 13px; margin-top: 2px; }
 table.kv { width: auto; margin: 8px 0 4px; }
 table.kv th { width: 150px; color: var(--ink-2); font-weight: 500; padding-left: 0; }
 table.kv td, table.kv th { border-bottom: 0; padding-top: 6px; padding-bottom: 6px; }
