@@ -44,6 +44,18 @@ class Timeline(unittest.TestCase):
         self.assertAlmostEqual(b.loss, 2.0)              # average, not the 30% of one window
         self.assertEqual(tl.groups, ["good", "isp"])
 
+    def test_healthy_bucket_with_loss_says_why(self):
+        w = windows(["ok", "ok", "ok"])
+        series = [(w[0][0], 0.0, 28.0), (w[1][0], 22.0, 61.0), (w[2][0], 1.0, 28.0)]
+        tcp_clean = [(ts, 0.0) for ts, _, _ in w]
+        b = charts.timeline(w, series, T0, T0 + 90, n=3, tcp=tcp_clean).buckets
+        self.assertEqual([x.note for x in b], [None, "icmp_only", None])  # 1% is not worth a word
+        b = charts.timeline(w, series, T0, T0 + 90, n=3, tcp=[(w[1][0], 10.0)]).buckets
+        self.assertEqual(b[1].note, "noise")              # TCP lost too: don't claim real traffic was fine
+        self.assertEqual(charts.timeline(w, series, T0, T0 + 90, n=3).buckets[1].note, "noise")  # no TCP data
+        bad = charts.timeline(windows(["ok", "isp", "ok"]), series, T0, T0 + 90, n=3, tcp=tcp_clean)
+        self.assertIsNone(bad.buckets[1].note)            # a fault explains itself
+
     def test_runs_merge_and_responsibility_groups(self):
         tl = charts.timeline(windows(["ok", "ok", "local", "saturation", "dns"]), [], T0, T0 + 150, n=5)
         self.assertEqual([(g, c) for _, _, g, c in tl.strip],
