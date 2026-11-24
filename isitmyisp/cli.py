@@ -198,6 +198,35 @@ def _discover(args, cfg=None) -> Network:
     return net
 
 
+def probe_key(snapshot: dict) -> tuple:
+    """What a measuring session depends on. Same key: the running session is still right."""
+    return (snapshot.get("gateway"), snapshot.get("interface"), snapshot.get("wireless"),
+            tuple(snapshot.get("home_routers") or ()), snapshot.get("isp_hop"), snapshot.get("isp_asn"),
+            tuple(snapshot.get("dns_servers") or ()))
+
+
+class BackgroundDiscovery:
+    """The periodic re-discovery, run beside the probes so the monitor never stops measuring.
+
+    Tearing the session down for it left ~40 s unmeasured every 15 minutes (discovery plus the
+    warm-up of a new session): about 5% of the time blind, and a dashed status strip."""
+
+    def __init__(self, fn):
+        self.result: Network | None = None
+        self.error: BaseException | None = None
+        self._thread = threading.Thread(target=self._run, args=(fn,), name="rediscover", daemon=True)
+        self._thread.start()
+
+    def _run(self, fn) -> None:
+        try:
+            self.result = fn()
+        except BaseException as exc:  # noqa: BLE001 — reported to the loop, which rebuilds the session
+            self.error = exc
+
+    def done(self) -> bool:
+        return not self._thread.is_alive()
+
+
 # ---------------------------------------------------------------- commands
 
 def cmd_discover(args, t) -> int:
@@ -366,13 +395,14 @@ def cmd_monitor(args, t) -> int:
     from .publicip import Checker as PublicIP
     public_ip = PublicIP(store)   # only asks ipify when a static IP is set in Settings (#102)
     speed_seen = max((r["ts"] for r in store.speedtests_between(time.time() - 86400, 2e10)), default=0.0)
+    pending: Network | None = None   # a re-discovery that found a different network: build on it
     try:
-        while True:  # one session per (network, settings); rebuilt on route change, timer or new settings
+        while True:  # one session per (network, settings); rebuilt on route change, new network or new settings
             cfg = _settings(args, store)
             window = args.window or cfg.window
             interval = args.interval or cfg.interval
             mon.window = window
-            net = _discover(args, cfg)
+            net, pending = pending or _discover(args, cfg), None
             snapshot = network_to_dict(net)
             snapshot["dns_detected"] = net.dns_detected
             snapshot["tunnels"] = [tun.name for tun in cfg.tunnels]
@@ -397,7 +427,7 @@ def cmd_monitor(args, t) -> int:
                          anchors=cfg.anchors, tunnels=cfg.tunnels, services=cfg.services, devices=cfg.devices, link=cfg.link,
                          voip=cfg.voip_target) as s:
                 print_network(net, t, engine=s.icmp.name)
-                started = time.time()
+                started, again = time.time(), None
                 time.sleep(window + 1.5)
                 while True:
                     m, rows = s.measure(window)
@@ -438,10 +468,22 @@ def cmd_monitor(args, t) -> int:
                     if store.settings_version() != cfg.version:
                         print(f"\n{t['settings_changed']}")
                         break
-                    if default_route() != route or time.time() - started > args.rediscover * 60:
-                        if default_route() != route:
-                            print(f"\n{t['rediscover']}")
+                    if default_route() != route:
+                        print(f"\n{t['rediscover']}")
                         break
+                    if again is None and time.time() - started > args.rediscover * 60:
+                        again = BackgroundDiscovery(lambda c=cfg: _discover(args, c))  # the probes keep running
+                    elif again is not None and again.done():
+                        fresh = network_to_dict(again.result) if again.result else None
+                        if fresh is None or probe_key(fresh) != probe_key(snapshot):
+                            pending, again = again.result, None
+                            print(f"\n{t['rediscover']}")
+                            break
+                        fresh["dns_detected"] = again.result.dns_detected
+                        fresh["tunnels"] = snapshot["tunnels"]
+                        store.add_network(fresh)          # same network: newer path and ASN names, no gap
+                        snapshot, net, s.net = fresh, again.result, again.result
+                        started, again = time.time(), None
     except KeyboardInterrupt:
         pass
     finally:

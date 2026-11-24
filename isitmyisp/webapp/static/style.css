@@ -1015,6 +1015,7 @@ input[type=text], input[type=password], input[type=number], input[type=datetime-
 .hv a.c { display: block; cursor: zoom-in; }
 .tip .tip-zoom { margin-top: 4px; color: var(--accent); font-weight: 500; }
 .chart-hint { margin: 14px 0 0; }
+.chart-table { margin-top: 18px; }   /* the same gap as cards in a .stack */
 tr.bad-row td { background: color-mix(in srgb, var(--bad) 7%, transparent); }
 @media (max-width: 760px) { .chart.big .tl { grid-template-rows: 30px 110px 110px 22px; } }
 

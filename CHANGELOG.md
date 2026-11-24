@@ -3,6 +3,14 @@
 Versions follow [semantic versioning](https://semver.org). Each release has a Docker image
 (`21enzo03/isitmyisp:<version>` on Docker Hub, amd64 and arm64) and a git tag `v<version>`.
 
+## [Unreleased]
+
+### Fixed
+- **No more blind spot every 15 minutes**: the periodic re-discovery ran with the probes stopped, so
+  about 40 s of every 15 minutes (~5% of the time) went unmeasured and the status strip looked dashed.
+  It now runs beside the probes, and the session is only rebuilt when something it measures changed.
+- **Chart page**: the data table no longer sits flush against the chart card.
+
 ## [0.6.2] - 2026-11-20
 
 ### Changed
