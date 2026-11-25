@@ -20,6 +20,13 @@ own VPS, another branch, or one inside the ISP's network). Each one is marked in
 ISP by its ASN, and comparing both says where the bottleneck is: 300 Mbps up to the ISP and 40 to
 the rest of the internet is its exit (peering, transit), not your access. The test's data cap is
 shared between all the servers, and the other guards (budget, incidents, backup link) still hold.
+
+M-Lab NDT7 (see mlab.py) is a second engine, off unless you consent separately: M-Lab publishes
+every test, with your public IP, as open data. On some lines Cloudflare is the ceiling, not the ISP.
+
+Against the plan: any server can only measure less than your access, never more (its own limits and
+its path add up). So the plan is compared with the best figure of the test, from whichever engine
+or server gave it (best()), and a slow far server is never read as your ISP falling short.
 """
 
 from __future__ import annotations
@@ -60,7 +67,8 @@ WHERE = ("auto", "inside", "outside")   # auto: by the server's ASN against your
 SLOW_RATIO = 0.6   # outside below 60 % of inside: the exit is the bottleneck (inside below 60 % of the plan: the access)
 
 DEFAULTS = {"enabled": False, "accepted": False, "schedule": "weekly", "weekday": 6, "hour": 3,
-            "budget_gb": 5.0, "run_on_backup": False, "max_busy_pct": 30, "servers": []}
+            "budget_gb": 5.0, "run_on_backup": False, "max_busy_pct": 30, "servers": [],
+            "mlab": False, "mlab_accepted": False}
 
 
 class SpeedError(RuntimeError):
@@ -128,7 +136,7 @@ def _download(meter: _Meter, seconds: float, opener) -> None:
                     if not block:
                         break
                     meter.add(len(block))
-    _run_streams(worker, meter, seconds)
+    _run_streams([worker] * STREAMS, meter, seconds)
 
 
 def _upload(meter: _Meter, seconds: float, opener) -> None:
@@ -141,18 +149,19 @@ def _upload(meter: _Meter, seconds: float, opener) -> None:
             with opener(req, timeout=15) as resp:
                 resp.read()
             meter.add(len(body))
-    _run_streams(worker, meter, seconds)
+    _run_streams([worker] * STREAMS, meter, seconds)
 
 
-def _run_streams(worker, meter: _Meter, seconds: float) -> None:
+def _run_streams(workers: list[Callable[[], None]], meter: _Meter, seconds: float, name: str = SERVER) -> None:
+    """Run one thread per worker until the time or the byte cap; an error only counts if nothing moved."""
     errors: list[Exception] = []
 
-    def guarded():
+    def guarded(worker):
         try:
             worker()
         except Exception as exc:  # noqa: BLE001 - network errors end the stream, reported below
             errors.append(exc)
-    threads = [threading.Thread(target=guarded, daemon=True) for _ in range(STREAMS)]
+    threads = [threading.Thread(target=guarded, args=(w,), daemon=True) for w in workers]
     for th in threads:
         th.start()
     meter.stop.wait(seconds)
@@ -160,7 +169,7 @@ def _run_streams(worker, meter: _Meter, seconds: float) -> None:
     for th in threads:
         th.join(timeout=16)
     if errors and meter.total == 0:
-        raise SpeedError(f"{SERVER}: {errors[0]}")
+        raise SpeedError(f"{name}: {errors[0]}")
 
 
 _RTT = re.compile(r"time[=<]([\d.]+) ms")
@@ -181,16 +190,23 @@ def run(max_bytes: int, *, wireless: bool = False, trigger: str = "manual",
         clock: Callable[[], float] = time.monotonic, down_seconds: float = DOWN_SECONDS,
         up_seconds: float = UP_SECONDS, servers: list[dict] | None = None,
         mark: Callable[[str], dict] | None = None, isp_asn: str | None = None,
-        iperf: Callable[..., tuple[float | None, int]] | None = None) -> Result:
-    """One test. Cloudflare first, then each iperf3 server; the byte cap is split evenly between them.
-    Download gets 70 % of each share, upload 30 %; each stops at its time or its cap."""
+        iperf: Callable[..., tuple[float | None, int]] | None = None, mlab: bool = False,
+        mlab_run: Callable[..., dict] | None = None) -> Result:
+    """One test. Cloudflare first, then M-Lab (if on), then each iperf3 server; the byte cap is split
+    evenly between them. Download gets 70 % of each share, upload 30 %; each stops at its time or its cap."""
     servers = servers or []
-    share = max_bytes // (1 + len(servers))
+    share = max_bytes // (1 + len(servers) + (1 if mlab else 0))
     res = _run_cloudflare(share, wireless=wireless, trigger=trigger, counters=counters, opener=opener,
                           ping=ping, clock=clock, down_seconds=down_seconds, up_seconds=up_seconds)
     if isp_asn == CLOUDFLARE_ASN:
         res.where = "inside"
     started = clock()
+    if mlab:
+        if mlab_run is None:
+            from .mlab import run as mlab_run
+        one = mlab_run(share, mark=mark, down_seconds=down_seconds, up_seconds=up_seconds)
+        res.servers.append(one)
+        res.bytes_used += one["bytes"]
     for srv in servers:
         one = run_server(srv, share, mark=mark, iperf=iperf, down_seconds=down_seconds, up_seconds=up_seconds)
         res.servers.append(one)
@@ -317,6 +333,23 @@ def mark(host: str, *, isp_asn: str | None, data_dir=None, online: bool = False,
     return {"where": where, "asn": asn_, "as_name": name}
 
 
+def best(res: dict) -> dict:
+    """The best download and upload of one test, from any engine or server, and who gave them:
+    {"down", "down_name", "up", "up_name"} (None when nothing measured). A server can only measure
+    less than your access, never more, so this is the figure to hold against the plan."""
+    rows = []
+    if not res.get("error"):
+        rows.append((res.get("down_mbps"), res.get("up_mbps"), SERVER))
+    rows += [(s.get("down_mbps"), s.get("up_mbps"), s.get("name") or "?")
+             for s in res.get("servers") or [] if not s.get("error")]
+    out: dict = {"down": None, "down_name": None, "up": None, "up_name": None}
+    for key, i in (("down", 0), ("up", 1)):
+        got = [(r[i], r[2]) for r in rows if r[i]]
+        if got:
+            out[key], out[f"{key}_name"] = max(got, key=lambda x: x[0])
+    return out
+
+
 def locate(res: dict, plan_down: float = 0.0) -> dict | None:
     """Where the bottleneck is, comparing the best download inside the ISP with the best outside.
     None when one of the two sides wasn't measured. Codes:
@@ -416,6 +449,11 @@ def validate(raw: dict, current: dict) -> dict:
     if not 5 <= out["max_busy_pct"] <= 100:
         raise ValueError("the busy limit must be between 5 and 100 %")
     out["run_on_backup"] = bool(raw.get("run_on_backup"))
+    # M-Lab publishes each test with your IP: its own consent, and turning it off forgets the consent
+    out["mlab"] = bool(raw.get("mlab"))
+    if out["mlab"] and not raw.get("mlab_accepted"):
+        raise ValueError("to use M-Lab, confirm that it publishes each test with your public IP")
+    out["mlab_accepted"] = out["mlab"]
     if "servers" in raw:
         out["servers"] = parse_servers(raw["servers"])
     return out
@@ -505,9 +543,11 @@ class Runner:
         cap = per_test_bytes(cfg)
         trigger = "manual" if manual else "scheduled"
         extra = {}
-        if cfg.get("servers"):
-            extra = {"servers": cfg["servers"], "isp_asn": isp_asn,
+        if cfg.get("servers") or cfg.get("mlab"):
+            extra = {"servers": cfg.get("servers") or [], "isp_asn": isp_asn,
                      "mark": lambda host: mark(host, isp_asn=isp_asn, data_dir=self.data_dir, online=self.asn_online)}
+        if cfg.get("mlab") and cfg.get("mlab_accepted"):
+            extra["mlab"] = True
 
         def job():
             try:

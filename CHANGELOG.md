@@ -5,6 +5,18 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 
 ## [Unreleased]
 
+### Added
+- **M-Lab as a second speed test engine** (#115): the nearest Measurement Lab NDT7 server (the open
+  platform behind Google's speed test), picked by round trip among the ones M-Lab offers. Off by
+  default with its own consent: M-Lab publishes every test, with your public IP, as open data. On a
+  1000 Mbps fibre where Cloudflare topped out at 490, M-Lab Buenos Aires measured 930.
+
+### Changed
+- **The plan is compared with each test's best figure**, from whichever engine or server gave it
+  (Cloudflare, M-Lab, your iperf3 servers), on the dashboard, the report and the monthly summary. A
+  server can only measure less than your line, never more, so a slow far server no longer reads as
+  your ISP falling short. The dashboard says which server the figure came from.
+
 ### Fixed
 - **No more blind spot every 15 minutes**: the periodic re-discovery ran with the probes stopped, so
   about 40 s of every 15 minutes (~5% of the time) went unmeasured and the status strip looked dashed.

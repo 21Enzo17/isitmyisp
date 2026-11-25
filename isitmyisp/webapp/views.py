@@ -621,11 +621,12 @@ def speed_status(store: Store, settings: Settings, now: float | None = None) -> 
     contract_down = float(settings.link.get("down_mbps") or 0)
     contract_up = float(settings.link.get("up_mbps") or 0)
     per_test = sp.per_test_bytes(cfg)
+    engines = 1 + len(cfg.get("servers") or []) + (1 if cfg.get("mlab") else 0)
     # what one test really uses: the cap, or less if the plan can't move that much in the test time
     expected = per_test
-    if contract_down:   # every server (Cloudflare plus each iperf3 one) moves up to that
+    if contract_down:   # every engine (Cloudflare, M-Lab, each iperf3 server) moves up to that
         one = (contract_down * sp.DOWN_SECONDS + (contract_up or contract_down) * sp.UP_SECONDS) * 1e6 / 8
-        expected = min(per_test, int(one * (1 + len(cfg.get("servers") or []))))
+        expected = min(per_test, int(one * engines))
     blocked = store.get_setting("_speed_blocked")
     if blocked and now - blocked.get("ts", 0) > 3600:
         blocked = None
@@ -633,8 +634,8 @@ def speed_status(store: Store, settings: Settings, now: float | None = None) -> 
     pending = bool(requested and now - requested < 120 and not any(r["ts"] >= requested for r in month))
     return {"cfg": cfg, "on": on, "last": history[0] if history else None, "history": history,
             "used": used, "budget": cfg["budget_gb"] * 1e9, "per_test": per_test, "expected": expected,
-            # about 15 s for Cloudflare, then as much for each iperf3 server, one after the other
-            "seconds": 15 * (1 + len(cfg.get("servers") or [])),
+            # about 15 s for Cloudflare, then as much for M-Lab and each iperf3 server, one after the other
+            "seconds": 15 * engines, "best": sp.best(history[0]) if history else None,
             "next": nxt, "contract_down": contract_down, "contract_up": contract_up,
             "blocked": blocked, "pending": pending, "weekdays": sp.WEEKDAYS,
             "servers_text": "\n".join(sp.label(x) + ("" if x.get("where", "auto") == "auto" else f" {x['where']}")
