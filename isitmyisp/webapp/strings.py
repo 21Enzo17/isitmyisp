@@ -45,7 +45,8 @@ S = {
         "bloat_ok": "Calls hold up when someone downloads.", "bloat_fair": "Calls suffer a bit when someone downloads (bufferbloat).",
         "bloat_bad": "Calls break up when someone downloads (heavy bufferbloat: QoS/SQM on the router helps).",
         "speed_when": "Measured {when} ({trigger}), used {size}.",
-        "speed_trigger": {"manual": "by hand", "scheduled": "scheduled"},
+        "speed_when_push": "Measured {when} by another machine, which sent it here.",
+        "speed_trigger": {"manual": "by hand", "scheduled": "scheduled", "push": "sent by another machine"},
         "speed_wan": "Your router saw {wan} Mbps in total meanwhile.",
         "speed_wifi_result": "Measured over Wi-Fi: this is your Wi-Fi's speed, not necessarily your ISP's. Connect this machine by cable to use it as evidence.",
         "speed_dash_budget": "Data used this month: {used} of {budget}.", "speed_dash_next": "Next scheduled test: {when}.",
@@ -95,6 +96,17 @@ S = {
                            "command line, and set it under [speedtest] command in the config file (or "
                            "ISITMYISP_SPEEDTEST_COMMAND). Not from this page: a command a web page can change "
                            "is a way into this machine."),
+        "speed_push_h": "Results from another machine",
+        "speed_push_none": ("A test run elsewhere (Ookla's CLI on the PC on the cable, a script on the router) can be "
+                            "sent here and shown with the others. It uses none of this machine's budget. Off until "
+                            "you make a token."),
+        "speed_push_on": "POST the tool's JSON output to /api/speedtest with this bearer token:",
+        "speed_push_example": ("For example, from the other machine (any format the own engine reads; "
+                               "?name= labels it, ?wireless=1 marks a test over Wi-Fi):"),
+        "speed_push_enable": "Make a token", "speed_push_disable": "Turn off",
+        "speed_push_made": "New token made: update the machines that send results.",
+        "speed_push_off": "Results from other machines are off: the token no longer works.",
+        "speed_push_ro": "Another machine can send its speed test results here.",
         "speed_best_via": "Best figure, from {name}. Each server can only measure less than your line, never more.",
         "speed_server": "Server", "speed_side": "Where",
         "speed_confirm": "Yes, fill my link for about {secs} seconds and use up to {size}",
@@ -459,7 +471,8 @@ S = {
         "bloat_ok": "Las llamadas aguantan cuando alguien descarga.", "bloat_fair": "Las llamadas sufren un poco cuando alguien descarga (bufferbloat).",
         "bloat_bad": "Las llamadas se cortan cuando alguien descarga (bufferbloat alto: QoS/SQM en el router ayuda).",
         "speed_when": "Medido {when} ({trigger}), usó {size}.",
-        "speed_trigger": {"manual": "a mano", "scheduled": "programada"},
+        "speed_when_push": "Medido {when} por otra máquina, que lo mandó acá.",
+        "speed_trigger": {"manual": "a mano", "scheduled": "programada", "push": "enviada por otra máquina"},
         "speed_wan": "Tu router vio {wan} Mbps en total mientras tanto.",
         "speed_wifi_result": "Medido por Wi-Fi: es la velocidad de tu Wi-Fi, no necesariamente la de tu ISP. Conectá este equipo por cable para usarlo como evidencia.",
         "speed_dash_budget": "Datos usados este mes: {used} de {budget}.", "speed_dash_next": "Próxima prueba programada: {when}.",
@@ -510,6 +523,17 @@ S = {
                            "línea de comando y configuralo en [speedtest] command del archivo de configuración "
                            "(o en ISITMYISP_SPEEDTEST_COMMAND). No desde esta página: un comando que una página "
                            "web puede cambiar es una puerta a esta máquina."),
+        "speed_push_h": "Resultados de otra máquina",
+        "speed_push_none": ("Una prueba hecha en otro lado (la CLI de Ookla en la PC del cable, un script en el router) "
+                            "se puede mandar acá y se muestra con las demás. No usa el presupuesto de esta máquina. "
+                            "Apagado hasta que generes un token."),
+        "speed_push_on": "Hacé POST de la salida JSON de la herramienta a /api/speedtest con este token bearer:",
+        "speed_push_example": ("Por ejemplo, desde la otra máquina (cualquier formato que lee el motor propio; "
+                               "?name= le pone nombre, ?wireless=1 marca una prueba por Wi-Fi):"),
+        "speed_push_enable": "Generar un token", "speed_push_disable": "Apagar",
+        "speed_push_made": "Token nuevo generado: actualizá las máquinas que mandan resultados.",
+        "speed_push_off": "Los resultados de otras máquinas están apagados: el token ya no sirve.",
+        "speed_push_ro": "Otra máquina puede mandar acá sus resultados de velocidad.",
         "speed_best_via": "Mejor cifra, de {name}. Cada servidor solo puede medir menos que tu línea, nunca más.",
         "speed_server": "Servidor", "speed_side": "Dónde",
         "speed_confirm": "Sí, llenar mi enlace unos {secs} segundos y usar hasta {size}",

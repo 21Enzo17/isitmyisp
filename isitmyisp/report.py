@@ -832,7 +832,7 @@ def speed_where_section(tests: list[dict], t: dict, lang: str, plan_down: float 
         return ""
     rows = []
     for r in with_servers:
-        cells = [(SERVER, r.get("where"), None, r.get("down_mbps"), r.get("up_mbps"), None)]
+        cells = [] if r.get("trigger") == "push" else [(SERVER, r.get("where"), None, r.get("down_mbps"), r.get("up_mbps"), None)]
         cells += [(x["name"], x.get("where"), x.get("asn"), x.get("down_mbps"), x.get("up_mbps"), x.get("error"))
                   for x in r["servers"]]
         for i, (name, where, asn_, down, up, err) in enumerate(cells):

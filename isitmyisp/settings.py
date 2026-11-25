@@ -304,3 +304,16 @@ def metrics_token(store: Store, rotate: bool = False) -> str:
         token = secrets.token_urlsafe(32)
         store.set_settings({"_metrics_token": token}, bump=False)
     return token
+
+
+def push_token(store: Store, action: str | None = None) -> str | None:
+    """Bearer token another machine sends its speed test results with (POST /api/speedtest, #115).
+    None until an admin turns it on; action "new" makes (or replaces) it, "off" forgets it."""
+    if action == "new":
+        token = secrets.token_urlsafe(32)
+        store.set_settings({"_speed_push_token": token}, bump=False)
+        return token
+    if action == "off":
+        store.set_settings({"_speed_push_token": ""}, bump=False)
+        return None
+    return store.get_setting("_speed_push_token") or None

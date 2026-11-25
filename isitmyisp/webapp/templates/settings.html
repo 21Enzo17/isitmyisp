@@ -210,6 +210,26 @@
       <button class="btn" type="submit">{{ t.speed_run }}</button>
     </form>
     {% endif %}
+    {% if not readonly %}
+    <fieldset class="mlab" id="push"><legend>{{ t.speed_push_h }}</legend>
+      {% if push_token %}
+      <p class="muted small">{{ t.speed_push_on }}</p>
+      <div class="token mono small">{{ push_token }}</div>
+      <p class="muted small">{{ t.speed_push_example }}</p>
+      <div class="token mono small">speedtest -f json | curl -sS -H "Authorization: Bearer {{ push_token }}" --data-binary @- "{{ push_url }}?name=PC"</div>
+      <div class="actions">
+        <form method="post" action="{{ url_for('settings_speed_push') }}">{{ csrf() }}<input type="hidden" name="action" value="new">
+          <button class="btn" type="submit">{{ t.rotate }}</button></form>
+        <form method="post" action="{{ url_for('settings_speed_push') }}">{{ csrf() }}<input type="hidden" name="action" value="off">
+          <button class="btn" type="submit">{{ t.speed_push_disable }}</button></form>
+      </div>
+      {% else %}
+      <p class="muted small">{{ t.speed_push_none }}</p>
+      <form method="post" action="{{ url_for('settings_speed_push') }}">{{ csrf() }}<input type="hidden" name="action" value="new">
+        <div class="actions"><button class="btn" type="submit">{{ t.speed_push_enable }}</button></div></form>
+      {% endif %}
+    </fieldset>
+    {% elif speed.push %}<p class="muted small">{{ t.speed_push_ro }}</p>{% endif %}
   {% endcall %}
 
   {% call card('link', t.snmp_title, t.link_sub, folded=not s.link.enabled, state=t.fold_off) %}

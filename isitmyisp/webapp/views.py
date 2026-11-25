@@ -643,6 +643,7 @@ def speed_status(store: Store, settings: Settings, now: float | None = None) -> 
             "servers_text": "\n".join(sp.label(x) + ("" if x.get("where", "auto") == "auto" else f" {x['where']}")
                                       for x in cfg.get("servers") or []),
             "max_servers": sp.MAX_SERVERS, "iperf": sp.iperf_available(),
+            "push": bool(store.get_setting("_speed_push_token")),
             "where": sp.locate(history[0], contract_down) if history else None}
 
 
