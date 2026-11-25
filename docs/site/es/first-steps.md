@@ -14,7 +14,7 @@ Abrí el link que mostró el instalador (`http://<ip-del-equipo>:8080/setup?toke
 
 ## 2. El asistente
 
-Después de crear la cuenta se abre **Primeros pasos**. Son cuatro pasos y cada uno se puede saltar, y todo se puede cambiar después en **Configuración**, donde también hay un botón para volver a abrir el asistente.
+Después de crear la cuenta se abre **Primeros pasos**. Son cinco pasos y cada uno se puede saltar, y todo se puede cambiar después en **Configuración**, donde también hay un botón para volver a abrir el asistente.
 
 ### Tu plan
 
@@ -36,9 +36,13 @@ Si uno se cae mientras internet anda bien, el panel dice que es ese servicio y n
 
 Telegram o un webhook (Discord, Slack, Home Assistant…), con un botón para **mandar una prueba**. La dirección del panel que va en los mensajes se completa sola. El email se configura en **Configuración → Avisos**. Más detalles en [Alertas](alerts.md).
 
+### Velocidad
+
+Opcional: prende una prueba de velocidad semanal contra tu plan, con un presupuesto de 5 GB por mes. Elegís el motor: **Cloudflare** (por defecto, no publica nada), **M-Lab** (publica cada prueba con tu IP pública, por eso pide su propia casilla) o **los dos**, que usa el doble de datos. Si lo saltás, queda apagada. Ver [Test de velocidad](features.md#test-de-velocidad).
+
 ### Listo
 
-Un resumen de lo configurado y de lo que quedó pendiente, con links a lo opcional: túneles, el router por SNMP, el test de velocidad, el modo TV y los usuarios.
+Un resumen de lo configurado y de lo que quedó pendiente, con links a lo opcional: túneles, el router por SNMP, el modo TV y los usuarios.
 
 ## 3. Reservar la IP del equipo
 

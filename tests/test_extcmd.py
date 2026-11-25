@@ -208,6 +208,35 @@ class WithTheOthers(unittest.TestCase):
                 runner.thread.join(2)
                 self.assertIs(got["command"], cmd)
                 self.assertTrue(callable(got["mark"]))
+                self.assertNotIn("cloudflare", got)                          # Cloudflare still runs by default
+            finally:
+                store.close()
+
+    def test_the_command_alone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Store(Path(tmp) / "s.db")
+            try:
+                got, done = {}, threading.Event()
+
+                def fake_run(cap, **kw):
+                    got.update(kw, cap=cap)
+                    done.set()
+                    return sp.Result(ts=time.time(), trigger=kw["trigger"])
+                runner = sp.Runner(store, run_fn=fake_run)
+                store.set_settings({"_speed_request": time.time()}, bump=False)
+                cmd = SpeedCommand(("speedtest",))
+                self.assertEqual(runner.tick({**ON, "schedule": "manual", "engine": "command"}, time.time(), wireless=False,
+                                             on_backup=False, incident=False, link_busy_pct=None, isp_asn="AS7303",
+                                             command=cmd), "started")
+                runner.thread.join(2)
+                self.assertIs(got["command"], cmd)
+                self.assertFalse(got["cloudflare"])
+                self.assertFalse(got.get("mlab", False))
+                r = sp.run(got["cap"], command=cmd, cloudflare=False, ping=lambda *a: [],
+                           opener=lambda *a, **k: self.fail("Cloudflare must not run"),
+                           command_run=lambda c, **k: {"name": "Ookla", "engine": "command", "down_mbps": 939.0,
+                                                       "up_mbps": 755.0, "bytes": 2_000_000_000, "error": None})
+                self.assertEqual((r.bytes_used, sp.best(r.__dict__)["down"]), (2_000_000_000, 939.0))
             finally:
                 store.close()
 
@@ -231,6 +260,14 @@ class Web(WebAppBase):
             page = self.client.get("/?lang=en").get_data(as_text=True)
             self.assertIn("<b>939</b> Mbps", page)
             self.assertIn("Best figure, from Ookla · Personal (Buenos Aires)", page)
+            page = self.client.get("/settings/connection?lang=en").get_data(as_text=True)
+            self.assertIn('value="command"', page)
+            self.store.set_settings({"speedtest": {**ON, "schedule": "manual", "engine": "command"}})
+            self.assertIn('value="command" checked', self.client.get("/settings/connection?lang=en").get_data(as_text=True))
+            self.assertIn("Your own command can&#39;t be capped", self.client.get("/settings/connection?lang=en").get_data(as_text=True))
+        (Path(self.tmp.name) / "config.toml").unlink()
+        page = self.client.get("/settings/connection?lang=en").get_data(as_text=True)   # no command: Cloudflare
+        self.assertNotIn('value="command"', page)
 
 
 if __name__ == "__main__":

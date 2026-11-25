@@ -98,7 +98,7 @@ Would a call sound good right now? An estimated MOS from 1 to 5 (ITU-T G.107 E-m
 When it's on:
 
 - It runs weekly (Sunday at 3 a.m. by default), daily at the hour you pick, or only when you press "test now". Optionally also at [peak hour](#peak-hour).
-- It keeps to a monthly data budget (5 GB by default).
+- It keeps to a monthly data budget (5 GB by default). A fast plan needs more: 1000/600 Mbps with Cloudflare, M-Lab and the peak-hour test uses about 3 GB a test, 40 GB a month. When the budget is too small, the test stops early and measures less than you have, and Settings and the dashboard tell you what to set.
 - It never runs on the backup link or over the budget.
 - A scheduled test also waits out an incident and a busy link (above 30 % by default). "Test now" runs anyway: you asked for it.
 - It measures against speed.cloudflare.com, which sees your public IP, and against any other [engine](#engines) you turn on.
@@ -108,11 +108,11 @@ When it's on:
 
 ### Engines
 
-Each engine measures the path to its own server, so each one tells you something different. Every engine you turn on runs in the same test, one after the other, and the budget is split between them.
+Each engine measures the path to its own server, so each one tells you something different. You pick the main engine, in the **Get started** wizard or in Settings: **Cloudflare** (the default), **M-Lab** or **both**. The others add to it. Every engine you turn on runs in the same test, one after the other, and the budget is split between them: with one engine, each test uses half the data of two.
 
 | Engine | What it measures | What it shares | Default |
 |---|---|---|---|
-| **Cloudflare** | Towards the internet: the path to Cloudflare's nearest server. On some ISPs Cloudflare itself is the ceiling (its server, or its peering with that ISP). | Cloudflare sees your public IP. | on, with the test |
+| **Cloudflare** | Towards the internet: the path to Cloudflare's nearest server. On some ISPs Cloudflare itself is the ceiling (its server, or its peering with that ISP). | Cloudflare sees your public IP. | on, unless you pick M-Lab alone |
 | **M-Lab** | The nearest [Measurement Lab](https://www.measurementlab.net/) NDT7 server, the open platform behind Google's speed test, with servers in many more cities. | **M-Lab publishes every test as open data, with your public IP.** It needs its own consent. | **off** |
 | **Your own command** | Whatever your tool measures, for example your ISP's own server through Ookla's CLI. | What that tool shares. | **off** |
 | **Another machine** | A test run elsewhere, for example on a PC on the cable, sent to isitmyisp. | Nothing more from here. | **off** |
@@ -122,7 +122,7 @@ Cloudflare's figure is the 90th percentile of the half-second rates after a one-
 
 #### M-Lab
 
-Turn it on in **Settings → Your connection → Speed test against your plan**, and tick the second box: M-Lab publishes each test, with your public IP, as open data for research. On a 1000 Mbps fibre where Cloudflare topped out at 490, M-Lab Buenos Aires measured 930.
+Pick it as the engine (alone, or with Cloudflare) in **Get started** or in **Settings → Your connection → Speed test against your plan**, and tick its box: M-Lab publishes each test, with your public IP, as open data for research. On a 1000 Mbps fibre where Cloudflare topped out at 490, M-Lab Buenos Aires measured 930.
 
 #### Your own engine
 
@@ -137,6 +137,8 @@ timeout = 120          # seconds
 ```
 
 It understands Ookla's CLI (`speedtest -f json`), the Python speedtest-cli (`--json`), librespeed-cli (`--json`), iperf3 (`-J`) and a plain format for your scripts: `{"download_mbps": 930, "upload_mbps": 600, "ping_ms": 2.1, "server": "Name"}`. It runs as an argument list, never through a shell, after the built-in engines, with the same schedule and guards. Its data can't be capped, so it's counted against the budget afterwards. With Docker, mount the tool into the container.
+
+Once the command is set, the engine choice in **Settings → Your connection** gains a fourth option, **Only your own command**: the test then runs just your tool, without Cloudflare or M-Lab, and the plan is compared with its result alone.
 
 #### From another machine
 

@@ -34,6 +34,7 @@ from __future__ import annotations
 import bisect
 import calendar
 import json
+import math
 import re
 import shutil
 import socket
@@ -63,7 +64,8 @@ UP_CHUNK = 20_000_000  # bytes per upload request, sent and counted in BLOCK pie
 BLOCK = 262_144
 UA = f"isitmyisp/{__version__} (+speed test)"
 SCHEDULES = ("weekly", "daily", "manual")
-PER_TEST_MAX = 2_000_000_000  # enough for 1 Gbps down for 8 s plus the upload; never more per test
+PER_TEST_MAX = 3_000_000_000  # per engine: enough for 2 Gbps down for 8 s or 1 Gbps up for 6 s; never more
+DOWN_SHARE = 0.7      # of each engine's share of the cap; the rest is the upload's
 
 CLOUDFLARE_ASN = "AS13335"
 IPERF_PORT = 5201
@@ -74,6 +76,7 @@ SLOW_RATIO = 0.6   # outside below 60 % of inside: the exit is the bottleneck (i
 DEFAULTS = {"enabled": False, "accepted": False, "schedule": "weekly", "weekday": 6, "hour": 3,
             "budget_gb": 5.0, "run_on_backup": False, "max_busy_pct": 30, "servers": [],
             "mlab": False, "mlab_accepted": False, "peak": False, "peak_hour": 21}
+ENGINES = ("cloudflare", "mlab", "both", "command")   # see engine_of(); not in DEFAULTS, so older settings keep their M-Lab
 PEAK_GRACE = 2 * 3600   # a peak-hour test that can't run within 2 h isn't at the peak any more
 PEAK_DAYS = 14          # the peak and the night figures are compared if both are this recent
 
@@ -98,6 +101,7 @@ class Result:
     notes: list[str] = field(default_factory=list)
     where: str = "outside"            # Cloudflare's side of the ISP (inside only if your ISP is Cloudflare)
     servers: list[dict] = field(default_factory=list)  # the iperf3 servers: see run_server()
+    cloudflare: bool = True           # False: Cloudflare didn't run (M-Lab only), its figures are empty
 
 
 # ------------------------------------------------------------------ measuring
@@ -263,14 +267,17 @@ def run(max_bytes: int, *, wireless: bool = False, trigger: str = "manual",
         mark: Callable[[str], dict] | None = None, isp_asn: str | None = None,
         iperf: Callable[..., tuple[float | None, int]] | None = None, mlab: bool = False,
         mlab_run: Callable[..., dict] | None = None, command=None,
-        command_run: Callable[..., dict] | None = None) -> Result:
-    """One test. Cloudflare first, then M-Lab (if on), then each iperf3 server; the byte cap is split
-    evenly between them. Download gets 70 % of each share, upload 30 %; each stops at its time or its cap.
-    Last, the user's own command (config.SpeedCommand), if set: it can't be capped, its bytes are counted."""
+        command_run: Callable[..., dict] | None = None, cloudflare: bool = True) -> Result:
+    """One test. Cloudflare first (unless off), then M-Lab (if on), then each iperf3 server; the byte cap
+    is split evenly between them. Download gets 70 % of each share, upload 30 %; each stops at its time or
+    its cap. Last, the user's own command (config.SpeedCommand), if set: it can't be capped, its bytes are counted."""
     servers = servers or []
-    share = max_bytes // (1 + len(servers) + (1 if mlab else 0))
-    res = _run_cloudflare(share, wireless=wireless, trigger=trigger, counters=counters, opener=opener,
-                          ping=ping, clock=clock, down_seconds=down_seconds, up_seconds=up_seconds)
+    share = max_bytes // max(1, (1 if cloudflare else 0) + len(servers) + (1 if mlab else 0))
+    if cloudflare:
+        res = _run_cloudflare(share, wireless=wireless, trigger=trigger, counters=counters, opener=opener,
+                              ping=ping, clock=clock, down_seconds=down_seconds, up_seconds=up_seconds)
+    else:
+        res = Result(ts=time.time(), wireless=wireless, trigger=trigger, cloudflare=False)
     if isp_asn == CLOUDFLARE_ASN:
         res.where = "inside"
     started = clock()
@@ -306,7 +313,7 @@ def _run_cloudflare(max_bytes: int, *, wireless, trigger, counters, opener, ping
                                   daemon=True)
         before = counters() if counters else None
         t_down = clock()
-        down = _Meter(int(max_bytes * 0.7), clock)
+        down = _Meter(int(max_bytes * DOWN_SHARE), clock)
         pinger.start()
         _download(down, down_seconds, opener)
         after = counters() if counters else None
@@ -316,7 +323,7 @@ def _run_cloudflare(max_bytes: int, *, wireless, trigger, counters, opener, ping
         res.loaded_ms = round(statistics.median(loaded), 1) if loaded else None
         if before and after and down_span > 0 and after[0] >= before[0]:
             res.wan_down_mbps = round((after[0] - before[0]) * 8 / down_span / 1e6, 1)
-        up = _Meter(int(max_bytes * 0.3), clock)
+        up = _Meter(int(max_bytes * (1 - DOWN_SHARE)), clock)
         _upload(up, up_seconds, opener)
         res.up_mbps = up.p90()
         res.bytes_used = down.total + up.total
@@ -383,9 +390,9 @@ def run_server(srv: dict, max_bytes: int, *, mark: Callable[[str], dict] | None 
         iperf = _iperf3
     port = int(srv.get("port", IPERF_PORT))
     try:
-        out["down_mbps"], down = iperf(srv["host"], port, int(max_bytes * 0.7), reverse=True, seconds=down_seconds)
+        out["down_mbps"], down = iperf(srv["host"], port, int(max_bytes * DOWN_SHARE), reverse=True, seconds=down_seconds)
         out["bytes"] += down
-        out["up_mbps"], up = iperf(srv["host"], port, int(max_bytes * 0.3), reverse=False, seconds=up_seconds)
+        out["up_mbps"], up = iperf(srv["host"], port, int(max_bytes * (1 - DOWN_SHARE)), reverse=False, seconds=up_seconds)
         out["bytes"] += up
     except SpeedError as exc:
         out["error"] = str(exc)
@@ -465,9 +472,52 @@ def runs_per_month(cfg: dict) -> int:
     return runs * 2 if cfg.get("peak") else runs   # the peak-hour test is a second one per slot
 
 
-def per_test_bytes(cfg: dict) -> int:
-    """Each test's share of the monthly budget (two manual tests are always budgeted for)."""
-    return int(min(PER_TEST_MAX, cfg["budget_gb"] * 1e9 / (runs_per_month(cfg) + 2)))
+def engine_of(cfg: dict) -> str:
+    """The built-in engine the user picked (ENGINES). Settings saved before the choice existed had
+    Cloudflare always, plus M-Lab if it was ticked."""
+    return cfg.get("engine") if cfg.get("engine") in ENGINES else ("both" if cfg.get("mlab") else "cloudflare")
+
+
+def uses(cfg: dict, command: bool = True) -> tuple[bool, bool]:
+    """(Cloudflare, M-Lab): what a test runs. M-Lab only with its consent, and "command" (only your
+    own command) only with one set up in the config file (`command`); without them, Cloudflare."""
+    engine = engine_of(cfg)
+    if engine == "command":
+        return not command, False
+    mlab = engine in ("mlab", "both") and bool(cfg.get("mlab_accepted"))
+    return engine != "mlab" or not mlab, mlab
+
+
+def engines(cfg: dict, command: bool = True) -> int:
+    """The engines that share a test's byte cap: Cloudflare and M-Lab as picked, each iperf3 server.
+    Your own command isn't one: it can't be capped (with only the command, this is 0)."""
+    return sum(uses(cfg, command)) + len(cfg.get("servers") or [])
+
+
+def per_test_bytes(cfg: dict, command: bool = True) -> int:
+    """Each test's share of the monthly budget (two manual tests are always budgeted for), at most
+    PER_TEST_MAX for each engine."""
+    return int(min(PER_TEST_MAX * engines(cfg, command), cfg["budget_gb"] * 1e9 / (runs_per_month(cfg) + 2)))
+
+
+def needed_bytes(cfg: dict, down_mbps: float, up_mbps: float = 0.0) -> int:
+    """The cap one test needs so that no engine stops before its time on a line this fast."""
+    down = down_mbps * 1e6 / 8 * DOWN_SECONDS / DOWN_SHARE
+    up = (up_mbps or down_mbps) * 1e6 / 8 * UP_SECONDS / (1 - DOWN_SHARE)
+    return int(max(down, up) * engines(cfg))
+
+
+def budget_short(cfg: dict, down_mbps: float, up_mbps: float = 0.0) -> dict | None:
+    """When the monthly budget is too small to measure a plan this fast: {"need", "budget_gb"} (the cap
+    a test needs, and the budget that gives it), or None. None too without a plan to compare with,
+    or when no budget would do (a plan past PER_TEST_MAX)."""
+    if not down_mbps:
+        return None
+    need = needed_bytes(cfg, down_mbps, up_mbps)
+    if per_test_bytes(cfg) >= need or need > PER_TEST_MAX * engines(cfg):
+        return None
+    gb = need * (runs_per_month(cfg) + 2) / 1e9
+    return {"need": need, "budget_gb": float(math.ceil(gb / 5) * 5)}
 
 
 def last_slot(cfg: dict, now: float, hour: int | None = None) -> float | None:
@@ -566,8 +616,13 @@ def validate(raw: dict, current: dict) -> dict:
     if not 5 <= out["max_busy_pct"] <= 100:
         raise ValueError("the busy limit must be between 5 and 100 %")
     out["run_on_backup"] = bool(raw.get("run_on_backup"))
+    # which engine: Cloudflare, M-Lab, both, or only your own command (older forms only sent "mlab")
+    engine = raw.get("engine") or ("both" if raw.get("mlab") else "cloudflare")
+    if engine not in ENGINES:
+        raise ValueError("the engine must be cloudflare, mlab, both or command")
+    out["engine"] = engine
     # M-Lab publishes each test with your IP: its own consent, and turning it off forgets the consent
-    out["mlab"] = bool(raw.get("mlab"))
+    out["mlab"] = engine in ("mlab", "both")
     if out["mlab"] and not raw.get("mlab_accepted"):
         raise ValueError("to use M-Lab, confirm that it publishes each test with your public IP")
     out["mlab_accepted"] = out["mlab"]
@@ -659,14 +714,17 @@ class Runner:
                 self.store.set_settings({"_speed_blocked": {"ts": now, "reason": reason}}, bump=False)
             self.last_reason = reason
             return reason
-        cap = per_test_bytes(cfg)
+        cap = per_test_bytes(cfg, command is not None)
         trigger = "manual" if manual else kind
         extra = {}
-        if cfg.get("servers") or cfg.get("mlab") or command is not None:
+        cloudflare, mlab = uses(cfg, command is not None)
+        if cfg.get("servers") or engine_of(cfg) != "cloudflare" or command is not None:
             extra = {"servers": cfg.get("servers") or [], "isp_asn": isp_asn,
                      "mark": lambda host: mark(host, isp_asn=isp_asn, data_dir=self.data_dir, online=self.asn_online)}
-        if cfg.get("mlab") and cfg.get("mlab_accepted"):
+        if mlab:
             extra["mlab"] = True
+        if not cloudflare:
+            extra["cloudflare"] = False
         if command is not None:
             extra["command"] = command
 

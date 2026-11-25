@@ -98,7 +98,7 @@ Los caminos se comparan por red (/24) y por organización, así que no necesita 
 Cuando está activado:
 
 - Corre semanalmente (por defecto, el domingo a las 3), todos los días a la hora que elijas, o solo cuando apretás "probar ahora". Si querés, también en [hora pico](#hora-pico).
-- Respeta un presupuesto mensual de datos (5 GB por defecto).
+- Respeta un presupuesto mensual de datos (5 GB por defecto). Un plan rápido necesita más: 1000/600 Mbps con Cloudflare y M-Lab y la prueba en hora pico usa unos 3 GB por prueba, 40 GB al mes. Si el presupuesto no alcanza, la prueba se corta antes y mide menos de lo que tenés, y Ajustes y el panel te avisan cuánto poner.
 - Nunca corre en el enlace de respaldo ni pasado el presupuesto.
 - La prueba programada además espera si hay un incidente o el enlace está ocupado (más del 30 % por defecto). "Probar ahora" corre igual: la pediste vos.
 - Mide contra speed.cloudflare.com, que ve tu IP pública, y contra cualquier otro [motor](#motores) que actives.
@@ -108,11 +108,11 @@ Cuando está activado:
 
 ### Motores
 
-Cada motor mide el camino hasta su propio servidor, así que cada uno te dice algo distinto. Todos los que actives corren en la misma prueba, uno detrás de otro, y el presupuesto se reparte entre ellos.
+Cada motor mide el camino hasta su propio servidor, así que cada uno te dice algo distinto. El motor principal lo elegís vos, en el asistente de **Primeros pasos** o en Configuración: **Cloudflare** (por defecto), **M-Lab** o **los dos**. Los demás se suman. Todos los que actives corren en la misma prueba, uno detrás de otro, y el presupuesto se reparte entre ellos: con un solo motor, cada prueba gasta la mitad que con dos.
 
 | Motor | Qué mide | Qué comparte | Por defecto |
 |---|---|---|---|
-| **Cloudflare** | Hacia internet: el camino al servidor de Cloudflare más cercano. Con algunos ISP el techo es el propio Cloudflare (su servidor, o su peering con ese ISP). | Cloudflare ve tu IP pública. | sí, con el test |
+| **Cloudflare** | Hacia internet: el camino al servidor de Cloudflare más cercano. Con algunos ISP el techo es el propio Cloudflare (su servidor, o su peering con ese ISP). | Cloudflare ve tu IP pública. | sí, salvo que elijas solo M-Lab |
 | **M-Lab** | El servidor NDT7 de [Measurement Lab](https://www.measurementlab.net/) más cercano: la plataforma abierta detrás del test de velocidad de Google, con servidores en muchas más ciudades. | **M-Lab publica cada prueba como datos abiertos, con tu IP pública.** Necesita su propio consentimiento. | **no** |
 | **Tu propio comando** | Lo que mida tu herramienta, por ejemplo el servidor de tu propio ISP con la CLI de Ookla. | Lo que comparta esa herramienta. | **no** |
 | **Otra máquina** | Una prueba que corrió en otro lado, por ejemplo en una PC por cable, y que se le manda a isitmyisp. | Nada más desde acá. | **no** |
@@ -122,7 +122,7 @@ La cifra de Cloudflare es el percentil 90 de las tasas de cada medio segundo, de
 
 #### M-Lab
 
-Se activa en **Configuración → Tu conexión → Prueba de velocidad contra tu plan**, marcando también la segunda casilla: M-Lab publica cada prueba, con tu IP pública, como datos abiertos para investigación. En una fibra de 1000 Mbps donde Cloudflare no pasaba de 490, M-Lab Buenos Aires midió 930.
+Se elige como motor (solo, o junto con Cloudflare) en **Primeros pasos** o en **Configuración → Tu conexión → Prueba de velocidad contra tu plan**, marcando también su casilla: M-Lab publica cada prueba, con tu IP pública, como datos abiertos para investigación. En una fibra de 1000 Mbps donde Cloudflare no pasaba de 490, M-Lab Buenos Aires midió 930.
 
 #### Tu propio motor
 
@@ -137,6 +137,8 @@ timeout = 120          # segundos
 ```
 
 Entiende la CLI de Ookla (`speedtest -f json`), el speedtest-cli de Python (`--json`), librespeed-cli (`--json`), iperf3 (`-J`) y un formato simple para tus scripts: `{"download_mbps": 930, "upload_mbps": 600, "ping_ms": 2.1, "server": "Nombre"}`. Corre como lista de argumentos, nunca a través de una shell, después de los motores incluidos, con el mismo horario y las mismas protecciones. Sus datos no se pueden topear, así que se descuentan del presupuesto después. Con Docker, montá la herramienta dentro del contenedor.
+
+Con el comando configurado, la elección de motor en **Configuración → Tu conexión** suma una cuarta opción, **Solo tu propio comando**: la prueba corre únicamente tu herramienta, sin Cloudflare ni M-Lab, y el plan se compara solo con su resultado.
 
 #### Desde otra máquina
 

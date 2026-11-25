@@ -14,7 +14,7 @@ Open the link the installer printed (`http://<machine-ip>:8080/setup?token=…`)
 
 ## 2. The wizard
 
-After creating the account, **Get started** opens. There are four steps and every one can be skipped, and everything can be changed later in **Settings**, which also has a button to reopen the wizard.
+After creating the account, **Get started** opens. There are five steps and every one can be skipped, and everything can be changed later in **Settings**, which also has a button to reopen the wizard.
 
 ### Your plan
 
@@ -36,9 +36,13 @@ When one fails while the internet works, the dashboard says it's that service an
 
 Telegram or a webhook (Discord, Slack, Home Assistant…), with a button to **send a test**. The dashboard address included in messages is filled in for you. Email is set up in **Settings → Alerts**. More in [Alerts](alerts.md).
 
+### Speed test
+
+Optional: turns on a weekly speed test against your plan, with a 5 GB monthly budget. You pick the engine: **Cloudflare** (the default, nothing is published), **M-Lab** (it publishes every test with your public IP, so it asks for its own box) or **both**, which uses twice the data. Skip it and it stays off. See [Speed test](features.md#speed-test).
+
 ### Done
 
-A summary of what's set and what's pending, with links to the optional parts: tunnels, the router over SNMP, the speed test, TV mode and users.
+A summary of what's set and what's pending, with links to the optional parts: tunnels, the router over SNMP, TV mode and users.
 
 ## 3. Reserve the machine's IP
 

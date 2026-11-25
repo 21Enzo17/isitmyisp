@@ -28,7 +28,15 @@ import urllib.parse
 import urllib.request
 from collections.abc import Callable
 
-from .speedtest import DOWN_SECONDS, UA, UP_SECONDS, SpeedError, _Meter, _run_streams
+from .speedtest import (
+    DOWN_SECONDS,
+    DOWN_SHARE,
+    UA,
+    UP_SECONDS,
+    SpeedError,
+    _Meter,
+    _run_streams,
+)
 
 LOCATE_URL = "https://locate.measurementlab.net/v2/nearest/ndt/ndt7"
 PROTOCOL = "net.measurementlab.ndt.v7"
@@ -155,7 +163,7 @@ def run(max_bytes: int, *, opener=urllib.request.urlopen, connect: Callable = co
         info = (mark or (lambda h: {}))(host) or {}
         out.update({k: info.get(k) for k in ("asn", "as_name", "where")})
 
-        down = _Meter(int(max_bytes * 0.7), clock)
+        down = _Meter(int(max_bytes * DOWN_SHARE), clock)
 
         def downloader(url):
             def work():
@@ -174,7 +182,7 @@ def run(max_bytes: int, *, opener=urllib.request.urlopen, connect: Callable = co
         _run_streams([downloader(m["down"]) for m in machines], down, down_seconds, NAME)
         out["down_mbps"], out["bytes"] = down.mbps(), down.total
 
-        up = _Meter(int(max_bytes * 0.3), clock)
+        up = _Meter(int(max_bytes * (1 - DOWN_SHARE)), clock)
         frame = upload_frame()
         payload = FRAME
 

@@ -81,6 +81,26 @@
     {{ buttons(test=True) }}
   </form>
 
+{% elif step == 'speed' %}
+  <h3>{{ t.wiz_speed_title }}</h3>
+  <p class="muted">{{ t.wiz_speed_sub }}</p>
+  <p class="small"><b>{{ t.speed_what_h }}</b> {{ t.speed_what }}</p>
+  <ul class="small">
+    <li>{{ t.speed_risk_fill }}</li>
+    <li>{{ t.speed_risk_data.format(size=speed.expected|size, down=('%.0f'|format(speed.contract_down)) if speed.contract_down else '?') }}</li>
+    <li>{{ t.speed_risk_privacy }}</li>
+  </ul>
+  <form method="post" action="{{ url_for('welcome', step='speed') }}">{{ csrf() }}
+    <fieldset class="mlab"><legend>{{ t.speed_engine_h }}</legend>
+      {% for e in ('cloudflare', 'mlab', 'both') + (('command',) if speed.command else ()) %}<label class="check"><input type="radio" name="engine" value="{{ e }}" {{ 'checked' if speed.engine == e }}> {{ t['speed_engine_' ~ e] }}</label>
+      {% endfor %}<p class="muted small">{{ t.speed_mlab_what }}</p>
+      <label class="check"><input type="checkbox" name="mlab_accepted" value="1" {{ 'checked' if (s.speedtest or {}).mlab_accepted }}> {{ t.speed_mlab_accept }}</label>
+    </fieldset>
+    <label class="check"><input type="checkbox" name="accepted" value="1" {{ 'checked' if (s.speedtest or {}).accepted }}> {{ t.speed_accept }}</label>
+    <p class="muted small">{{ t.wiz_speed_help }}</p>
+    {{ buttons() }}
+  </form>
+
 {% else %}
   {% set channels = [] %}{% for ch in ('telegram', 'email', 'webhook') if alerts[ch].enabled %}{% set _ = channels.append(ch|capitalize) %}{% endfor %}
   <h3>{{ t.wiz_done_title }}</h3>
@@ -89,13 +109,13 @@
     <li class="{{ 'ok' if hours.enabled else 'todo' }}"><b>{{ t.wiz_step.hours }}:</b> {{ t.hours_summary.format(n=hours.days.values()|select|list|length) if hours.enabled else t.wiz_not_set }}</li>
     <li class="{{ 'ok' if s.services else 'todo' }}"><b>{{ t.wiz_step.services }}:</b> {{ s.services|length }}</li>
     <li class="{{ 'ok' if channels else 'todo' }}"><b>{{ t.wiz_step.alerts }}:</b> {{ channels|join(', ') if channels else t.wiz_not_set }}</li>
+    <li class="{{ 'ok' if speed.on else 'todo' }}"><b>{{ t.wiz_step.speed }}:</b> {{ (t['speed_engine_' ~ speed.engine] if speed.engine != 'command' else (speed.command.name or speed.command.argv[0])).split(':')[0] if speed.on else t.wiz_not_set }}</li>
   </ul>
   <p class="muted">{{ t.wiz_done_sub }}</p>
   <h4>{{ t.wiz_next_title }}</h4>
   <ul class="wiz-more">
     <li><a href="{{ url_for('settings_page') }}#tunnels">{{ t.tunnels_title }}</a> <span class="muted">{{ t.wiz_more_tunnels }}</span></li>
     <li><a href="{{ url_for('settings_page', tab='connection') }}#link">{{ t.snmp_title }}</a> <span class="muted">{{ t.wiz_more_link }}</span></li>
-    <li><a href="{{ url_for('settings_page', tab='connection') }}#speed">{{ t.speed_title }}</a> <span class="muted">{{ t.wiz_more_speed }}</span></li>
     <li><a href="{{ url_for('settings_page', tab='access') }}#tv">{{ t.tv_title }}</a> <span class="muted">{{ t.wiz_more_tv }}</span></li>
     <li><a href="{{ url_for('settings_page', tab='access') }}#users">{{ t.users_title }}</a> <span class="muted">{{ t.wiz_more_users }}</span></li>
   </ul>

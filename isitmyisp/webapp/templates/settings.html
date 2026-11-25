@@ -192,11 +192,12 @@
         <div><label for="sb">{{ t.speed_budget }}</label><input type="number" step="0.5" min="0.5" max="500" id="sb" name="budget_gb" value="{{ sc.budget_gb }}" {{ 'disabled' if readonly }}></div>
         <div><label for="sm">{{ t.speed_busy }}</label><input type="number" min="5" max="100" id="sm" name="max_busy_pct" value="{{ sc.max_busy_pct }}" {{ 'disabled' if readonly }}></div>
       </div>
-      <p class="muted small">{{ t.speed_budget_hint.format(per=speed.per_test|size, exp=speed.expected|size, used=speed.used|size, budget=speed.budget|size) }}</p>
+      <p class="muted small">{{ (t.speed_budget_hint if speed.per_test else t.speed_budget_hint_cmd).format(per=speed.per_test|size, exp=speed.expected|size, used=speed.used|size, budget=speed.budget|size) }}</p>
+      {% if speed.short %}<p class="speed-warn">{{ t.speed_budget_short.format(down='%.0f'|format(speed.contract_down), need=speed.short.need|size, per=speed.per_test|size, gb='%.0f'|format(speed.short.budget_gb)) }}</p>{% endif %}
       <label class="check"><input type="checkbox" name="run_on_backup" value="1" {{ 'checked' if sc.run_on_backup }} {{ 'disabled' if readonly }}> {{ t.speed_on_backup }}</label>
-      <fieldset class="mlab"><legend>{{ t.speed_mlab_h }}</legend>
-        <p class="muted small">{{ t.speed_mlab_what }}</p>
-        <label class="check"><input type="checkbox" name="mlab" value="1" {{ 'checked' if sc.mlab }} {{ 'disabled' if readonly }}> {{ t.speed_mlab_enable }}</label>
+      <fieldset class="mlab"><legend>{{ t.speed_engine_h }}</legend>
+        {% for e in ('cloudflare', 'mlab', 'both') + (('command',) if speed.command else ()) %}<label class="check"><input type="radio" name="engine" value="{{ e }}" {{ 'checked' if speed.engine == e }} {{ 'disabled' if readonly }}> {{ t['speed_engine_' ~ e] }}</label>
+        {% endfor %}<p class="muted small">{{ t.speed_mlab_what }}</p>
         <label class="check"><input type="checkbox" name="mlab_accepted" value="1" {{ 'checked' if sc.mlab_accepted }} {{ 'disabled' if readonly }}> {{ t.speed_mlab_accept }}</label>
       </fieldset>
       <label for="ssrv">{{ t.speed_servers }}</label>

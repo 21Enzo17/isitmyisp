@@ -766,7 +766,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                "schedule": f.get("schedule", "weekly"), "weekday": f.get("weekday", 6), "hour": f.get("hour", 3),
                "budget_gb": f.get("budget_gb", 5), "max_busy_pct": f.get("max_busy_pct", 30),
                "run_on_backup": bool(f.get("run_on_backup")), "servers": f.get("servers", "")[:2000],
-               "mlab": bool(f.get("mlab")), "mlab_accepted": bool(f.get("mlab_accepted")),
+               "engine": f.get("engine", "cloudflare"), "mlab_accepted": bool(f.get("mlab_accepted")),
                "peak": bool(f.get("peak")), "peak_hour": f.get("peak_hour", 21)}
         return _save({"speedtest": raw, "_speed_current": g.settings.speedtest})
 
@@ -1047,7 +1047,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
 
     # ---------------------------------------------------------------- first-run wizard
 
-    WIZARD = ("plan", "hours", "services", "alerts", "done")
+    WIZARD = ("plan", "hours", "services", "alerts", "speed", "done")
 
     def _wizard_page(step: str, error: str | None = None, status: int = 200, results: dict | None = None):
         from .. import alerts as alerts_mod
@@ -1056,7 +1056,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
             cfg["public_url"] = request.host_url.rstrip("/")     # links in alerts open this same address
         return _kept(render_template("welcome.html", active="settings", step=step, steps=WIZARD, s=g.settings,
                                      error=error, test_results=results, alerts=cfg, presets=_presets_view(),
-                                     hours=_hours_view(),
+                                     hours=_hours_view(), speed=views.speed_status(store, g.settings),
                                      net=store.network_at(time.time()),
                                      isp=views.isp_status(store, data_dir, ASN_JOB)), status), status
 
@@ -1094,6 +1094,12 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                 raw["enabled"] = True                    # "save and continue" here means: we have hours
                 raw["quiet_alerts"] = bool(f.get("hours_quiet"))
                 hours.save(store, raw)
+            elif step == "speed":                        # "save and continue" here means: turn it on
+                cur = g.settings.speedtest or {}
+                settings_mod.save(store, {"speedtest": {**cur, "enabled": True, "accepted": bool(f.get("accepted")),
+                                                        "engine": f.get("engine", "cloudflare"),
+                                                        "mlab_accepted": bool(f.get("mlab_accepted"))},
+                                          "_speed_current": cur})
         except (settings_mod.SettingsError, ValueError) as exc:     # HoursError is a ValueError
             g.settings = current_settings()
             return _wizard_page(step, str(exc), 400)

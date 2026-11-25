@@ -136,6 +136,17 @@ class Schedule(unittest.TestCase):
     def test_budget_share(self):
         self.assertEqual(sp.per_test_bytes({**ON, "budget_gb": 7}), 1_000_000_000)   # 5 weekly + 2 manual
 
+    def test_a_small_budget_says_what_a_fast_plan_needs(self):
+        both = {**ON, "mlab": True, "mlab_accepted": True, "peak": True, "budget_gb": 15}
+        self.assertEqual(sp.engines(both), 2)
+        self.assertEqual(sp.engines({**both, "mlab_accepted": False}), 1)          # M-Lab doesn't run
+        self.assertEqual(sp.budget_short(both, 1000, 600), {"need": 2_999_999_999, "budget_gb": 40.0})
+        self.assertIsNone(sp.budget_short({**both, "budget_gb": 40}, 1000, 600))
+        self.assertEqual(sp.per_test_bytes({**both, "budget_gb": 500}), 2 * sp.PER_TEST_MAX)   # the cap is per engine
+        self.assertIsNone(sp.budget_short(ON, 100, 20))                              # 5 GB is plenty for that
+        self.assertIsNone(sp.budget_short(both, 0))                                  # no plan to compare with
+        self.assertIsNone(sp.budget_short(both, 10_000))                             # no budget would do
+
     def test_blocked_reasons(self):
         kw = dict(used_bytes=0, on_backup=False, incident=False, link_busy_pct=10)
         self.assertEqual(sp.blocked(sp.DEFAULTS, manual=True, **kw), "disabled")       # OFF by default

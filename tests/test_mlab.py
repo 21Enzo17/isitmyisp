@@ -136,6 +136,23 @@ class WithCloudflare(unittest.TestCase):
         self.assertEqual(r.servers[0]["engine"], "mlab")
         self.assertEqual(sp.best(r.__dict__)["down_name"], "M-Lab Buenos Aires")
 
+    def test_mlab_alone_gets_the_whole_cap_and_cloudflare_is_not_touched(self):
+        caps = []
+
+        def fake_mlab(cap, **kw):
+            caps.append(cap)
+            return {"name": "M-Lab Buenos Aires", "engine": "mlab", "where": "outside", "down_mbps": 930.0,
+                    "up_mbps": 610.0, "bytes": 1000, "error": None, "rtt_ms": 28.0}
+
+        def no_http(*a, **k):
+            raise AssertionError("Cloudflare must not run")
+        r = sp.run(9_000_000, opener=no_http, ping=no_ping, down_seconds=1, up_seconds=1,
+                   mlab=True, mlab_run=fake_mlab, cloudflare=False)
+        self.assertEqual(caps, [9_000_000])
+        self.assertFalse(r.cloudflare)
+        self.assertIsNone(r.down_mbps)
+        self.assertEqual(sp.best(r.__dict__)["down"], 930.0)
+
     def test_off_by_default(self):
         r = sp.run(5_000_000, opener=FakeHTTP(), ping=no_ping, down_seconds=1, up_seconds=1,
                    mlab_run=lambda *a, **k: self.fail("M-Lab must not run"))
@@ -157,6 +174,31 @@ class Best(unittest.TestCase):
         self.assertIsNone(sp.best({"error": "x"})["down"])
 
 
+class Choice(unittest.TestCase):
+    def test_the_engine_decides_what_runs(self):
+        self.assertEqual(sp.uses(ON), (True, False))                                   # Cloudflare by default
+        self.assertEqual(sp.uses({**ON, "engine": "mlab", "mlab_accepted": True}), (False, True))
+        self.assertEqual(sp.uses({**ON, "engine": "both", "mlab_accepted": True}), (True, True))
+        self.assertEqual(sp.uses({**ON, "engine": "mlab"}), (True, False))             # no consent: Cloudflare
+        old = {k: v for k, v in ON.items() if k != "engine"}
+        self.assertEqual(sp.engine_of({**old, "mlab": True}), "both")                   # saved before 0.7.1
+        self.assertEqual(sp.engines({**ON, "engine": "mlab", "mlab_accepted": True}), 1)
+        only = {**ON, "engine": "command"}
+        self.assertEqual(sp.uses(only), (False, False))                                 # only your command
+        self.assertEqual(sp.uses(only, command=False), (True, False))                   # none set: Cloudflare
+        self.assertEqual(sp.per_test_bytes(only), 0)
+        self.assertGreater(sp.per_test_bytes(only, command=False), 0)
+        self.assertIsNone(sp.budget_short(only, 1000, 600))
+
+    def test_validate_keeps_the_choice(self):
+        got = sp.validate({"enabled": True, "accepted": True, "engine": "mlab", "mlab_accepted": True}, ON)
+        self.assertEqual((got["engine"], got["mlab"], got["mlab_accepted"]), ("mlab", True, True))
+        with self.assertRaises(ValueError):
+            sp.validate({"enabled": True, "accepted": True, "engine": "ookla"}, ON)
+        back = sp.validate({"enabled": True, "accepted": True, "engine": "cloudflare"}, got)
+        self.assertFalse(back["mlab"] or back["mlab_accepted"])
+
+
 class Consent(unittest.TestCase):
     def test_mlab_needs_its_own_consent(self):
         with self.assertRaises(ValueError):
@@ -170,8 +212,10 @@ class Consent(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             store = Store(Path(tmp) / "s.db")
             try:
-                for cfg, want in (({**ON, "schedule": "manual", "mlab": True, "mlab_accepted": True}, True),
-                                  ({**ON, "schedule": "manual", "mlab": True, "mlab_accepted": False}, False)):
+                for cfg, want, cf in (({**ON, "schedule": "manual", "mlab": True, "mlab_accepted": True}, True, True),
+                                      ({**ON, "schedule": "manual", "mlab": True, "mlab_accepted": False}, False, True),
+                                      ({**ON, "schedule": "manual", "engine": "mlab", "mlab_accepted": True}, True, False),
+                                      ({**ON, "schedule": "manual", "engine": "command"}, False, True)):
                     got, done = {}, threading.Event()
 
                     def fake_run(cap, got=got, done=done, **kw):
@@ -184,6 +228,7 @@ class Consent(unittest.TestCase):
                                                  link_busy_pct=None, isp_asn="AS64500"), "started")
                     runner.thread.join(2)
                     self.assertEqual(got.get("mlab", False), want)
+                    self.assertEqual(got.get("cloudflare", True), cf)
                     self.assertTrue(callable(got["mark"]))
             finally:
                 store.close()
@@ -195,7 +240,7 @@ class Web(WebAppBase):
         self.create_admin()
         page = self.client.get("/settings").get_data(as_text=True)
         form = {"csrf_token": csrf(page), "enabled": "1", "accepted": "1", "schedule": "manual", "weekday": "6",
-                "hour": "3", "budget_gb": "5", "max_busy_pct": "30", "mlab": "1"}
+                "hour": "3", "budget_gb": "5", "max_busy_pct": "30", "engine": "both"}
         r = self.client.post("/settings/speedtest?lang=es", data=form)
         self.assertEqual(r.status_code, 400)
         self.assertIn("publica cada prueba con tu IP", r.get_data(as_text=True))
@@ -216,6 +261,35 @@ class Web(WebAppBase):
         html = build_report(self.store, time.time() - 3600, time.time(), "en")
         self.assertIn("929 Mbps (93%)", html)
         self.assertNotIn("325 Mbps (32%)", html)
+
+    def test_mlab_only_hides_the_cloudflare_row(self):
+        self.create_admin()
+        self.store.set_settings({"speedtest": {**ON, "engine": "mlab", "mlab": True, "mlab_accepted": True}})
+        self.store.add_speedtest(sp.Result(ts=time.time() - 60, cloudflare=False, servers=[
+            {"name": "M-Lab Buenos Aires", "engine": "mlab", "where": "outside", "down_mbps": 930.0,
+             "up_mbps": 610.0, "bytes": 1, "error": None, "rtt_ms": 28.0}]))
+        page = self.client.get("/?lang=en").get_data(as_text=True)
+        self.assertIn("<b>930</b> Mbps", page)
+        self.assertNotIn("speed.cloudflare.com", page)
+        page = self.client.get("/settings/connection?lang=en").get_data(as_text=True)
+        self.assertIn('value="mlab" checked', page)
+
+    def test_the_wizard_asks_for_the_engine(self):
+        self.create_admin()
+        page = self.client.get("/welcome/speed?lang=en").get_data(as_text=True)
+        self.assertIn('value="cloudflare" checked', page)
+        skip = self.client.post("/welcome/speed", data={"csrf_token": csrf(page), "action": "skip"})
+        self.assertTrue(skip.headers["Location"].endswith("/welcome/done"))
+        self.assertFalse((self.store.get_setting("speedtest") or {}).get("enabled"))
+        bad = self.client.post("/welcome/speed", data={"csrf_token": csrf(page), "action": "save", "engine": "mlab",
+                                                       "accepted": "1"})
+        self.assertEqual(bad.status_code, 400)
+        ok = self.client.post("/welcome/speed", data={"csrf_token": csrf(page), "action": "save", "engine": "mlab",
+                                                      "accepted": "1", "mlab_accepted": "1"})
+        self.assertTrue(ok.headers["Location"].endswith("/welcome/done"))
+        cfg = self.store.get_setting("speedtest")
+        self.assertEqual((cfg["enabled"], cfg["engine"], cfg["mlab_accepted"]), (True, "mlab", True))
+        self.assertIn("M-Lab", self.client.get("/welcome/done?lang=en").get_data(as_text=True))
 
 
 if __name__ == "__main__":
