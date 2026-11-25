@@ -613,10 +613,7 @@ def speed_status(store: Store, settings: Settings, now: float | None = None) -> 
     on = bool(cfg["enabled"] and cfg["accepted"])
     month = store.speedtests_between(sp.month_start(now), now)
     history = list(reversed(store.speedtests_between(now - 90 * 86400, now)))[:6]
-    slot = sp.last_slot(cfg, now)
-    nxt = None
-    if on and slot is not None:
-        nxt = slot + (86400 if cfg["schedule"] == "daily" else 7 * 86400)
+    nxt = sp.next_run(cfg, now) if on else None
     used = sum(int(r.get("bytes_used") or 0) for r in month)
     contract_down = float(settings.link.get("down_mbps") or 0)
     contract_up = float(settings.link.get("up_mbps") or 0)
@@ -644,6 +641,7 @@ def speed_status(store: Store, settings: Settings, now: float | None = None) -> 
                                       for x in cfg.get("servers") or []),
             "max_servers": sp.MAX_SERVERS, "iperf": sp.iperf_available(),
             "push": bool(store.get_setting("_speed_push_token")),
+            "peak": sp.peak_vs_night(history, now),
             "where": sp.locate(history[0], contract_down) if history else None}
 
 

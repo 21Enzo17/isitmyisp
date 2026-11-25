@@ -766,7 +766,8 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                "schedule": f.get("schedule", "weekly"), "weekday": f.get("weekday", 6), "hour": f.get("hour", 3),
                "budget_gb": f.get("budget_gb", 5), "max_busy_pct": f.get("max_busy_pct", 30),
                "run_on_backup": bool(f.get("run_on_backup")), "servers": f.get("servers", "")[:2000],
-               "mlab": bool(f.get("mlab")), "mlab_accepted": bool(f.get("mlab_accepted"))}
+               "mlab": bool(f.get("mlab")), "mlab_accepted": bool(f.get("mlab_accepted")),
+               "peak": bool(f.get("peak")), "peak_hour": f.get("peak_hour", 21)}
         return _save({"speedtest": raw, "_speed_current": g.settings.speedtest})
 
     @app.post("/speedtest/run")

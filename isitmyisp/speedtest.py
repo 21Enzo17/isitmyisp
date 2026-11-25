@@ -73,7 +73,9 @@ SLOW_RATIO = 0.6   # outside below 60 % of inside: the exit is the bottleneck (i
 
 DEFAULTS = {"enabled": False, "accepted": False, "schedule": "weekly", "weekday": 6, "hour": 3,
             "budget_gb": 5.0, "run_on_backup": False, "max_busy_pct": 30, "servers": [],
-            "mlab": False, "mlab_accepted": False}
+            "mlab": False, "mlab_accepted": False, "peak": False, "peak_hour": 21}
+PEAK_GRACE = 2 * 3600   # a peak-hour test that can't run within 2 h isn't at the peak any more
+PEAK_DAYS = 14          # the peak and the night figures are compared if both are this recent
 
 
 class SpeedError(RuntimeError):
@@ -459,7 +461,8 @@ def month_start(now: float) -> float:
 
 
 def runs_per_month(cfg: dict) -> int:
-    return {"weekly": 5, "daily": 31, "manual": 0}[cfg["schedule"]]
+    runs = {"weekly": 5, "daily": 31, "manual": 0}[cfg["schedule"]]
+    return runs * 2 if cfg.get("peak") else runs   # the peak-hour test is a second one per slot
 
 
 def per_test_bytes(cfg: dict) -> int:
@@ -467,12 +470,13 @@ def per_test_bytes(cfg: dict) -> int:
     return int(min(PER_TEST_MAX, cfg["budget_gb"] * 1e9 / (runs_per_month(cfg) + 2)))
 
 
-def last_slot(cfg: dict, now: float) -> float | None:
-    """The most recent scheduled moment at or before `now` (local time)."""
+def last_slot(cfg: dict, now: float, hour: int | None = None) -> float | None:
+    """The most recent scheduled moment at or before `now` (local time), at `hour` (the peak-hour
+    test) or the schedule's own hour."""
     if cfg["schedule"] == "manual":
         return None
     t = time.localtime(now)
-    today = time.mktime((t.tm_year, t.tm_mon, t.tm_mday, cfg["hour"], 0, 0, 0, 0, -1))
+    today = time.mktime((t.tm_year, t.tm_mon, t.tm_mday, cfg["hour"] if hour is None else hour, 0, 0, 0, 0, -1))
     if cfg["schedule"] == "daily":
         return today if today <= now else today - 86400
     days_back = (t.tm_wday - cfg["weekday"]) % 7
@@ -480,11 +484,43 @@ def last_slot(cfg: dict, now: float) -> float | None:
     return slot if slot <= now else slot - 7 * 86400
 
 
-def due(cfg: dict, last_run: float | None, now: float, grace: float = 6 * 3600) -> bool:
+def due(cfg: dict, last_run: float | None, now: float, grace: float = 6 * 3600, hour: int | None = None) -> bool:
     """A scheduled test is due once per slot, within `grace` of it (a machine that was off at
     03:00 doesn't fire a test at 15:00 in the middle of the working day)."""
-    slot = last_slot(cfg, now)
+    slot = last_slot(cfg, now, hour)
     return slot is not None and now - slot <= grace and (last_run is None or last_run < slot)
+
+
+def next_run(cfg: dict, now: float) -> float | None:
+    """When the next scheduled test (the usual one or the peak-hour one) is."""
+    period = 86400 if cfg["schedule"] == "daily" else 7 * 86400
+    hours = [cfg["hour"]] + ([cfg["peak_hour"]] if cfg.get("peak") else [])
+    slots = [last_slot(cfg, now, h) for h in hours]
+    return min((x + period for x in slots if x is not None), default=None)
+
+
+def which_due(cfg: dict, recent: list[dict], now: float) -> str | None:
+    """'scheduled', 'peak' (the peak-hour test) or None, from the recent results' triggers."""
+    def last(trigger):
+        return max((r["ts"] for r in recent if r.get("trigger") == trigger), default=None)
+    if due(cfg, last("scheduled"), now):
+        return "scheduled"
+    if cfg.get("peak") and due(cfg, last("peak"), now, PEAK_GRACE, cfg["peak_hour"]):
+        return "peak"
+    return None
+
+
+def peak_vs_night(history: list[dict], now: float) -> dict | None:
+    """The latest peak-hour test against the latest usual (night) one, by each test's best figure.
+    On the same engines a lower figure at the peak is the ISP's congestion, whatever the engine's ceiling."""
+    def latest(trigger):
+        return next((r for r in history if r.get("trigger") == trigger and not r.get("error")
+                     and r["ts"] >= now - PEAK_DAYS * 86400 and best(r).get("down")), None)
+    peak, night = latest("peak"), latest("scheduled")
+    if not (peak and night):
+        return None
+    p, n = best(peak)["down"], best(night)["down"]
+    return {"peak": p, "night": n, "pct": round(100 * p / n), "peak_ts": peak["ts"], "night_ts": night["ts"]}
 
 
 def blocked(cfg: dict, *, manual: bool, used_bytes: int, on_backup: bool, incident: bool,
@@ -517,10 +553,14 @@ def validate(raw: dict, current: dict) -> dict:
         out["hour"] = int(raw.get("hour", out["hour"]))
         out["budget_gb"] = float(raw.get("budget_gb", out["budget_gb"]))
         out["max_busy_pct"] = int(raw.get("max_busy_pct", out["max_busy_pct"]))
+        out["peak_hour"] = int(raw.get("peak_hour", out["peak_hour"]))
     except (TypeError, ValueError) as exc:
         raise ValueError("weekday, hour, budget and busy limit must be numbers") from exc
-    if not (0 <= out["weekday"] <= 6 and 0 <= out["hour"] <= 23):
+    if not (0 <= out["weekday"] <= 6 and 0 <= out["hour"] <= 23 and 0 <= out["peak_hour"] <= 23):
         raise ValueError("weekday 0-6 and hour 0-23")
+    out["peak"] = bool(raw.get("peak"))
+    if out["peak"] and out["peak_hour"] == out["hour"]:
+        raise ValueError("the peak-hour test needs a different hour from the usual one")
     if not 0.5 <= out["budget_gb"] <= 500:
         raise ValueError("the monthly budget must be between 0.5 and 500 GB")
     if not 5 <= out["max_busy_pct"] <= 100:
@@ -607,9 +647,10 @@ class Runner:
         manual = req > self.last_request and now - req < self.REQUEST_TTL
         if req > self.last_request:
             self.last_request = req
+        kind = None
         if not manual:
-            recent = [r for r in self.store.speedtests_between(now - 8 * 86400, now) if r.get("trigger") == "scheduled"]
-            if not due(cfg, recent[-1]["ts"] if recent else None, now):
+            kind = which_due(cfg, self.store.speedtests_between(now - 8 * 86400, now), now)
+            if kind is None:
                 return None
         reason = blocked(cfg, manual=manual, used_bytes=self.store.speed_bytes_since(month_start(now)),
                          on_backup=on_backup, incident=incident, link_busy_pct=link_busy_pct)
@@ -619,7 +660,7 @@ class Runner:
             self.last_reason = reason
             return reason
         cap = per_test_bytes(cfg)
-        trigger = "manual" if manual else "scheduled"
+        trigger = "manual" if manual else kind
         extra = {}
         if cfg.get("servers") or cfg.get("mlab") or command is not None:
             extra = {"servers": cfg.get("servers") or [], "isp_asn": isp_asn,
