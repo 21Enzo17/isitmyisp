@@ -107,7 +107,7 @@ class Iperf(unittest.TestCase):
         self.assertEqual((b["where"], b["forced"]), ("outside", True))       # forced beats the ASN
         self.assertIn("unable", b["error"])
         self.assertEqual(r.where, "outside")
-        self.assertLessEqual(r.bytes_used, 9_000_000 + sp.STREAMS * (2_000_000 + sp.UP_CHUNK))
+        self.assertLessEqual(r.bytes_used, 9_000_000 + 2 * sp.CF_STREAMS * sp.BLOCK)
 
     def test_without_iperf3_installed(self):
         orig = sp.iperf_available

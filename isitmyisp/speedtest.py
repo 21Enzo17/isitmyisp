@@ -31,6 +31,7 @@ or server gave it (best()), and a slow far server is never read as your ISP fall
 
 from __future__ import annotations
 
+import bisect
 import calendar
 import json
 import re
@@ -40,6 +41,7 @@ import statistics
 import subprocess
 import threading
 import time
+import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from typing import Callable
@@ -51,11 +53,14 @@ from .probes.icmp import C_ENV
 DOWN_URL = "https://speed.cloudflare.com/__down?bytes={n}"
 UP_URL = "https://speed.cloudflare.com/__up"
 SERVER = "speed.cloudflare.com"
-STREAMS = 4
+STREAMS = 4           # iperf3 servers
+CF_STREAMS = 6        # Cloudflare: one TCP stream per thread; 4 left a fast line under-filled
 DOWN_SECONDS, UP_SECONDS = 8.0, 6.0
 WARMUP = 1.0          # TCP slow start: the first second doesn't count
-CHUNK = 25_000_000    # bytes per download request
-UP_CHUNK = 2_000_000  # bytes per upload request
+WINDOW = 0.5          # Cloudflare's figure: the 90th percentile of the 0.5 s rates after the warm-up
+CHUNK = 50_000_000    # bytes per download request (Cloudflare refuses 100 MB): fewer slow starts
+UP_CHUNK = 20_000_000  # bytes per upload request, sent and counted in BLOCK pieces
+BLOCK = 262_144
 UA = f"isitmyisp/{__version__} (+speed test)"
 SCHEDULES = ("weekly", "daily", "manual")
 PER_TEST_MAX = 2_000_000_000  # enough for 1 Gbps down for 8 s plus the upload; never more per test
@@ -125,6 +130,36 @@ class _Meter:
         span = end_t - start[0]
         return round((end_b - start[1]) * 8 / span / 1e6, 1) if span > 0 else None
 
+    def p90(self) -> float | None:
+        """90th percentile of the WINDOW rates after the warm-up, as speed.cloudflare.com reports it:
+        the mean is pulled down by stalls that are the Wi-Fi or the server, not the line. Under four
+        windows (a test cut short by the cap) it is the mean."""
+        with self.lock:
+            marks = list(self.marks)
+        times = [t for t, _ in marks]
+        def total_at(t):
+            return marks[bisect.bisect_right(times, t) - 1][1]
+        rates, t = [], WARMUP
+        while t + WINDOW <= marks[-1][0]:
+            rates.append((total_at(t + WINDOW) - total_at(t)) * 8 / WINDOW / 1e6)
+            t += WINDOW
+        if len(rates) < 4:
+            return self.mbps()
+        rates.sort()
+        return round(rates[min(len(rates) - 1, int(0.9 * len(rates)))], 1)
+
+
+def _cloudflare_errors(worker):
+    """A 429 means Cloudflare is rate-limiting this IP: say so instead of a bare HTTP error."""
+    def run():
+        try:
+            worker()
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429:
+                raise SpeedError("Cloudflare is limiting tests from this IP (HTTP 429): try again later") from None
+            raise
+    return run
+
 
 def _download(meter: _Meter, seconds: float, opener) -> None:
     def worker():
@@ -132,24 +167,55 @@ def _download(meter: _Meter, seconds: float, opener) -> None:
             req = urllib.request.Request(DOWN_URL.format(n=CHUNK), headers={"User-Agent": UA})
             with opener(req, timeout=15) as resp:
                 while not meter.stop.is_set():
-                    block = resp.read(262_144)
+                    block = resp.read(BLOCK)
                     if not block:
                         break
                     meter.add(len(block))
-    _run_streams([worker] * STREAMS, meter, seconds)
+    _run_streams([_cloudflare_errors(worker)] * CF_STREAMS, meter, seconds)
+
+
+class _Stopped(Exception):
+    pass
+
+
+class _Body:
+    """An upload body that counts each BLOCK as the socket takes it, so the meter has a time series
+    and not one mark per request, and that ends the request once the test is over."""
+    _zeros = bytes(BLOCK)
+
+    def __init__(self, meter: _Meter, size: int):
+        self.meter, self.size, self.sent = meter, size, 0
+
+    def __len__(self) -> int:
+        return self.size
+
+    def __iter__(self):
+        while self.sent < self.size:
+            if self.meter.stop.is_set():
+                raise _Stopped
+            n = min(BLOCK, self.size - self.sent)
+            yield self._zeros[:n]
+            self.sent += n
+            self.meter.add(n)
 
 
 def _upload(meter: _Meter, seconds: float, opener) -> None:
-    body = b"\0" * UP_CHUNK
-
     def worker():
         while not meter.stop.is_set():
+            body = _Body(meter, UP_CHUNK)
             req = urllib.request.Request(UP_URL, data=body, method="POST",
-                                         headers={"User-Agent": UA, "Content-Type": "application/octet-stream"})
-            with opener(req, timeout=15) as resp:
-                resp.read()
-            meter.add(len(body))
-    _run_streams([worker] * STREAMS, meter, seconds)
+                                         headers={"User-Agent": UA, "Content-Type": "application/octet-stream",
+                                                  "Content-Length": str(UP_CHUNK)})
+            try:
+                with opener(req, timeout=15) as resp:
+                    resp.read()
+            except _Stopped:
+                return
+            except OSError:
+                if meter.stop.is_set():   # cut mid-body because the time is up
+                    return
+                raise
+    _run_streams([_cloudflare_errors(worker)] * CF_STREAMS, meter, seconds)
 
 
 def _run_streams(workers: list[Callable[[], None]], meter: _Meter, seconds: float, name: str = SERVER) -> None:
@@ -164,7 +230,10 @@ def _run_streams(workers: list[Callable[[], None]], meter: _Meter, seconds: floa
     threads = [threading.Thread(target=guarded, args=(w,), daemon=True) for w in workers]
     for th in threads:
         th.start()
-    meter.stop.wait(seconds)
+    deadline = time.monotonic() + seconds
+    while not meter.stop.wait(0.1):     # until the time, the cap, or every stream has given up
+        if time.monotonic() >= deadline or not any(th.is_alive() for th in threads):
+            break
     meter.stop.set()
     for th in threads:
         th.join(timeout=16)
@@ -241,13 +310,13 @@ def _run_cloudflare(max_bytes: int, *, wireless, trigger, counters, opener, ping
         after = counters() if counters else None
         down_span = clock() - t_down
         pinger.join(timeout=down_seconds + 6)
-        res.down_mbps = down.mbps()
+        res.down_mbps = down.p90()
         res.loaded_ms = round(statistics.median(loaded), 1) if loaded else None
         if before and after and down_span > 0 and after[0] >= before[0]:
             res.wan_down_mbps = round((after[0] - before[0]) * 8 / down_span / 1e6, 1)
         up = _Meter(int(max_bytes * 0.3), clock)
         _upload(up, up_seconds, opener)
-        res.up_mbps = up.mbps()
+        res.up_mbps = up.p90()
         res.bytes_used = down.total + up.total
         if down.total >= down.cap:
             res.notes.append("budget")       # stopped by the data cap, not the clock
