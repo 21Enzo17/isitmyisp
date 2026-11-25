@@ -88,6 +88,13 @@ S = {
                             "with both, the plan is compared with the best of the two."),
         "speed_mlab_enable": "Also test against the nearest M-Lab server",
         "speed_mlab_accept": "I understand that M-Lab publishes every test as open data, with my public IP address",
+        "speed_cmd_h": "Your own engine",
+        "speed_cmd_set": ("Set in the config file. It runs after the others, on the same schedule and "
+                          "within the same budget, and its result joins the comparison with the plan."),
+        "speed_cmd_none": ("Ookla's CLI, librespeed-cli, iperf3 or your own script: install it, accept its licence in its own "
+                           "command line, and set it under [speedtest] command in the config file (or "
+                           "ISITMYISP_SPEEDTEST_COMMAND). Not from this page: a command a web page can change "
+                           "is a way into this machine."),
         "speed_best_via": "Best figure, from {name}. Each server can only measure less than your line, never more.",
         "speed_server": "Server", "speed_side": "Where",
         "speed_confirm": "Yes, fill my link for about {secs} seconds and use up to {size}",
@@ -496,6 +503,13 @@ S = {
                             "el techo es Cloudflare, no tu ISP: con los dos, el plan se compara con el mejor de ambos."),
         "speed_mlab_enable": "Probar también contra el servidor de M-Lab más cercano",
         "speed_mlab_accept": "Entiendo que M-Lab publica cada prueba como datos abiertos, con mi IP pública",
+        "speed_cmd_h": "Tu propio motor",
+        "speed_cmd_set": ("Viene del archivo de configuración. Corre después de los otros, con el mismo "
+                          "horario y dentro del mismo presupuesto, y su resultado entra en la comparación con el plan."),
+        "speed_cmd_none": ("La CLI de Ookla, librespeed-cli, iperf3 o un script tuyo: instalalo, aceptá su licencia en su propia "
+                           "línea de comando y configuralo en [speedtest] command del archivo de configuración "
+                           "(o en ISITMYISP_SPEEDTEST_COMMAND). No desde esta página: un comando que una página "
+                           "web puede cambiar es una puerta a esta máquina."),
         "speed_best_via": "Mejor cifra, de {name}. Cada servidor solo puede medir menos que tu línea, nunca más.",
         "speed_server": "Servidor", "speed_side": "Dónde",
         "speed_confirm": "Sí, llenar mi enlace unos {secs} segundos y usar hasta {size}",

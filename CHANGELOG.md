@@ -10,6 +10,13 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
   platform behind Google's speed test), picked by round trip among the ones M-Lab offers. Off by
   default with its own consent: M-Lab publishes every test, with your public IP, as open data. On a
   1000 Mbps fibre where Cloudflare topped out at 490, M-Lab Buenos Aires measured 930.
+- **Your own speed test engine** (#115): set `[speedtest] command` in the config file (or
+  `ISITMYISP_SPEEDTEST_COMMAND`) to run a tool you installed, such as Ookla's CLI (`speedtest -f json`),
+  the Python speedtest-cli (`--json`), librespeed-cli (`--json`), iperf3 (`-J`) or a script printing
+  `{"download_mbps": …, "upload_mbps": …}`. The output format is detected. It runs after the built-in
+  engines, on the same schedule and budget, and its result joins the comparison with the plan.
+  isitmyisp ships none of these tools and accepts no licence for you. The command can't be set from
+  the web UI, so an admin page or a forged form can't make it run anything.
 
 ### Changed
 - **The plan is compared with each test's best figure**, from whichever engine or server gave it

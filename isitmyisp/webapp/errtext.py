@@ -64,6 +64,17 @@ _ES: list[tuple[str, str | Callable[..., str]]] = [
     (rf"tunnel {Q}: both 'underlay' and 'overlay' are required",
      "Túnel «{0}»: faltan la IP del otro extremo y la dirección por dentro."),
     (rf"tunnel {Q}: type must be one of .*", "Túnel «{0}»: elegí un tipo de la lista."),
+    # config file: your own speed test command
+    (r"\[speedtest\] must be a table", "En el archivo de configuración, [speedtest] tiene que ser una sección."),
+    (r"\[speedtest\] command is empty", "[speedtest] command está vacío."),
+    (r"\[speedtest\] command must be a list of strings, or one string",
+     "[speedtest] command tiene que ser una lista de textos, o un texto."),
+    (r"\[speedtest\] command: (.+)", "[speedtest] command no se puede leer: {0}."),
+    (r"\[speedtest\] format must be one of .*",
+     "[speedtest] format tiene que ser auto, ookla, speedtest-cli, librespeed, iperf3 o json."),
+    (r"\[speedtest\] timeout must be a number of seconds", "[speedtest] timeout tiene que ser un número de segundos."),
+    (r"\[speedtest\] timeout must be between 5 and 600 seconds",
+     "[speedtest] timeout tiene que estar entre 5 y 600 segundos."),
     # services
     (r"service name is required \(max 40 characters\)", "Ponele un nombre al servicio (hasta 40 caracteres)."),
     (rf"duplicate service name {Q}", "Ya hay un servicio que se llama «{0}»."),
