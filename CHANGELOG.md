@@ -3,7 +3,7 @@
 Versions follow [semantic versioning](https://semver.org). Each release has a Docker image
 (`21enzo03/isitmyisp:<version>` on Docker Hub, amd64 and arm64) and a git tag `v<version>`.
 
-## [Unreleased]
+## [0.7.1] - 2026-11-25
 
 ### Fixed
 - **A Cloudflare error no longer hides the other engines.** When Cloudflare refused the test (for
@@ -363,6 +363,7 @@ and to prove it.
 ### Install
 - One-line installer (`install.sh`) that shows every Docker command before running it, and a Raspberry Pi guide.
 
+[0.7.1]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.7.1
 [0.7.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.7.0
 [0.6.2]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.6.2
 [0.6.1]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.6.1
