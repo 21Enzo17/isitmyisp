@@ -76,6 +76,7 @@ SLOW_RATIO = 0.6   # outside below 60 % of inside: the exit is the bottleneck (i
 DEFAULTS = {"enabled": False, "accepted": False, "schedule": "weekly", "weekday": 6, "hour": 3,
             "budget_gb": 5.0, "run_on_backup": False, "max_busy_pct": 30, "servers": [],
             "mlab": False, "mlab_accepted": False, "peak": False, "peak_hour": 21}
+ENGINES = ("cloudflare", "mlab", "both")   # see engine_of(); not in DEFAULTS, so older settings keep their M-Lab
 PEAK_GRACE = 2 * 3600   # a peak-hour test that can't run within 2 h isn't at the peak any more
 PEAK_DAYS = 14          # the peak and the night figures are compared if both are this recent
 
@@ -100,6 +101,7 @@ class Result:
     notes: list[str] = field(default_factory=list)
     where: str = "outside"            # Cloudflare's side of the ISP (inside only if your ISP is Cloudflare)
     servers: list[dict] = field(default_factory=list)  # the iperf3 servers: see run_server()
+    cloudflare: bool = True           # False: Cloudflare didn't run (M-Lab only), its figures are empty
 
 
 # ------------------------------------------------------------------ measuring
@@ -265,14 +267,17 @@ def run(max_bytes: int, *, wireless: bool = False, trigger: str = "manual",
         mark: Callable[[str], dict] | None = None, isp_asn: str | None = None,
         iperf: Callable[..., tuple[float | None, int]] | None = None, mlab: bool = False,
         mlab_run: Callable[..., dict] | None = None, command=None,
-        command_run: Callable[..., dict] | None = None) -> Result:
-    """One test. Cloudflare first, then M-Lab (if on), then each iperf3 server; the byte cap is split
-    evenly between them. Download gets 70 % of each share, upload 30 %; each stops at its time or its cap.
-    Last, the user's own command (config.SpeedCommand), if set: it can't be capped, its bytes are counted."""
+        command_run: Callable[..., dict] | None = None, cloudflare: bool = True) -> Result:
+    """One test. Cloudflare first (unless off), then M-Lab (if on), then each iperf3 server; the byte cap
+    is split evenly between them. Download gets 70 % of each share, upload 30 %; each stops at its time or
+    its cap. Last, the user's own command (config.SpeedCommand), if set: it can't be capped, its bytes are counted."""
     servers = servers or []
-    share = max_bytes // (1 + len(servers) + (1 if mlab else 0))
-    res = _run_cloudflare(share, wireless=wireless, trigger=trigger, counters=counters, opener=opener,
-                          ping=ping, clock=clock, down_seconds=down_seconds, up_seconds=up_seconds)
+    share = max_bytes // max(1, (1 if cloudflare else 0) + len(servers) + (1 if mlab else 0))
+    if cloudflare:
+        res = _run_cloudflare(share, wireless=wireless, trigger=trigger, counters=counters, opener=opener,
+                              ping=ping, clock=clock, down_seconds=down_seconds, up_seconds=up_seconds)
+    else:
+        res = Result(ts=time.time(), wireless=wireless, trigger=trigger, cloudflare=False)
     if isp_asn == CLOUDFLARE_ASN:
         res.where = "inside"
     started = clock()
@@ -467,10 +472,23 @@ def runs_per_month(cfg: dict) -> int:
     return runs * 2 if cfg.get("peak") else runs   # the peak-hour test is a second one per slot
 
 
+def engine_of(cfg: dict) -> str:
+    """The built-in engine the user picked (ENGINES). Settings saved before the choice existed had
+    Cloudflare always, plus M-Lab if it was ticked."""
+    return cfg.get("engine") if cfg.get("engine") in ENGINES else ("both" if cfg.get("mlab") else "cloudflare")
+
+
+def uses(cfg: dict) -> tuple[bool, bool]:
+    """(Cloudflare, M-Lab): what a test runs. M-Lab only with its consent; without it, Cloudflare."""
+    engine = engine_of(cfg)
+    mlab = engine in ("mlab", "both") and bool(cfg.get("mlab_accepted"))
+    return engine != "mlab" or not mlab, mlab
+
+
 def engines(cfg: dict) -> int:
-    """The engines that share a test's byte cap: Cloudflare, M-Lab (if on and accepted), each iperf3 server.
+    """The engines that share a test's byte cap: Cloudflare and M-Lab as picked, each iperf3 server.
     Your own command isn't one: it can't be capped."""
-    return 1 + len(cfg.get("servers") or []) + (1 if cfg.get("mlab") and cfg.get("mlab_accepted") else 0)
+    return sum(uses(cfg)) + len(cfg.get("servers") or [])
 
 
 def per_test_bytes(cfg: dict) -> int:
@@ -595,8 +613,13 @@ def validate(raw: dict, current: dict) -> dict:
     if not 5 <= out["max_busy_pct"] <= 100:
         raise ValueError("the busy limit must be between 5 and 100 %")
     out["run_on_backup"] = bool(raw.get("run_on_backup"))
+    # which built-in engine: Cloudflare, M-Lab or both (older forms and imports only sent "mlab")
+    engine = raw.get("engine") or ("both" if raw.get("mlab") else "cloudflare")
+    if engine not in ENGINES:
+        raise ValueError("the engine must be cloudflare, mlab or both")
+    out["engine"] = engine
     # M-Lab publishes each test with your IP: its own consent, and turning it off forgets the consent
-    out["mlab"] = bool(raw.get("mlab"))
+    out["mlab"] = engine in ("mlab", "both")
     if out["mlab"] and not raw.get("mlab_accepted"):
         raise ValueError("to use M-Lab, confirm that it publishes each test with your public IP")
     out["mlab_accepted"] = out["mlab"]
@@ -691,11 +714,14 @@ class Runner:
         cap = per_test_bytes(cfg)
         trigger = "manual" if manual else kind
         extra = {}
-        if cfg.get("servers") or cfg.get("mlab") or command is not None:
+        cloudflare, mlab = uses(cfg)
+        if cfg.get("servers") or engine_of(cfg) != "cloudflare" or command is not None:
             extra = {"servers": cfg.get("servers") or [], "isp_asn": isp_asn,
                      "mark": lambda host: mark(host, isp_asn=isp_asn, data_dir=self.data_dir, online=self.asn_online)}
-        if cfg.get("mlab") and cfg.get("mlab_accepted"):
+        if mlab:
             extra["mlab"] = True
+        if not cloudflare:
+            extra["cloudflare"] = False
         if command is not None:
             extra["command"] = command
 

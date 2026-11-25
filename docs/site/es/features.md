@@ -108,11 +108,11 @@ Cuando está activado:
 
 ### Motores
 
-Cada motor mide el camino hasta su propio servidor, así que cada uno te dice algo distinto. Todos los que actives corren en la misma prueba, uno detrás de otro, y el presupuesto se reparte entre ellos.
+Cada motor mide el camino hasta su propio servidor, así que cada uno te dice algo distinto. El motor principal lo elegís vos, en el asistente de **Primeros pasos** o en Configuración: **Cloudflare** (por defecto), **M-Lab** o **los dos**. Los demás se suman. Todos los que actives corren en la misma prueba, uno detrás de otro, y el presupuesto se reparte entre ellos: con un solo motor, cada prueba gasta la mitad que con dos.
 
 | Motor | Qué mide | Qué comparte | Por defecto |
 |---|---|---|---|
-| **Cloudflare** | Hacia internet: el camino al servidor de Cloudflare más cercano. Con algunos ISP el techo es el propio Cloudflare (su servidor, o su peering con ese ISP). | Cloudflare ve tu IP pública. | sí, con el test |
+| **Cloudflare** | Hacia internet: el camino al servidor de Cloudflare más cercano. Con algunos ISP el techo es el propio Cloudflare (su servidor, o su peering con ese ISP). | Cloudflare ve tu IP pública. | sí, salvo que elijas solo M-Lab |
 | **M-Lab** | El servidor NDT7 de [Measurement Lab](https://www.measurementlab.net/) más cercano: la plataforma abierta detrás del test de velocidad de Google, con servidores en muchas más ciudades. | **M-Lab publica cada prueba como datos abiertos, con tu IP pública.** Necesita su propio consentimiento. | **no** |
 | **Tu propio comando** | Lo que mida tu herramienta, por ejemplo el servidor de tu propio ISP con la CLI de Ookla. | Lo que comparta esa herramienta. | **no** |
 | **Otra máquina** | Una prueba que corrió en otro lado, por ejemplo en una PC por cable, y que se le manda a isitmyisp. | Nada más desde acá. | **no** |
@@ -122,7 +122,7 @@ La cifra de Cloudflare es el percentil 90 de las tasas de cada medio segundo, de
 
 #### M-Lab
 
-Se activa en **Configuración → Tu conexión → Prueba de velocidad contra tu plan**, marcando también la segunda casilla: M-Lab publica cada prueba, con tu IP pública, como datos abiertos para investigación. En una fibra de 1000 Mbps donde Cloudflare no pasaba de 490, M-Lab Buenos Aires midió 930.
+Se elige como motor (solo, o junto con Cloudflare) en **Primeros pasos** o en **Configuración → Tu conexión → Prueba de velocidad contra tu plan**, marcando también su casilla: M-Lab publica cada prueba, con tu IP pública, como datos abiertos para investigación. En una fibra de 1000 Mbps donde Cloudflare no pasaba de 490, M-Lab Buenos Aires midió 930.
 
 #### Tu propio motor
 

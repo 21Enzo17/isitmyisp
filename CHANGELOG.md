@@ -6,6 +6,9 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 ## [0.7.1] - 2026-11-25
 
 ### Added
+- **Pick the speed test engine.** Cloudflare (the default), M-Lab or both, in Settings and in a new
+  step of the setup wizard. Until now M-Lab could only be added on top of Cloudflare, so turning it
+  on always doubled the data of each test. Settings saved before keep what they had.
 - **A warning when the budget is too small for your plan.** Settings and the dashboard say how much a
   test needs and what monthly budget gives it (for 1000/600 Mbps with Cloudflare, M-Lab and the
   peak-hour test: 40 GB).

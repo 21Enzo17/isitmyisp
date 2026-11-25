@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Security · isitmyisp</title>
+<meta name="description" content="Accounts, access modes, security headers and how to recover access.">
+<link rel="alternate" hreflang="es" href="/docs/es/security/">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/static/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="stylesheet" href="/docs/docs.css?v=cd2bf1d22f">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="/docs/en/"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M17 32H24.5M39.5 32H47" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none" opacity=".55"/><circle cx="32" cy="32" r="12" fill="#3b82f6" opacity=".22"/><circle cx="11" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="53" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="32" cy="32" r="7.5" fill="#3b82f6"/></svg><span>isitmyisp</span><span class="brand-docs">Docs</span></a>
+  <nav class="top-links">
+    <a class="btn" href="/en/isp/">Live demo</a>
+    <a href="https://github.com/21Enzo17/isitmyisp">GitHub</a>
+    <a href="/docs/es/security/" hreflang="es" lang="es">Español</a>
+  </nav>
+</header>
+<div class="layout">
+  <details class="menu"><summary>Menu</summary><nav><p class="nav-group">Get started</p><ul><li><a href="/docs/en/">What it is</a></li><li><a href="/docs/en/install/">Install</a></li><li><a href="/docs/en/raspberry-pi/">Raspberry Pi</a></li><li><a href="/docs/en/first-steps/">First steps</a></li></ul><p class="nav-group">Using it</p><ul><li><a href="/docs/en/dashboard/">The dashboard</a></li><li><a href="/docs/en/features/">Features</a></li><li><a href="/docs/en/doctor/">The check-up</a></li><li><a href="/docs/en/device-check/">From this device</a></li><li><a href="/docs/en/alerts/">Alerts</a></li><li><a href="/docs/en/report/">The report</a></li></ul><p class="nav-group">How it works</p><ul><li><a href="/docs/en/verdict/">The verdict</a></li><li><a href="/docs/en/privacy/">Privacy</a></li><li><a href="/docs/en/security/" aria-current="page">Security</a></li></ul><p class="nav-group">Help</p><ul><li><a href="/docs/en/faq/">FAQ</a></li></ul></nav></details>
+  <nav class="side" aria-label="Docs"><p class="nav-group">Get started</p><ul><li><a href="/docs/en/">What it is</a></li><li><a href="/docs/en/install/">Install</a></li><li><a href="/docs/en/raspberry-pi/">Raspberry Pi</a></li><li><a href="/docs/en/first-steps/">First steps</a></li></ul><p class="nav-group">Using it</p><ul><li><a href="/docs/en/dashboard/">The dashboard</a></li><li><a href="/docs/en/features/">Features</a></li><li><a href="/docs/en/doctor/">The check-up</a></li><li><a href="/docs/en/device-check/">From this device</a></li><li><a href="/docs/en/alerts/">Alerts</a></li><li><a href="/docs/en/report/">The report</a></li></ul><p class="nav-group">How it works</p><ul><li><a href="/docs/en/verdict/">The verdict</a></li><li><a href="/docs/en/privacy/">Privacy</a></li><li><a href="/docs/en/security/" aria-current="page">Security</a></li></ul><p class="nav-group">Help</p><ul><li><a href="/docs/en/faq/">FAQ</a></li></ul></nav>
+  <main id="content">
+    <article class="doc">
+<h1 id="security">Security</h1>
+<p>The dashboard holds your network's settings and the evidence of your incidents, so it's protected accordingly. Authentication is built on audited libraries, not hand-rolled crypto.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Accounts</strong></td>
+<td>Flask-Login sessions, <strong>Argon2id</strong> password hashes and a login rate limit</td>
+</tr>
+<tr>
+<td><strong>First admin</strong></td>
+<td>Created with a one-time token printed in the log, so nobody on your network can claim the instance before you</td>
+</tr>
+<tr>
+<td><strong>CSRF</strong></td>
+<td>A token on every form plus a same-origin check</td>
+</tr>
+<tr>
+<td><strong>Headers</strong></td>
+<td>Strict CSP (no inline code, and scripts only on the enlarged chart and <code>/check</code>), <code>X-Frame-Options: DENY</code>, <code>HttpOnly</code> and <code>SameSite</code> cookies</td>
+</tr>
+<tr>
+<td><strong>Server</strong></td>
+<td>Waitress, a production WSGI server; <code>X-Forwarded-*</code> headers that don't come from a trusted proxy are ignored</td>
+</tr>
+</tbody>
+</table></div>
+<p>The dashboard works with <strong>no JavaScript</strong>: the charts' hover is pure CSS, and zooming and moving through time are plain links. There are two scripts, each only on its own page:</p>
+<ul>
+<li><code>/static/chart.js</code> on the enlarged chart, optional, for dragging across it to zoom like in Grafana; it builds a link and nothing else.</li>
+<li><code>/static/check.js</code> on <a href="/docs/en/device-check/">Check from this device</a>, which measures from your browser. That page also allows HTTPS connections (<code>connect-src 'self' https:</code>) to reach the internet destinations.</li>
+</ul>
+<p>Every other page's security policy forbids every script, and none allows inline code.</p>
+<h2 id="access-modes">Access modes</h2>
+<p>Chosen in <strong>Settings → Access</strong>:</p>
+<ul>
+<li><strong>Local</strong> (default): password accounts, either admin or viewer. See <a href="/docs/en/features/#users">Users</a>.</li>
+<li><strong>Proxy:</strong> trusts a user header (<code>Remote-User</code>) set by <strong>Authelia, Authentik, oauth2-proxy or Tailscale</strong>, only from the proxy addresses you list. You get SSO, two-factor and passkeys. The dashboard won't switch to this mode unless your own request is coming through the proxy, so you can't lock yourself out.</li>
+<li><strong>None:</strong> only allowed while the dashboard listens on localhost, and settings become read-only.</li>
+</ul>
+<h2 id="reaching-it-from-outside-your-network">Reaching it from outside your network</h2>
+<p>Don't publish port 8080 to the internet. To reach it from outside, use a VPN (WireGuard, Tailscale) or a proxy with HTTPS and authentication. Behind HTTPS, add <code>-e ISITMYISP_SECURE_COOKIES=1</code> so cookies only travel encrypted.</p>
+<h2 id="locked-out">Locked out</h2>
+<p>From the machine's console:</p>
+<pre><code class="language-bash">docker exec -it isitmyisp isitmyisp admin reset-password &lt;user&gt;
+docker exec -it isitmyisp isitmyisp admin auth-mode local
+docker exec -it isitmyisp isitmyisp admin setup-token
+</code></pre>
+<h2 id="reporting-a-security-problem">Reporting a security problem</h2>
+<p>If you find a vulnerability, please don't open a public issue: contact the author privately through <a class="ext" rel="noopener" href="https://github.com/21Enzo17">GitHub</a>.</p>
+    </article>
+    <p class="edit"><a href="https://github.com/21Enzo17/isitmyisp/edit/main/docs/site/en/security.md">Edit this page</a></p>
+    <nav class="pager" aria-label="pager"><a class="prev" href="/docs/en/privacy/"><span>Previous</span>Privacy</a><a class="next" href="/docs/en/faq/"><span>Next</span>FAQ</a></nav>
+  </main>
+  <aside class="toc" aria-label="On this page"><p>On this page</p><ul><li><a href="#access-modes">Access modes</a></li><li><a href="#reaching-it-from-outside-your-network">Reaching it from outside your network</a></li><li><a href="#locked-out">Locked out</a></li><li><a href="#reporting-a-security-problem">Reporting a security problem</a></li></ul></aside>
+</div>
+</body>
+</html>

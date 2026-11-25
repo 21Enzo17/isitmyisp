@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Alerts · isitmyisp</title>
+<meta name="description" content="Telegram, email or webhook messages when the internet, a service or a tunnel goes down.">
+<link rel="alternate" hreflang="es" href="/docs/es/alerts/">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/static/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="stylesheet" href="/docs/docs.css?v=cd2bf1d22f">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="/docs/en/"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M17 32H24.5M39.5 32H47" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none" opacity=".55"/><circle cx="32" cy="32" r="12" fill="#3b82f6" opacity=".22"/><circle cx="11" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="53" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="32" cy="32" r="7.5" fill="#3b82f6"/></svg><span>isitmyisp</span><span class="brand-docs">Docs</span></a>
+  <nav class="top-links">
+    <a class="btn" href="/en/isp/">Live demo</a>
+    <a href="https://github.com/21Enzo17/isitmyisp">GitHub</a>
+    <a href="/docs/es/alerts/" hreflang="es" lang="es">Español</a>
+  </nav>
+</header>
+<div class="layout">
+  <details class="menu"><summary>Menu</summary><nav><p class="nav-group">Get started</p><ul><li><a href="/docs/en/">What it is</a></li><li><a href="/docs/en/install/">Install</a></li><li><a href="/docs/en/raspberry-pi/">Raspberry Pi</a></li><li><a href="/docs/en/first-steps/">First steps</a></li></ul><p class="nav-group">Using it</p><ul><li><a href="/docs/en/dashboard/">The dashboard</a></li><li><a href="/docs/en/features/">Features</a></li><li><a href="/docs/en/doctor/">The check-up</a></li><li><a href="/docs/en/device-check/">From this device</a></li><li><a href="/docs/en/alerts/" aria-current="page">Alerts</a></li><li><a href="/docs/en/report/">The report</a></li></ul><p class="nav-group">How it works</p><ul><li><a href="/docs/en/verdict/">The verdict</a></li><li><a href="/docs/en/privacy/">Privacy</a></li><li><a href="/docs/en/security/">Security</a></li></ul><p class="nav-group">Help</p><ul><li><a href="/docs/en/faq/">FAQ</a></li></ul></nav></details>
+  <nav class="side" aria-label="Docs"><p class="nav-group">Get started</p><ul><li><a href="/docs/en/">What it is</a></li><li><a href="/docs/en/install/">Install</a></li><li><a href="/docs/en/raspberry-pi/">Raspberry Pi</a></li><li><a href="/docs/en/first-steps/">First steps</a></li></ul><p class="nav-group">Using it</p><ul><li><a href="/docs/en/dashboard/">The dashboard</a></li><li><a href="/docs/en/features/">Features</a></li><li><a href="/docs/en/doctor/">The check-up</a></li><li><a href="/docs/en/device-check/">From this device</a></li><li><a href="/docs/en/alerts/" aria-current="page">Alerts</a></li><li><a href="/docs/en/report/">The report</a></li></ul><p class="nav-group">How it works</p><ul><li><a href="/docs/en/verdict/">The verdict</a></li><li><a href="/docs/en/privacy/">Privacy</a></li><li><a href="/docs/en/security/">Security</a></li></ul><p class="nav-group">Help</p><ul><li><a href="/docs/en/faq/">FAQ</a></li></ul></nav>
+  <main id="content">
+    <article class="doc">
+<h1 id="alerts">Alerts</h1>
+<p>A message when the internet, a service or a tunnel goes down. Each one says <strong>whose fault it is and what to do</strong>. Set them up in <strong>Settings → Alerts → Alerts</strong> (or in the wizard); every channel has a button to send a test.</p>
+<h2 id="when-it-alerts">When it alerts</h2>
+<ul>
+<li><strong>Only if it lasts.</strong> By default it alerts once a problem has lasted at least 2 minutes; you can set 0 to 240. A few seconds' blip won't wake you up.</li>
+<li><strong>Also when it's resolved</strong>, with the total duration. This can be turned off.</li>
+<li><strong>With a link to the dashboard</strong>, if you fill in the dashboard address. The wizard fills it in from the address you used.</li>
+<li><strong>An unstable tunnel alerts once</strong>, not on every drop, with the likely cause (<a href="/docs/en/features/#unstable-tunnels">unstable tunnels</a>).</li>
+<li><strong>With what the path shows.</strong> When an incident opens, it traces the path right away and the alert says where it stops, or that your ISP changed it just before (<a href="/docs/en/features/#path-changes">path changes</a>). The webhook gets it as <code>path</code>.</li>
+</ul>
+<h2 id="telegram">Telegram</h2>
+<ol>
+<li>Create a bot by talking to <a class="ext" rel="noopener" href="https://t.me/BotFather">@BotFather</a> and copy its token (something like <code>123456789:AA…</code>).</li>
+<li>Send your bot any message.</li>
+<li>Get your chat id from <a class="ext" rel="noopener" href="https://t.me/userinfobot">@userinfobot</a>. For a group or channel, the id starts with <code>-100…</code>, or use <code>@channel_name</code>.</li>
+</ol>
+<h2 id="email">Email</h2>
+<p>Any SMTP server: your domain's or your mail provider's. Fill in the server, the port (587 with STARTTLS or 465 with SSL), the username, the password, the sender and the recipients separated by commas.</p>
+<p>With Gmail you need an <a class="ext" rel="noopener" href="https://support.google.com/accounts/answer/185833">app password</a>, not your account password.</p>
+<h2 id="webhook">Webhook</h2>
+<p>A URL that receives a POST with the alert. Discord and Slack URLs are detected and get their own format; any other gets a JSON body with the event, title, text and incident data. Works with Home Assistant, n8n or your own system.</p>
+<h2 id="monthly-report-by-email">Monthly report by email</h2>
+<p>Besides alerts, isitmyisp can email you <strong>last month's report every month</strong>, without opening the dashboard. Turn it on in <strong>Settings → Alerts → Monthly report by email</strong>:</p>
+<ul>
+<li>Choose the day (1 to 28), the hour and the recipients. Leave them empty to use the alert email recipients.</li>
+<li>The message has a short summary: how many incidents and how long, whose fault they were, the worst day, how much it affected you while open (if you set your <a href="/docs/en/features/#opening-hours">opening hours</a>), time on the backup link, call quality and measured speed.</li>
+<li>The <strong>full report</strong> is attached, as PDF (in the Docker image) or HTML, ready to forward to your ISP.</li>
+<li>It uses the email server set up for alerts.</li>
+<li>It's sent <strong>once a month</strong>, even if the machine restarts. If sending fails it's retried every 15 minutes, and the error shows in <strong>Settings → Alerts</strong>.</li>
+<li><strong>"Send now"</strong> emails you last month's report to see how it arrives. That test doesn't count as the month's send.</li>
+</ul>
+<h2 id="if-an-alert-doesnt-arrive">If an alert doesn't arrive</h2>
+<ul>
+<li>Press <strong>Send test</strong>: the result of each channel shows at the top.</li>
+<li>If a real alert fails, the error stays visible in <strong>Settings → Alerts → Alerts</strong>.</li>
+<li>Passwords and tokens are never shown back: leave the field empty and the stored one is kept.</li>
+</ul>
+    </article>
+    <p class="edit"><a href="https://github.com/21Enzo17/isitmyisp/edit/main/docs/site/en/alerts.md">Edit this page</a></p>
+    <nav class="pager" aria-label="pager"><a class="prev" href="/docs/en/device-check/"><span>Previous</span>From this device</a><a class="next" href="/docs/en/report/"><span>Next</span>The report</a></nav>
+  </main>
+  <aside class="toc" aria-label="On this page"><p>On this page</p><ul><li><a href="#when-it-alerts">When it alerts</a></li><li><a href="#telegram">Telegram</a></li><li><a href="#email">Email</a></li><li><a href="#webhook">Webhook</a></li><li><a href="#monthly-report-by-email">Monthly report by email</a></li><li><a href="#if-an-alert-doesnt-arrive">If an alert doesn't arrive</a></li></ul></aside>
+</div>
+</body>
+</html>

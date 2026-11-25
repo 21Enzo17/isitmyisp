@@ -108,11 +108,11 @@ When it's on:
 
 ### Engines
 
-Each engine measures the path to its own server, so each one tells you something different. Every engine you turn on runs in the same test, one after the other, and the budget is split between them.
+Each engine measures the path to its own server, so each one tells you something different. You pick the main engine, in the **Get started** wizard or in Settings: **Cloudflare** (the default), **M-Lab** or **both**. The others add to it. Every engine you turn on runs in the same test, one after the other, and the budget is split between them: with one engine, each test uses half the data of two.
 
 | Engine | What it measures | What it shares | Default |
 |---|---|---|---|
-| **Cloudflare** | Towards the internet: the path to Cloudflare's nearest server. On some ISPs Cloudflare itself is the ceiling (its server, or its peering with that ISP). | Cloudflare sees your public IP. | on, with the test |
+| **Cloudflare** | Towards the internet: the path to Cloudflare's nearest server. On some ISPs Cloudflare itself is the ceiling (its server, or its peering with that ISP). | Cloudflare sees your public IP. | on, unless you pick M-Lab alone |
 | **M-Lab** | The nearest [Measurement Lab](https://www.measurementlab.net/) NDT7 server, the open platform behind Google's speed test, with servers in many more cities. | **M-Lab publishes every test as open data, with your public IP.** It needs its own consent. | **off** |
 | **Your own command** | Whatever your tool measures, for example your ISP's own server through Ookla's CLI. | What that tool shares. | **off** |
 | **Another machine** | A test run elsewhere, for example on a PC on the cable, sent to isitmyisp. | Nothing more from here. | **off** |
@@ -122,7 +122,7 @@ Cloudflare's figure is the 90th percentile of the half-second rates after a one-
 
 #### M-Lab
 
-Turn it on in **Settings → Your connection → Speed test against your plan**, and tick the second box: M-Lab publishes each test, with your public IP, as open data for research. On a 1000 Mbps fibre where Cloudflare topped out at 490, M-Lab Buenos Aires measured 930.
+Pick it as the engine (alone, or with Cloudflare) in **Get started** or in **Settings → Your connection → Speed test against your plan**, and tick its box: M-Lab publishes each test, with your public IP, as open data for research. On a 1000 Mbps fibre where Cloudflare topped out at 490, M-Lab Buenos Aires measured 930.
 
 #### Your own engine
 

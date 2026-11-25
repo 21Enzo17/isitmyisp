@@ -692,7 +692,7 @@ class FirstRunWizard(WebAppBase):
         cfg["email"].update(enabled=True, host="smtp.example", sender="a@b.example", to="c@d.example", password="secret")
         alerts_mod.save(self.store, cfg)
         r = self.step("alerts", webhook_enabled="1", webhook_url="https://hooks.example/x", public_url="", action="save")
-        self.assertTrue(r.headers["Location"].endswith("/welcome/done"))
+        self.assertTrue(r.headers["Location"].endswith("/welcome/speed"))
         cfg = alerts_mod.load(self.store)
         self.assertTrue(cfg["webhook"]["enabled"])
         self.assertTrue(cfg["email"]["enabled"])

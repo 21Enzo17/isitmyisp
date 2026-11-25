@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>The report for your ISP · isitmyisp</title>
+<meta name="description" content="What the evidence report contains, what it proves, what it doesn&#x27;t, and how to use it in a claim.">
+<link rel="alternate" hreflang="es" href="/docs/es/report/">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/static/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="stylesheet" href="/docs/docs.css?v=cd2bf1d22f">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="/docs/en/"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M17 32H24.5M39.5 32H47" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none" opacity=".55"/><circle cx="32" cy="32" r="12" fill="#3b82f6" opacity=".22"/><circle cx="11" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="53" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="32" cy="32" r="7.5" fill="#3b82f6"/></svg><span>isitmyisp</span><span class="brand-docs">Docs</span></a>
+  <nav class="top-links">
+    <a class="btn" href="/en/isp/">Live demo</a>
+    <a href="https://github.com/21Enzo17/isitmyisp">GitHub</a>
+    <a href="/docs/es/report/" hreflang="es" lang="es">Español</a>
+  </nav>
+</header>
+<div class="layout">
+  <details class="menu"><summary>Menu</summary><nav><p class="nav-group">Get started</p><ul><li><a href="/docs/en/">What it is</a></li><li><a href="/docs/en/install/">Install</a></li><li><a href="/docs/en/raspberry-pi/">Raspberry Pi</a></li><li><a href="/docs/en/first-steps/">First steps</a></li></ul><p class="nav-group">Using it</p><ul><li><a href="/docs/en/dashboard/">The dashboard</a></li><li><a href="/docs/en/features/">Features</a></li><li><a href="/docs/en/doctor/">The check-up</a></li><li><a href="/docs/en/device-check/">From this device</a></li><li><a href="/docs/en/alerts/">Alerts</a></li><li><a href="/docs/en/report/" aria-current="page">The report</a></li></ul><p class="nav-group">How it works</p><ul><li><a href="/docs/en/verdict/">The verdict</a></li><li><a href="/docs/en/privacy/">Privacy</a></li><li><a href="/docs/en/security/">Security</a></li></ul><p class="nav-group">Help</p><ul><li><a href="/docs/en/faq/">FAQ</a></li></ul></nav></details>
+  <nav class="side" aria-label="Docs"><p class="nav-group">Get started</p><ul><li><a href="/docs/en/">What it is</a></li><li><a href="/docs/en/install/">Install</a></li><li><a href="/docs/en/raspberry-pi/">Raspberry Pi</a></li><li><a href="/docs/en/first-steps/">First steps</a></li></ul><p class="nav-group">Using it</p><ul><li><a href="/docs/en/dashboard/">The dashboard</a></li><li><a href="/docs/en/features/">Features</a></li><li><a href="/docs/en/doctor/">The check-up</a></li><li><a href="/docs/en/device-check/">From this device</a></li><li><a href="/docs/en/alerts/">Alerts</a></li><li><a href="/docs/en/report/" aria-current="page">The report</a></li></ul><p class="nav-group">How it works</p><ul><li><a href="/docs/en/verdict/">The verdict</a></li><li><a href="/docs/en/privacy/">Privacy</a></li><li><a href="/docs/en/security/">Security</a></li></ul><p class="nav-group">Help</p><ul><li><a href="/docs/en/faq/">FAQ</a></li></ul></nav>
+  <main id="content">
+    <article class="doc">
+<h1 id="the-report-for-your-isp">The report for your ISP</h1>
+<p>The report puts everything that happened in a period into one file: what failed, for how long, where, and with what evidence. Get it from <strong>Reports</strong> in the dashboard, as HTML or PDF, for any period.</p>
+<p><img alt="The report: summary, where the problems were, timeline, call quality and incidents" src="/docs/img/report.png" /></p>
+<h2 id="whats-in-it">What's in it</h2>
+<p><strong>For you:</strong></p>
+<ul>
+<li>A plain-language summary: "3 incidents, 1 h 6 min in total; 2 were inside your ISP's network".</li>
+<li>A timeline and where each problem was: your network, the ISP or others.</li>
+<li>Time on the backup link, call quality and measured speed against your plan. With iperf3 servers on each side, the <strong>Inside and outside the ISP</strong> section says where the bottleneck was.</li>
+</ul>
+<p><strong>For the ISP's support and NOC:</strong></p>
+<ul>
+<li>A ready-to-paste message with <strong>only the incidents inside their network</strong>, so you don't send them your Wi-Fi problems.</li>
+<li>For each one, the hop and the autonomous system (AS) where loss starts, which is how they locate a fault.</li>
+<li>Every <code>mtr</code> capture taken during the incident.</li>
+<li>The methodology: what was measured, how, and what was ruled out.</li>
+<li>If you used it, the <a href="/docs/en/device-check/">check from your devices</a>: "Tested from 3 devices", with what each one found.</li>
+</ul>
+<h2 id="what-it-proves-and-what-it-doesnt">What it proves and what it doesn't</h2>
+<p>The report doesn't exaggerate, and that's what makes it hard to ignore:</p>
+<ul>
+<li><strong>It proves</strong> there was loss or abnormal latency, when, for how long and in which segment of the path it started, with ICMP and TCP agreeing.</li>
+<li><strong>It rules out</strong> your LAN when the router was answering fine; ICMP noise, because only loss that reaches the destination counts; a single site being down, because it measures several destinations; a loop or broadcast storm on your network, when there were no duplicate replies and broadcast was normal; and, if you connected the router over SNMP, a link full of your own traffic.</li>
+<li><strong>It doesn't prove</strong> what it didn't measure. Without router data, it says it can't rule out a saturated link.</li>
+</ul>
+<h2 id="using-it-in-a-claim">Using it in a claim</h2>
+<ol>
+<li>Get the report for the period of the problem (the last 7 days, or since the date it started).</li>
+<li>When you call or write to support, paste the NOC message and attach the PDF.</li>
+<li>If they ask you to "restart the modem", the report shows your LAN was fine while theirs was failing.</li>
+<li>Keep the ticket number. If the problem continues, the next period's report shows it wasn't fixed.</li>
+</ol>
+<blockquote>
+<p>The report is your technical evidence, not a legal opinion. If you take the claim to a consumer-protection body, it backs up what you experienced.</p>
+</blockquote>
+<h2 id="from-the-terminal">From the terminal</h2>
+<pre><code class="language-bash">docker exec isitmyisp isitmyisp report --since 7d -o /data/report.html
+docker exec isitmyisp isitmyisp report --since 2026-11-01 --until 2026-11-08 --pdf -o /data/report.pdf
+</code></pre>
+<p>Reports built from demo data say so on every page.</p>
+    </article>
+    <p class="edit"><a href="https://github.com/21Enzo17/isitmyisp/edit/main/docs/site/en/report.md">Edit this page</a></p>
+    <nav class="pager" aria-label="pager"><a class="prev" href="/docs/en/alerts/"><span>Previous</span>Alerts</a><a class="next" href="/docs/en/verdict/"><span>Next</span>The verdict</a></nav>
+  </main>
+  <aside class="toc" aria-label="On this page"><p>On this page</p><ul><li><a href="#whats-in-it">What's in it</a></li><li><a href="#what-it-proves-and-what-it-doesnt">What it proves and what it doesn't</a></li><li><a href="#using-it-in-a-claim">Using it in a claim</a></li><li><a href="#from-the-terminal">From the terminal</a></li></ul></aside>
+</div>
+</body>
+</html>

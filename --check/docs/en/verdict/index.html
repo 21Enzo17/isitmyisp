@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>How the verdict works · isitmyisp</title>
+<meta name="description" content="What isitmyisp measures, how it tells real loss from noise and how it decides whose fault it is.">
+<link rel="alternate" hreflang="es" href="/docs/es/verdict/">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/static/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="stylesheet" href="/docs/docs.css?v=cd2bf1d22f">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="/docs/en/"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M17 32H24.5M39.5 32H47" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none" opacity=".55"/><circle cx="32" cy="32" r="12" fill="#3b82f6" opacity=".22"/><circle cx="11" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="53" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="32" cy="32" r="7.5" fill="#3b82f6"/></svg><span>isitmyisp</span><span class="brand-docs">Docs</span></a>
+  <nav class="top-links">
+    <a class="btn" href="/en/isp/">Live demo</a>
+    <a href="https://github.com/21Enzo17/isitmyisp">GitHub</a>
+    <a href="/docs/es/verdict/" hreflang="es" lang="es">Español</a>
+  </nav>
+</header>
+<div class="layout">
+  <details class="menu"><summary>Menu</summary><nav><p class="nav-group">Get started</p><ul><li><a href="/docs/en/">What it is</a></li><li><a href="/docs/en/install/">Install</a></li><li><a href="/docs/en/raspberry-pi/">Raspberry Pi</a></li><li><a href="/docs/en/first-steps/">First steps</a></li></ul><p class="nav-group">Using it</p><ul><li><a href="/docs/en/dashboard/">The dashboard</a></li><li><a href="/docs/en/features/">Features</a></li><li><a href="/docs/en/doctor/">The check-up</a></li><li><a href="/docs/en/device-check/">From this device</a></li><li><a href="/docs/en/alerts/">Alerts</a></li><li><a href="/docs/en/report/">The report</a></li></ul><p class="nav-group">How it works</p><ul><li><a href="/docs/en/verdict/" aria-current="page">The verdict</a></li><li><a href="/docs/en/privacy/">Privacy</a></li><li><a href="/docs/en/security/">Security</a></li></ul><p class="nav-group">Help</p><ul><li><a href="/docs/en/faq/">FAQ</a></li></ul></nav></details>
+  <nav class="side" aria-label="Docs"><p class="nav-group">Get started</p><ul><li><a href="/docs/en/">What it is</a></li><li><a href="/docs/en/install/">Install</a></li><li><a href="/docs/en/raspberry-pi/">Raspberry Pi</a></li><li><a href="/docs/en/first-steps/">First steps</a></li></ul><p class="nav-group">Using it</p><ul><li><a href="/docs/en/dashboard/">The dashboard</a></li><li><a href="/docs/en/features/">Features</a></li><li><a href="/docs/en/doctor/">The check-up</a></li><li><a href="/docs/en/device-check/">From this device</a></li><li><a href="/docs/en/alerts/">Alerts</a></li><li><a href="/docs/en/report/">The report</a></li></ul><p class="nav-group">How it works</p><ul><li><a href="/docs/en/verdict/" aria-current="page">The verdict</a></li><li><a href="/docs/en/privacy/">Privacy</a></li><li><a href="/docs/en/security/">Security</a></li></ul><p class="nav-group">Help</p><ul><li><a href="/docs/en/faq/">FAQ</a></li></ul></nav>
+  <main id="content">
+    <article class="doc">
+<h1 id="how-the-verdict-works">How the verdict works</h1>
+<p>This page is for technicians. It explains what is measured and why the verdict never blames anyone without evidence.</p>
+<h2 id="what-it-measures">What it measures</h2>
+<p>In 30-second windows, with one ping every 2 seconds:</p>
+<ul>
+<li><strong>Your router</strong> (or routers, if there's more than one).</li>
+<li><strong>The ISP's first hop</strong>: the first router outside your network.</li>
+<li><strong>Several internet destinations</strong> (1.1.1.1, 8.8.8.8 and 9.9.9.9 by default), over ICMP and TCP (a handshake to port 443, no data).</li>
+<li><strong>Your DNS servers</strong>, with real queries.</li>
+<li>Your services, tunnels and the router over SNMP, if you set them up.</li>
+</ul>
+<p>From that it identifies the path's segments: your network, the ISP's access network, its backbone and what lies beyond. It uses address types and autonomous system (AS) numbers, not hop positions.</p>
+<h2 id="real-loss-or-icmp-noise">Real loss or ICMP noise</h2>
+<p>Routers deprioritise pings addressed to themselves, so <code>mtr</code> shows "loss" on a middle hop while traffic through it is perfectly fine. isitmyisp only counts loss that <strong>persists to the destination</strong>, and requires <strong>ICMP and TCP to agree</strong>.</p>
+<h2 id="it-doesnt-cry-wolf">It doesn't cry wolf</h2>
+<ul>
+<li><strong>Statistical significance.</strong> One packet lost out of 50 isn't "2 % loss". Loss must be significant by a 95 % Wilson interval, with at least 2 packets lost.</li>
+<li><strong>Its own baseline.</strong> Latency is judged against what's normal for each destination, not a fixed number: it's abnormal when it's twice the usual and at least 30 ms more. What's normal is learned from healthy windows only and kept across restarts, so a problem in progress never becomes "normal".</li>
+<li><strong>Hysteresis.</strong> Each window lasts 30 seconds. An incident opens after 2 bad windows in a row and closes after 2 good ones. If the ISP's first hop looks affected in one window and not in the next, it's still the same ISP outage, not two.</li>
+<li><strong>Intermittent drops.</strong> A connection that drops and comes back (bad, good, bad, good…) never makes 2 bad windows in a row, and it's exactly what the ISP needs to hear about. So <strong>3 bad windows within the last 5 minutes</strong> also open an incident, marked <strong>intermittent</strong> on the dashboard, in alerts and in the report, with how many times it dropped ("dropped and came back 6 times"). It closes only after 3 minutes in a row without drops.</li>
+</ul>
+<h2 id="whose-fault-it-is">Whose fault it is</h2>
+<ol>
+<li><strong>Your network:</strong> loss or abnormal latency to your own router <strong>that also shows up on the internet</strong>. If only the router "loses" pings while the internet works through it, the router filters ICMP (common on business firewalls) and nobody is blamed.</li>
+<li><strong>Your ISP:</strong> every destination affected. If its first hop is affected too, it's the access network; otherwise it's the backbone or its upstream.</li>
+<li><strong>Others:</strong> only some destinations affected. It isn't your ISP.</li>
+<li><strong>DNS:</strong> everything works except name resolution. It's your DNS server.</li>
+</ol>
+<p>When a service you added fails while the internet is healthy, the verdict is "that service". When the office is on the backup link, it says so.</p>
+<h2 id="loops-and-broadcast-storms">Loops and broadcast storms</h2>
+<p>A cable closing a circle between two switches (or both ends of one cable in the same switch) sends frames round and round. Everything drops on and off and, from outside, it looks like the ISP. While it measures, isitmyisp looks for four signs that need no extra permissions:</p>
+<ul>
+<li><strong>Duplicate replies (DUP)</strong> to its own ping to your router, once a second: a frame that went round the loop arrives twice. 2 or more in a window count.</li>
+<li><strong>Broadcast and multicast on your network card</strong> (<code>/sys/class/net/&lt;interface&gt;/statistics/multicast</code>): a storm is over 500 packets per second, or 10 times the usual and at least 100 per second. The usual rate is learned from calm windows.</li>
+<li><strong>Your router's MAC flapping</strong> back and forth in the ARP table (A → B → A). A single change doesn't count: you may have swapped the router.</li>
+<li><strong>Broadcast per interface on the router</strong>, if you connected it over SNMP (<code>ifHCInBroadcastPkts</code> and <code>ifHCInMulticastPkts</code>): over 1000 packets per second on any interface other than the WAN.</li>
+</ul>
+<p>If a sign shows up <strong>and something is failing too</strong> (your router or the internet), the verdict is <strong>"There's a loop on your network"</strong>, on your side, with the evidence and what to check: recent cables between switches and switches without STP; unplug them one by one until it stops. If there are signs but nothing fails, the terminal mentions it as a hint and the verdict doesn't change.</p>
+<p>The idea comes from <a class="ext" rel="noopener" href="https://www.linkedin.com/in/bruno-torres-dev/">Bruno Torres</a>, from a real case: an intermittent outage that looked like the ISP was a loop in the LAN.</p>
+<h2 id="evidence-for-every-incident">Evidence for every incident</h2>
+<p>When an incident opens, an <code>mtr</code> capture towards the affected destination is taken and stored with it. If the path changes, it's rediscovered. Incident evidence is kept about 13 months, per-destination measurements 35 days.</p>
+<h2 id="what-the-evidence-rules-out">What the evidence rules out</h2>
+<p>Every ISP incident lists what the evidence rules out (your LAN, ICMP noise, a single site, a full link, a loop on your network) and what it can't. Without router data over SNMP, a full link stays as "can't rule out". Better to say so than to over-claim.</p>
+    </article>
+    <p class="edit"><a href="https://github.com/21Enzo17/isitmyisp/edit/main/docs/site/en/verdict.md">Edit this page</a></p>
+    <nav class="pager" aria-label="pager"><a class="prev" href="/docs/en/report/"><span>Previous</span>The report</a><a class="next" href="/docs/en/privacy/"><span>Next</span>Privacy</a></nav>
+  </main>
+  <aside class="toc" aria-label="On this page"><p>On this page</p><ul><li><a href="#what-it-measures">What it measures</a></li><li><a href="#real-loss-or-icmp-noise">Real loss or ICMP noise</a></li><li><a href="#it-doesnt-cry-wolf">It doesn't cry wolf</a></li><li><a href="#whose-fault-it-is">Whose fault it is</a></li><li><a href="#loops-and-broadcast-storms">Loops and broadcast storms</a></li><li><a href="#evidence-for-every-incident">Evidence for every incident</a></li><li><a href="#what-the-evidence-rules-out">What the evidence rules out</a></li></ul></aside>
+</div>
+</body>
+</html>

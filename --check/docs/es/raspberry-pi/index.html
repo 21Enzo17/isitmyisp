@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>isitmyisp en una Raspberry Pi · isitmyisp</title>
+<meta name="description" content="De una Raspberry Pi nueva a la página de configuración en unos 15 minutos.">
+<link rel="alternate" hreflang="en" href="/docs/en/raspberry-pi/">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/static/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="stylesheet" href="/docs/docs.css?v=cd2bf1d22f">
+</head>
+<body>
+<a class="skip" href="#content">Saltar al contenido</a>
+<header class="top">
+  <a class="brand" href="/docs/es/"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M17 32H24.5M39.5 32H47" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none" opacity=".55"/><circle cx="32" cy="32" r="12" fill="#3b82f6" opacity=".22"/><circle cx="11" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="53" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="32" cy="32" r="7.5" fill="#3b82f6"/></svg><span>isitmyisp</span><span class="brand-docs">Documentación</span></a>
+  <nav class="top-links">
+    <a class="btn" href="/es/isp/">Ver la demo</a>
+    <a href="https://github.com/21Enzo17/isitmyisp">GitHub</a>
+    <a href="/docs/en/raspberry-pi/" hreflang="en" lang="en">English</a>
+  </nav>
+</header>
+<div class="layout">
+  <details class="menu"><summary>Menú</summary><nav><p class="nav-group">Empezar</p><ul><li><a href="/docs/es/">Qué es</a></li><li><a href="/docs/es/install/">Instalar</a></li><li><a href="/docs/es/raspberry-pi/" aria-current="page">Raspberry Pi</a></li><li><a href="/docs/es/first-steps/">Primeros pasos</a></li></ul><p class="nav-group">Usarlo</p><ul><li><a href="/docs/es/dashboard/">El panel</a></li><li><a href="/docs/es/features/">Funciones</a></li><li><a href="/docs/es/doctor/">El chequeo</a></li><li><a href="/docs/es/device-check/">Desde este equipo</a></li><li><a href="/docs/es/alerts/">Alertas</a></li><li><a href="/docs/es/report/">El informe</a></li></ul><p class="nav-group">Por dentro</p><ul><li><a href="/docs/es/verdict/">El veredicto</a></li><li><a href="/docs/es/privacy/">Privacidad</a></li><li><a href="/docs/es/security/">Seguridad</a></li></ul><p class="nav-group">Ayuda</p><ul><li><a href="/docs/es/faq/">Preguntas</a></li></ul></nav></details>
+  <nav class="side" aria-label="Documentación"><p class="nav-group">Empezar</p><ul><li><a href="/docs/es/">Qué es</a></li><li><a href="/docs/es/install/">Instalar</a></li><li><a href="/docs/es/raspberry-pi/" aria-current="page">Raspberry Pi</a></li><li><a href="/docs/es/first-steps/">Primeros pasos</a></li></ul><p class="nav-group">Usarlo</p><ul><li><a href="/docs/es/dashboard/">El panel</a></li><li><a href="/docs/es/features/">Funciones</a></li><li><a href="/docs/es/doctor/">El chequeo</a></li><li><a href="/docs/es/device-check/">Desde este equipo</a></li><li><a href="/docs/es/alerts/">Alertas</a></li><li><a href="/docs/es/report/">El informe</a></li></ul><p class="nav-group">Por dentro</p><ul><li><a href="/docs/es/verdict/">El veredicto</a></li><li><a href="/docs/es/privacy/">Privacidad</a></li><li><a href="/docs/es/security/">Seguridad</a></li></ul><p class="nav-group">Ayuda</p><ul><li><a href="/docs/es/faq/">Preguntas</a></li></ul></nav>
+  <main id="content">
+    <article class="doc">
+<h1 id="isitmyisp-en-una-raspberry-pi">isitmyisp en una Raspberry Pi</h1>
+<p>De una Raspberry Pi nueva a la página de configuración en unos 15 minutos.</p>
+<h2 id="que-hace-falta">Qué hace falta</h2>
+<ul>
+<li><strong>Raspberry Pi 4 o 5</strong> (con 2 GB alcanza). Una Pi 3 funciona, pero es lenta para el PDF.</li>
+<li><strong>Fuente oficial</strong> de la Pi. Con una fuente floja, la Pi se reinicia sola y esos cortes quedan registrados como si fueran caídas.</li>
+<li><strong>Tarjeta microSD de 16 GB o más</strong>, idealmente "high endurance", porque la base de datos escribe cada 30 segundos. Si va a medir durante meses, mejor un SSD por USB.</li>
+<li><strong>Cable de red directo al router.</strong> La sonda tiene que medir la conexión, no su propio Wi-Fi. Si va por Wi-Fi, el panel lo avisa y es más difícil distinguir un problema del Wi-Fi de uno del ISP.</li>
+</ul>
+<h2 id="1-grabar-el-sistema-5-min">1. Grabar el sistema (5 min)</h2>
+<p>Con <a class="ext" rel="noopener" href="https://www.raspberrypi.com/software/">Raspberry Pi Imager</a>:</p>
+<ol>
+<li>Dispositivo: tu modelo. Sistema: <strong>Raspberry Pi OS Lite (64-bit)</strong> (está en "Raspberry Pi OS (other)").</li>
+<li>En <strong>Editar ajustes</strong>:</li>
+<li>Nombre del equipo: <code>isitmyisp</code>.</li>
+<li>Usuario y contraseña: los elegís vos.</li>
+<li>Zona horaria: <code>America/Argentina/Jujuy</code> (o la tuya). Es la hora que van a mostrar los informes.</li>
+<li>Wi-Fi: dejalo vacío si vas a usar cable.</li>
+<li>En la pestaña <strong>Servicios</strong>: activá SSH.</li>
+<li>Grabá la tarjeta.</li>
+</ol>
+<h2 id="2-encender-y-entrar-2-min">2. Encender y entrar (2 min)</h2>
+<p>Poné la tarjeta, conectá el cable de red y la fuente. Un minuto después, desde tu PC:</p>
+<pre><code class="language-bash">ssh tu-usuario@isitmyisp.local
+</code></pre>
+<p>Si <code>isitmyisp.local</code> no responde, buscá la IP de la Pi en la lista de dispositivos del router.</p>
+<h2 id="3-instalar-5-a-10-min">3. Instalar (5 a 10 min)</h2>
+<pre><code class="language-bash">curl -fsSL https://isitmyisp.enzo-meneghini.com/install.sh | sh
+</code></pre>
+<p>Antes de hacer nada, el instalador muestra cada comando y te pregunta. Esto es lo que hace:</p>
+<ul>
+<li>Si falta Docker, lo instala con el instalador oficial (<code>get.docker.com</code>).</li>
+<li>Descarga la imagen ya armada para Raspberry Pi (arm64) desde Docker Hub: no se construye nada en la Pi.</li>
+<li>Arranca el monitor: red del equipo, permiso para hacer ping, datos en un volumen de Docker y el panel en el puerto 8080 de tu red local.</li>
+</ul>
+<p>Si preferís leerlo antes, abrí el link en el navegador: es texto plano y corto.</p>
+<h2 id="4-configurar-desde-el-navegador-3-min">4. Configurar desde el navegador (3 min)</h2>
+<p>Al terminar, el instalador muestra un link como este:</p>
+<pre><code>http://192.168.1.50:8080/setup?token=…
+</code></pre>
+<p>Abrilo desde cualquier PC de la red. Ahí creás la cuenta de administrador y el <a href="/docs/es/first-steps/">asistente</a> te pide:</p>
+<ul>
+<li>las velocidades que contrataste;</li>
+<li>los servicios que usás (ARCA, bancos, pagos…);</li>
+<li>dónde querés que te lleguen las alertas.</li>
+</ul>
+<p>Todo se puede saltar y completar más tarde.</p>
+<p><strong>Reservá la IP de la Pi en el router</strong> (la opción "DHCP estático" o "reserva"): así la dirección del panel no cambia.</p>
+<h2 id="despues">Después</h2>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Para…</th>
+<th>Hacé esto</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Actualizar</td>
+<td>Volvé a correr el instalador. Los datos se conservan.</td>
+</tr>
+<tr>
+<td>Ver el registro</td>
+<td><code>docker logs -f isitmyisp</code></td>
+</tr>
+<tr>
+<td>Sacar un informe</td>
+<td>Desde el panel, en <strong>Informes</strong>, o con <code>docker exec isitmyisp isitmyisp report --since 7d -o /data/informe.html</code></td>
+</tr>
+<tr>
+<td>Desinstalar</td>
+<td><code>curl -fsSL https://isitmyisp.enzo-meneghini.com/install.sh \| sh -s -- --uninstall</code> (los datos quedan en el volumen)</td>
+</tr>
+<tr>
+<td>Dejar el panel solo en la Pi</td>
+<td>Instalar con <code>sh -s -- --local</code></td>
+</tr>
+<tr>
+<td>Olvidé la contraseña</td>
+<td><code>docker exec -it isitmyisp isitmyisp admin reset-password &lt;usuario&gt;</code></td>
+</tr>
+</tbody>
+</table></div>
+    </article>
+    <p class="edit"><a href="https://github.com/21Enzo17/isitmyisp/edit/main/docs/site/es/raspberry-pi.md">Editar esta página</a></p>
+    <nav class="pager" aria-label="pager"><a class="prev" href="/docs/es/install/"><span>Anterior</span>Instalar</a><a class="next" href="/docs/es/first-steps/"><span>Siguiente</span>Primeros pasos</a></nav>
+  </main>
+  <aside class="toc" aria-label="En esta página"><p>En esta página</p><ul><li><a href="#que-hace-falta">Qué hace falta</a></li><li><a href="#1-grabar-el-sistema-5-min">1. Grabar el sistema (5 min)</a></li><li><a href="#2-encender-y-entrar-2-min">2. Encender y entrar (2 min)</a></li><li><a href="#3-instalar-5-a-10-min">3. Instalar (5 a 10 min)</a></li><li><a href="#4-configurar-desde-el-navegador-3-min">4. Configurar desde el navegador (3 min)</a></li><li><a href="#despues">Después</a></li></ul></aside>
+</div>
+</body>
+</html>

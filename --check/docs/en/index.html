@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>isitmyisp · Docs</title>
+<meta name="description" content="isitmyisp tells you whether an internet problem is your Wi-Fi, your router or your ISP, and builds the evidence to claim.">
+<link rel="alternate" hreflang="es" href="/docs/es/">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/static/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="stylesheet" href="/docs/docs.css?v=cd2bf1d22f">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="/docs/en/"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M17 32H24.5M39.5 32H47" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none" opacity=".55"/><circle cx="32" cy="32" r="12" fill="#3b82f6" opacity=".22"/><circle cx="11" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="53" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="32" cy="32" r="7.5" fill="#3b82f6"/></svg><span>isitmyisp</span><span class="brand-docs">Docs</span></a>
+  <nav class="top-links">
+    <a class="btn" href="/en/isp/">Live demo</a>
+    <a href="https://github.com/21Enzo17/isitmyisp">GitHub</a>
+    <a href="/docs/es/" hreflang="es" lang="es">Español</a>
+  </nav>
+</header>
+<div class="layout">
+  <details class="menu"><summary>Menu</summary><nav><p class="nav-group">Get started</p><ul><li><a href="/docs/en/" aria-current="page">What it is</a></li><li><a href="/docs/en/install/">Install</a></li><li><a href="/docs/en/raspberry-pi/">Raspberry Pi</a></li><li><a href="/docs/en/first-steps/">First steps</a></li></ul><p class="nav-group">Using it</p><ul><li><a href="/docs/en/dashboard/">The dashboard</a></li><li><a href="/docs/en/features/">Features</a></li><li><a href="/docs/en/doctor/">The check-up</a></li><li><a href="/docs/en/device-check/">From this device</a></li><li><a href="/docs/en/alerts/">Alerts</a></li><li><a href="/docs/en/report/">The report</a></li></ul><p class="nav-group">How it works</p><ul><li><a href="/docs/en/verdict/">The verdict</a></li><li><a href="/docs/en/privacy/">Privacy</a></li><li><a href="/docs/en/security/">Security</a></li></ul><p class="nav-group">Help</p><ul><li><a href="/docs/en/faq/">FAQ</a></li></ul></nav></details>
+  <nav class="side" aria-label="Docs"><p class="nav-group">Get started</p><ul><li><a href="/docs/en/" aria-current="page">What it is</a></li><li><a href="/docs/en/install/">Install</a></li><li><a href="/docs/en/raspberry-pi/">Raspberry Pi</a></li><li><a href="/docs/en/first-steps/">First steps</a></li></ul><p class="nav-group">Using it</p><ul><li><a href="/docs/en/dashboard/">The dashboard</a></li><li><a href="/docs/en/features/">Features</a></li><li><a href="/docs/en/doctor/">The check-up</a></li><li><a href="/docs/en/device-check/">From this device</a></li><li><a href="/docs/en/alerts/">Alerts</a></li><li><a href="/docs/en/report/">The report</a></li></ul><p class="nav-group">How it works</p><ul><li><a href="/docs/en/verdict/">The verdict</a></li><li><a href="/docs/en/privacy/">Privacy</a></li><li><a href="/docs/en/security/">Security</a></li></ul><p class="nav-group">Help</p><ul><li><a href="/docs/en/faq/">FAQ</a></li></ul></nav>
+  <main id="content">
+    <article class="doc">
+<h1 id="is-it-your-wi-fi-your-router-or-your-isp">Is it your Wi-Fi, your router or your ISP?</h1>
+<p>isitmyisp is a connection monitor that runs on your network and measures it all the time. When something fails, it tells you <strong>where</strong> the problem is, says it in plain words and builds the evidence your ISP needs so they don't answer "restart the modem".</p>
+<div class="cards">
+<div>
+<h3 id="install-it">Install it</h3>
+<p>One command on a Raspberry Pi or any Linux machine. <a href="/docs/en/install/">Install</a></p>
+</div>
+<div>
+<h3 id="try-it-first">Try it first</h3>
+<p>The whole UI on sample data, in your browser, <a href="/en/isp/tv/">TV mode</a> included. <a href="/en/isp/">Live demo</a></p>
+</div>
+<div>
+<h3 id="read-the-dashboard">Read the dashboard</h3>
+<p>What every colour, number and verdict means. <a href="/docs/en/dashboard/">The dashboard</a></p>
+</div>
+<div>
+<h3 id="claim-to-your-isp">Claim to your ISP</h3>
+<p>The evidence report and how to use it. <a href="/docs/en/report/">The report</a></p>
+</div>
+</div>
+<p><img alt="The dashboard during a problem in the ISP's network: the path from your network to the internet, with the ISP marked" src="/docs/img/incident.png" /></p>
+<h2 id="who-its-for">Who it's for</h2>
+<ul>
+<li><strong>Small offices and shops</strong>, where the internet is the till, the card terminal, the phones and the invoicing. One small box (a Raspberry Pi is enough) tells you whose fault each outage was and gives you the report to claim.</li>
+<li><strong>IT providers</strong> who look after those offices: a verdict you can show the client, the backup link and call quality at a glance, and a report the ISP can't wave away.</li>
+<li><strong>Homes</strong> tired of "restart the modem" who want proof.</li>
+</ul>
+<h2 id="what-it-answers">What it answers</h2>
+<p><strong>Whose fault is it?</strong> The dashboard shows the path <em>Your network → Your ISP → Internet</em> and marks the segment where the problem is. It doesn't panic over a few lost pings: to blame anyone, the failure must be statistically significant, sustained, and seen over both ICMP and TCP. <a href="/docs/en/verdict/">How it decides</a></p>
+<p><strong>What did we rule out?</strong> For every ISP problem, the report lists what the evidence rules out (your LAN, a single website, a link full of your own downloads) and what it can't. It never claims more than it can prove.</p>
+<p><strong>Is the office running as it should?</strong> It notices when you switch to the backup link, estimates whether a call would sound good, checks the services your business depends on and watches VPN tunnels to your branches. <a href="/docs/en/features/">Features</a></p>
+<p><strong>Who tells me?</strong> Alerts by Telegram, email or webhook, only when a problem lasts, saying whose fault it is and what to do. <a href="/docs/en/alerts/">Alerts</a></p>
+<h2 id="what-it-doesnt-do">What it doesn't do</h2>
+<ul>
+<li><strong>It doesn't send your data anywhere.</strong> No cloud, no telemetry: everything stays on your machine. Every external connection is <a href="/docs/en/privacy/">listed</a>.</li>
+<li><strong>It isn't a server monitor.</strong> "Your services" exists to tell "my internet" from "the service", not to compete with tools like Uptime Kuma.</li>
+<li><strong>It doesn't guess.</strong> When the evidence isn't enough, the verdict says so.</li>
+<li><strong>It can't see inside your ISP.</strong> It measures from your network outwards: it says which segment the problem is in (your network, the ISP's access network, its backbone, or one destination), not which of the ISP's devices failed.</li>
+<li><strong>It judges on IPv4.</strong> It detects whether you have IPv6, but the verdict is based on IPv4.</li>
+<li><strong>It doesn't flag small latency rises.</strong> Latency counts as abnormal when it's twice the usual and at least 30 ms more; 30 to 55 ms isn't enough. That's how it avoids crying wolf at every spike.</li>
+<li><strong>It runs on Linux.</strong> On Docker Desktop (Mac or Windows) it can't see the machine's real network.</li>
+</ul>
+<p>isitmyisp is free software (<a class="ext" rel="noopener" href="https://github.com/21Enzo17/isitmyisp/blob/main/LICENSE">MIT licence</a>), built by someone who worked in an ISP's NOC.</p>
+    </article>
+    <p class="edit"><a href="https://github.com/21Enzo17/isitmyisp/edit/main/docs/site/en/index.md">Edit this page</a></p>
+    <nav class="pager" aria-label="pager"><a class="next" href="/docs/en/install/"><span>Next</span>Install</a></nav>
+  </main>
+  <aside class="toc" aria-label="On this page"><p>On this page</p><ul><li><a href="#who-its-for">Who it's for</a></li><li><a href="#what-it-answers">What it answers</a></li><li><a href="#what-it-doesnt-do">What it doesn't do</a></li></ul></aside>
+</div>
+</body>
+</html>
