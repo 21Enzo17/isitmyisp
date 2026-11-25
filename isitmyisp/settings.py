@@ -68,6 +68,7 @@ class Settings:
     static_ip: str = ""
     dns: list[str] = field(default_factory=list)
     speedtest: dict = field(default_factory=dict)
+    speed_command: object = None   # config.SpeedCommand: from the TOML file or the environment only
     version: int = 0
 
 
@@ -255,6 +256,7 @@ def load(store: Store, toml_path: str | None = None, data_dir: Path | None = Non
         cfg: Config = load_toml(toml_path, data_dir or Path("."))
         if cfg.path is not None:
             s.tunnels, s.tunnels_from_file = cfg.tunnels, cfg.path
+        s.speed_command = cfg.speed_command
     return s
 
 
@@ -302,3 +304,16 @@ def metrics_token(store: Store, rotate: bool = False) -> str:
         token = secrets.token_urlsafe(32)
         store.set_settings({"_metrics_token": token}, bump=False)
     return token
+
+
+def push_token(store: Store, action: str | None = None) -> str | None:
+    """Bearer token another machine sends its speed test results with (POST /api/speedtest, #115).
+    None until an admin turns it on; action "new" makes (or replaces) it, "off" forgets it."""
+    if action == "new":
+        token = secrets.token_urlsafe(32)
+        store.set_settings({"_speed_push_token": token}, bump=False)
+        return token
+    if action == "off":
+        store.set_settings({"_speed_push_token": ""}, bump=False)
+        return None
+    return store.get_setting("_speed_push_token") or None

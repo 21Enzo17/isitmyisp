@@ -33,7 +33,8 @@
       {% for b in tl.buckets %}{% set z = zoom[loop.index0] if zoom else none %}<{{ 'a' if z else 'div' }} class="c{{ ' flip' if b.flip }}"{% if z %} href="{{ url_for('chart', **z) }}" tabindex="-1"{% endif %}><div class="tip">
         <b>{{ b.start|tm(b.end - b.start) }}–{{ b.end|tm(b.end - b.start) }}</b>
         <span><i class="sw g-{{ b.group }}"></i>{{ t.verdict.get(b.code, b.code) if b.group != 'none' else t.group.none }}</span>
-        <span>{{ t.row_loss }} {{ num(b.loss) }}%{% if b.loss_max is not none and b.loss_max - (b.loss or 0) >= 0.1 %} · {{ t.peak_word }} {{ num(b.loss_max) }}%{% endif %}</span>
+        <span>{{ t.row_loss }} {{ num(b.loss) }}%{% if b.loss_max is not none and b.loss_max - (b.loss or 0) >= 0.1 %} · {{ t.peak_word }} {{ num(b.loss_max) }}%{% endif %}</span>{% if b.note %}
+        <span class="tip-note">{{ t.tip_note[b.note] }}</span>{% endif %}
         <span>{{ t.row_latency }} {{ num(b.lat) }} ms</span>{% if b.mos is not none %}
         <span>{{ t.row_calls }} {{ '%.1f'|format(b.mos) }} ({{ t.band[band_of(b.mos)] }})</span>{% endif %}{% if b.backup %}
         <span>{{ t.tip_backup }}</span>{% endif %}{% for line in b.route %}

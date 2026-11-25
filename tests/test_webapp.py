@@ -493,6 +493,9 @@ class RolesAndTV(WebAppBase):
             if endpoint in VIEWER_WRITES or endpoint in ("login", "setup", "invite"):
                 continue
             url = re.sub(r"<[^>]+>", "1", rule)
+            if endpoint == "api_speedtest":                 # another machine's results: its token, never a session
+                self.assertEqual(viewer.post(url).status_code, 401, rule)
+                continue
             self.assertEqual(viewer.post(url, data={"action": "rotate"}).status_code, 403, rule)
         html = viewer.get("/settings").get_data(as_text=True)
         for hidden in ('id="users"', 'id="tv"', "metrics_token"):
@@ -1113,7 +1116,7 @@ class TvBoardBlocks(WebAppBase):
         html = self.board()
         self.assertIn('class="tvb-card tvb-speed"', html)
         self.assertIn('class="tvb-row mid has-speed"', html)
-        self.assertIn("58</b> Mbps", html)
+        self.assertIn("287</b> Mbps", html)                          # the best figure (the ISP's server), as on the dashboard
         self.assertIn('class="tvb-speed-where bad"', html)
         self.assertIn("Bottleneck at the ISP&#39;s exit", html)
         settings_mod.save(self.store, {"speedtest": {"enabled": False}})

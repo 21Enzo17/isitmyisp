@@ -97,13 +97,61 @@ Would a call sound good right now? An estimated MOS from 1 to 5 (ITU-T G.107 E-m
 
 When it's on:
 
-- It runs weekly (Sunday at 3 a.m. by default), daily at the hour you pick, or only when you press "test now".
+- It runs weekly (Sunday at 3 a.m. by default), daily at the hour you pick, or only when you press "test now". Optionally also at [peak hour](#peak-hour).
 - It keeps to a monthly data budget (5 GB by default).
 - It never runs on the backup link or over the budget.
 - A scheduled test also waits out an incident and a busy link (above 30 % by default). "Test now" runs anyway: you asked for it.
-- It measures against speed.cloudflare.com, which sees your public IP.
+- It measures against speed.cloudflare.com, which sees your public IP, and against any other [engine](#engines) you turn on.
+- Your plan is compared with the **best figure** of each test, from whichever engine gave it. A server can only measure less than your line, never more, so a slow far server is never read as your ISP falling short.
 - It also measures latency with the link full (bufferbloat) and warns when the result is limited by your Wi-Fi rather than the ISP.
 - While it runs, those windows don't count towards the verdict.
+
+### Engines
+
+Each engine measures the path to its own server, so each one tells you something different. Every engine you turn on runs in the same test, one after the other, and the budget is split between them.
+
+| Engine | What it measures | What it shares | Default |
+|---|---|---|---|
+| **Cloudflare** | Towards the internet: the path to Cloudflare's nearest server. On some ISPs Cloudflare itself is the ceiling (its server, or its peering with that ISP). | Cloudflare sees your public IP. | on, with the test |
+| **M-Lab** | The nearest [Measurement Lab](https://www.measurementlab.net/) NDT7 server, the open platform behind Google's speed test, with servers in many more cities. | **M-Lab publishes every test as open data, with your public IP.** It needs its own consent. | **off** |
+| **Your own command** | Whatever your tool measures, for example your ISP's own server through Ookla's CLI. | What that tool shares. | **off** |
+| **Another machine** | A test run elsewhere, for example on a PC on the cable, sent to isitmyisp. | Nothing more from here. | **off** |
+| **Your iperf3 servers** | Inside or outside your ISP: see [below](#inside-and-outside-your-isp). | Each server sees your public IP. | **off** |
+
+Cloudflare's figure is the 90th percentile of the half-second rates after a one-second warm-up, with six streams, as speed.cloudflare.com reports it. If Cloudflare is rate-limiting your IP (HTTP 429), the result says so.
+
+#### M-Lab
+
+Turn it on in **Settings → Your connection → Speed test against your plan**, and tick the second box: M-Lab publishes each test, with your public IP, as open data for research. On a 1000 Mbps fibre where Cloudflare topped out at 490, M-Lab Buenos Aires measured 930.
+
+#### Your own engine
+
+isitmyisp can run a speed test tool you installed and read its JSON. It ships none of them and accepts no licence for you: Ookla's, for example, allows only personal use, so you accept it in your own command. The command is set only in the config file (or the `ISITMYISP_SPEEDTEST_COMMAND` variable), never from the web UI, so an admin page or a forged form can't make it run anything.
+
+```toml
+[speedtest]
+command = ["speedtest", "-f", "json", "--accept-license", "--accept-gdpr"]
+name = "Ookla"         # optional, how it's shown
+format = "auto"        # auto | ookla | speedtest-cli | librespeed | iperf3 | json
+timeout = 120          # seconds
+```
+
+It understands Ookla's CLI (`speedtest -f json`), the Python speedtest-cli (`--json`), librespeed-cli (`--json`), iperf3 (`-J`) and a plain format for your scripts: `{"download_mbps": 930, "upload_mbps": 600, "ping_ms": 2.1, "server": "Name"}`. It runs as an argument list, never through a shell, after the built-in engines, with the same schedule and guards. Its data can't be capped, so it's counted against the budget afterwards. With Docker, mount the tool into the container.
+
+#### From another machine
+
+The machine running isitmyisp is not always the one to measure with: a Raspberry Pi on Wi-Fi, or a CPU that can't keep up with 1 Gbps. Any other machine can send its results. In **Settings → Your connection → Results from another machine**, make a token. Then, from that machine (for example, a cron job on a PC on the cable):
+
+```sh
+speedtest -f json | curl -H "Authorization: Bearer <token>" --data-binary @- \
+  "http://<isitmyisp>:8080/api/speedtest?name=PC"
+```
+
+It takes any format the own engine reads (`?format=` if it can't tell), and `?wireless=1` if that machine is on Wi-Fi. A pushed result shows up even if this machine's own test is off, uses none of the budget, and is limited to 6 a minute. The token is not the Prometheus one; you can make a new one or turn it off at any time.
+
+### Peak hour
+
+Tick **Also test at peak hour** (21:00 by default) for a second test, on the same days, at the hour everyone is online. The dashboard compares it with the usual one: "At peak hour: 450 Mbps, 50% of the usual test's 900 Mbps". Below 80 % it says the line slows down in the evening. On the same engines, that is the ISP's congestion, whatever the engine's own ceiling. It doubles the tests, so each one gets half the budget, and it skips when your own link is busy, like any scheduled test.
 
 ### Inside and outside your ISP
 
@@ -119,7 +167,7 @@ With one server on each side, the dashboard and the report compare the best down
 | **The access** | Inside and outside are alike, but even inside the ISP you get under 60 % of your plan. The limit is your access link. |
 | **No bottleneck at the exit** | Inside and outside are alike. |
 
-The guards still hold: the data cap per test is shared between Cloudflare and your servers, it doesn't run on the backup link, and a scheduled test still waits out an incident. It needs the `iperf3` program on the machine (the Docker image ships it), and each server sees your public IP.
+The guards still hold: the data cap per test is shared between the engines and your servers, it doesn't run on the backup link, and a scheduled test still waits out an incident. It needs the `iperf3` program on the machine (the Docker image ships it), and each server sees your public IP.
 
 ## The router over SNMP
 
@@ -167,6 +215,7 @@ Admins invite people with one-time links that expire in 48 hours, reset password
 | Path | What |
 |---|---|
 | `/metrics` | Prometheus, with a token shown in **Settings → Access**. What it exports, a ready-made Grafana dashboard and alert rules are in [`contrib/grafana`](https://github.com/21Enzo17/isitmyisp/tree/main/contrib/grafana) |
+| `POST /api/speedtest` | A speed test result from [another machine](#from-another-machine), with its own token |
 | `/api/status` | Current state as JSON (when logged in) |
 | `/healthz` | Public; only says whether it's alive |
 | `/report?since=7d` | The report as HTML |

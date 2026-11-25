@@ -38,13 +38,13 @@
 </section>
 
 {% if cv.rows %}
-<section class="card" aria-labelledby="ct-h">
+<section class="card chart-table" aria-labelledby="ct-h">
   <h3 id="ct-h">{{ t.chart_table }}</h3>
   <div class="table-view open">
   <table>
     <thead><tr><th>{{ t.col_time }}</th><th>{{ t.row_status }}</th><th class="num">{{ t.col_avg_loss }}</th><th class="num">{{ t.col_peak_loss }}</th><th class="num">{{ t.col_latency }}</th>{% if cv.timeline.calls %}<th class="num">{{ t.col_calls }}</th>{% endif %}</tr></thead>
     <tbody>{% for b in cv.rows %}<tr{% if b.group in ('isp', 'you') %} class="bad-row"{% endif %}><td class="num-l">{{ b.start|tm(b.end - b.start) }}–{{ b.end|tm(b.end - b.start) }}</td>
-      <td><i class="sw g-{{ b.group }}" aria-hidden="true"></i>{{ t.verdict.get(b.code, b.code) if b.group != 'none' else t.group.none }}</td>
+      <td><i class="sw g-{{ b.group }}" aria-hidden="true"></i>{{ t.verdict.get(b.code, b.code) if b.group != 'none' else t.group.none }}{% if b.note %}<small class="row-note">{{ t.tip_note[b.note] }}</small>{% endif %}</td>
       <td class="num">{{ num(b.loss) }}%</td><td class="num">{{ num(b.loss_max) }}%</td><td class="num">{{ num(b.lat) }} ms</td>{% if cv.timeline.calls %}
       <td class="num">{% if b.mos is not none %}{{ '%.1f'|format(b.mos) }}{% else %}—{% endif %}</td>{% endif %}</tr>{% endfor %}</tbody>
   </table>

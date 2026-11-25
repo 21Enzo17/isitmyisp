@@ -336,7 +336,7 @@
     {% set sp = d.speed %}
     <div class="speed">
       <h3>{{ t.speed_dash_title }}</h3>
-      {% if not sp.on %}
+      {% if not (sp.on or (sp.push and sp.last)) %}
       <p class="muted">{{ t.speed_dash_off }} <a href="{{ url_for('settings_page', tab='connection') }}#speed">{{ t.speed_dash_more }}</a></p>
       {% elif not sp.last %}
       <p class="muted">{{ t.speed_dash_none }}</p>
@@ -344,7 +344,7 @@
       {% set r = sp.last %}
       {% if r.error %}<p class="muted">{{ t.speed_dash_error.format(when=r.ts|when, err=r.error) }}</p>{% else %}
       <div class="meters">
-        {% for label, mbps, contract in [(t.link_down, r.down_mbps, sp.contract_down), (t.link_up, r.up_mbps, sp.contract_up)] %}
+        {% for label, mbps, contract in [(t.link_down, sp.best.down, sp.contract_down), (t.link_up, sp.best.up, sp.contract_up)] %}
         {% set pct = (100 * mbps / contract) if (mbps and contract) else none %}
         <div class="meter{{ ' low' if pct is not none and pct < 80 }}">
           <span class="m-label">{{ label }}</span>
@@ -360,19 +360,20 @@
         {% endfor %}
       </div>
       <p class="speed-meta">
+        {% if r.servers and sp.best.down_name %}{{ t.speed_best_via.format(name=sp.best.down_name) }}<br>{% endif %}
         {% if r.loaded_ms is not none and r.idle_ms is not none %}{% set bloat = r.loaded_ms - r.idle_ms %}
         {{ t.speed_loaded.format(loaded='%.0f'|format(r.loaded_ms), idle='%.0f'|format(r.idle_ms), extra='%.0f'|format(bloat)) }}
         {{ t.bloat_ok if bloat < 30 else (t.bloat_fair if bloat < 100 else t.bloat_bad) }}<br>{% endif %}
-        {{ t.speed_when.format(when=r.ts|at, trigger=t.speed_trigger[r.trigger], size=r.bytes_used|size) }}
+        {% if r.trigger == 'push' %}{{ t.speed_when_push.format(when=r.ts|at) }}{% else %}{{ t.speed_when.format(when=r.ts|at, trigger=t.speed_trigger[r.trigger], size=r.bytes_used|size) }}{% endif %}
         {% if r.wan_down_mbps %}{{ t.speed_wan.format(wan='%.0f'|format(r.wan_down_mbps)) }}{% endif %}
       </p>
       {% if r.servers %}
       <table class="speed-where">
         <thead><tr><th>{{ t.speed_server }}</th><th>{{ t.speed_side }}</th><th class="num">{{ t.link_down }}</th><th class="num">{{ t.link_up }}</th></tr></thead>
         <tbody>
-          <tr><td>speed.cloudflare.com</td><td>{{ speed_side(r.where, lang) }}</td><td class="num">{{ '%.0f'|format(r.down_mbps or 0) }}</td><td class="num">{{ '%.0f'|format(r.up_mbps or 0) }}</td></tr>
+          {% if r.trigger != 'push' %}<tr><td>speed.cloudflare.com</td><td>{{ speed_side(r.where, lang) }}</td><td class="num">{{ '%.0f'|format(r.down_mbps or 0) }}</td><td class="num">{{ '%.0f'|format(r.up_mbps or 0) }}</td></tr>{% endif %}
           {% for s in r.servers %}
-          <tr><td>{{ s.name }}{% if s.asn %} <span class="muted small">{{ s.asn }}</span>{% endif %}</td><td>{{ speed_side(s.where, lang) }}</td>
+          <tr><td>{{ s.name }}{% if s.asn %} <span class="muted small">{{ s.asn }}</span>{% endif %}{% if s.rtt_ms is not none and s.rtt_ms is defined %} <span class="muted small">{{ '%.0f'|format(s.rtt_ms) }} ms</span>{% endif %}</td><td>{{ speed_side(s.where, lang) }}</td>
             {% if s.error %}<td colspan="2" class="muted small">{{ s.error }}</td>
             {% else %}<td class="num">{{ '%.0f'|format(s.down_mbps or 0) }}</td><td class="num">{{ '%.0f'|format(s.up_mbps or 0) }}</td>{% endif %}</tr>
           {% endfor %}
@@ -381,6 +382,8 @@
       {% if sp.where %}<p class="speed-where-says{{ ' bad' if sp.where.code != 'even' }}">{{ speed_where_text(sp.where, lang) }}</p>{% endif %}
       {% endif %}
       {% if r.wireless %}<p class="speed-warn">{{ t.speed_wifi_result }}</p>{% endif %}
+      {% if sp.peak %}<p class="speed-where-says{{ ' bad' if sp.peak.pct < 80 }}">{{ t.speed_peak_vs.format(peak='%.0f'|format(sp.peak.peak), night='%.0f'|format(sp.peak.night), pct=sp.peak.pct) }}
+        {{ t.speed_peak_bad if sp.peak.pct < 80 else t.speed_peak_ok }}</p>{% endif %}
       {% endif %}
       {% endif %}
       {% if sp.on %}

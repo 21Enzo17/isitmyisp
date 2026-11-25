@@ -29,6 +29,9 @@ GROUP = {"ok": "good", "local": "you", "loop": "you", "saturation": "you", "acce
 SEVERITY = {"isp": 4, "you": 3, "other": 2, "good": 1, "none": 0}
 
 
+NOTE_LOSS = 2.0   # % of ping loss in a healthy bucket worth a word in the tooltip
+
+
 @dataclass
 class Bucket:
     start: float
@@ -42,6 +45,15 @@ class Bucket:
     mos: float | None = None  # estimated call quality (1..5), mean of the bucket
     loss_max: float | None = None  # the worst single window in the bucket (%): a short spike the mean hides
     route: list[str] = field(default_factory=list)  # the ISP changed a path in this bucket: what changed (#97)
+    tcp_loss_max: float | None = None  # worst TCP connect failure rate (%) to the anchors (None: not measured)
+
+    @property
+    def note(self) -> str | None:
+        """Why a healthy bucket still shows loss: "icmp_only" (only ping lost, real connections were fine)
+        or "noise" (too little to be a fault). None when there is nothing to explain."""
+        if self.group != "good" or (self.loss_max or 0) < NOTE_LOSS:
+            return None
+        return "icmp_only" if self.tcp_loss_max == 0 else "noise"
 
 
 @dataclass
@@ -183,7 +195,9 @@ def _merge(buckets: list[Bucket], k: int) -> list[Bucket]:
                           statistics.fmean(losses) if losses else None,
                           statistics.median(lats) if lats else None, backup=any(b.backup for b in chunk),
                           mos=min((b.mos for b in chunk if b.mos is not None), default=None),
-                          loss_max=max((b.loss_max for b in chunk if b.loss_max is not None), default=None)))
+                          loss_max=max((b.loss_max for b in chunk if b.loss_max is not None), default=None),
+                          tcp_loss_max=max((b.tcp_loss_max for b in chunk if b.tcp_loss_max is not None),
+                                           default=None)))
     return out
 
 
@@ -195,10 +209,19 @@ def xticks(start: float, end: float) -> list[str]:
 def timeline(windows: list[tuple[float, float, str]], series: list[tuple[float, float, float | None]],
              start: float, end: float, n: int = BUCKETS, backup: list[tuple[float, float]] = (),
              calls: list[tuple[float, float]] | None = None,
-             routes: list[tuple[float, str, str]] = ()) -> Timeline:
+             routes: list[tuple[float, str, str]] = (),
+             tcp: list[tuple[float, float]] | None = None) -> Timeline:
     """windows: [(ts, seconds, code)]; series: [(ts, loss %, median latency ms)] per window;
-    backup: [(start, end)] spans on the backup link (failover); routes: [(ts, kind, text)] path changes."""
+    backup: [(start, end)] spans on the backup link (failover); routes: [(ts, kind, text)] path changes;
+    tcp: [(ts, TCP connect failure %)] per window, to tell ping-only loss from real loss."""
     buckets = _buckets(windows, series, start, end, n)
+    if tcp:
+        size = (end - start) / n
+        for ts, loss in tcp:
+            i = int((ts - 1e-6 - start) / size)
+            if 0 <= i < n:
+                b = buckets[i]
+                b.tcp_loss_max = max(loss, b.tcp_loss_max or 0.0)
     span = max(1.0, end - start)
     backup_runs = []
     for b0, b1 in backup:

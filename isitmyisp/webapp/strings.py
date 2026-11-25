@@ -45,7 +45,13 @@ S = {
         "bloat_ok": "Calls hold up when someone downloads.", "bloat_fair": "Calls suffer a bit when someone downloads (bufferbloat).",
         "bloat_bad": "Calls break up when someone downloads (heavy bufferbloat: QoS/SQM on the router helps).",
         "speed_when": "Measured {when} ({trigger}), used {size}.",
-        "speed_trigger": {"manual": "by hand", "scheduled": "scheduled"},
+        "speed_when_push": "Measured {when} by another machine, which sent it here.",
+        "speed_trigger": {"manual": "by hand", "scheduled": "scheduled", "peak": "peak hour", "push": "sent by another machine"},
+        "speed_peak": "Also test at peak hour", "speed_peak_hour": "Peak hour (0-23)",
+        "speed_peak_hint": "A second test at the hour everyone is online (around 21:00), on the same days. Comparing it with the usual one shows whether the ISP gets congested in the evening, whatever the engine's ceiling. It doubles the tests, so each one gets half the budget, and it skips when your own link is busy.",
+        "speed_peak_vs": "At peak hour: {peak} Mbps, {pct}% of the usual test's {night} Mbps.",
+        "speed_peak_ok": "No sign of evening congestion.",
+        "speed_peak_bad": "The line slows down in the evening: congestion at the ISP, if nothing else here was using it.",
         "speed_wan": "Your router saw {wan} Mbps in total meanwhile.",
         "speed_wifi_result": "Measured over Wi-Fi: this is your Wi-Fi's speed, not necessarily your ISP's. Connect this machine by cable to use it as evidence.",
         "speed_dash_budget": "Data used this month: {used} of {budget}.", "speed_dash_next": "Next scheduled test: {when}.",
@@ -66,7 +72,7 @@ S = {
         "speed_risk_fill": "While it runs it fills your link: calls, video calls and office systems can stutter or cut for a few seconds. Schedule it when nobody is working.",
         "speed_risk_data": "It uses data: up to {size} per test with your {down} Mbps plan. Every test stops at its share of the monthly budget below.",
         "speed_risk_backup": "On a backup link with a data cap (4G, satellite) it could use the cap up: it doesn't run on the backup unless you allow it.",
-        "speed_risk_privacy": "Cloudflare sees your public IP and that you ran a test (nothing else is sent).",
+        "speed_risk_privacy": "Cloudflare sees your public IP and that you ran a test (nothing else is sent). With M-Lab on, M-Lab publishes each test, with your IP, as open data.",
         "speed_risk_wifi": "If this machine is on Wi-Fi, the result is your Wi-Fi, not your ISP. For evidence, connect it by cable.",
         "speed_guards": "Scheduled tests skip when an incident is open, when your router shows the link busy (SNMP), or when the budget is used up. While a test runs, verdicts pause: it never counts as a problem.",
         "speed_no_contract": "Set your contracted speed so results show the % of your plan:",
@@ -82,6 +88,31 @@ S = {
                                "outside your ISP by its ASN, and comparing both tells whether the bottleneck is your access or the "
                                "ISP's exit. The data cap per test is shared between all of them, Cloudflare included."),
         "speed_no_iperf": "iperf3 is not installed on this machine: those servers will show an error until you install it.",
+        "speed_mlab_h": "M-Lab (optional second engine)",
+        "speed_mlab_what": ("Measurement Lab's open servers (the ones behind Google's speed test) are in many more cities than "
+                            "Cloudflare's test reaches at full speed. On some lines Cloudflare is the ceiling, not your ISP: "
+                            "with both, the plan is compared with the best of the two."),
+        "speed_mlab_enable": "Also test against the nearest M-Lab server",
+        "speed_mlab_accept": "I understand that M-Lab publishes every test as open data, with my public IP address",
+        "speed_cmd_h": "Your own engine",
+        "speed_cmd_set": ("Set in the config file. It runs after the others, on the same schedule and "
+                          "within the same budget, and its result joins the comparison with the plan."),
+        "speed_cmd_none": ("Ookla's CLI, librespeed-cli, iperf3 or your own script: install it, accept its licence in its own "
+                           "command line, and set it under [speedtest] command in the config file (or "
+                           "ISITMYISP_SPEEDTEST_COMMAND). Not from this page: a command a web page can change "
+                           "is a way into this machine."),
+        "speed_push_h": "Results from another machine",
+        "speed_push_none": ("A test run elsewhere (Ookla's CLI on the PC on the cable, a script on the router) can be "
+                            "sent here and shown with the others. It uses none of this machine's budget. Off until "
+                            "you make a token."),
+        "speed_push_on": "POST the tool's JSON output to /api/speedtest with this bearer token:",
+        "speed_push_example": ("For example, from the other machine (any format the own engine reads; "
+                               "?name= labels it, ?wireless=1 marks a test over Wi-Fi):"),
+        "speed_push_enable": "Make a token", "speed_push_disable": "Turn off",
+        "speed_push_made": "New token made: update the machines that send results.",
+        "speed_push_off": "Results from other machines are off: the token no longer works.",
+        "speed_push_ro": "Another machine can send its speed test results here.",
+        "speed_best_via": "Best figure, from {name}. Each server can only measure less than your line, never more.",
         "speed_server": "Server", "speed_side": "Where",
         "speed_confirm": "Yes, fill my link for about {secs} seconds and use up to {size}",
         "speed_run": "Test the speed now", "speed_confirm_needed": "Tick the box to confirm the test.",
@@ -130,6 +161,8 @@ S = {
         "sub_backup": "Your main ISP isn't carrying the traffic: your router moved it to the backup link.",
         "backup_note": "Going out through {backup} {since} ({dur}). Your main ISP, {primary}, is not in use.",
         "backup_change": "Changed providers?", "row_backup": "Backup", "tip_backup": "On the backup link",
+        "tip_note": {"icmp_only": "Only ping lost packets; real traffic (TCP) was fine.",
+                     "noise": "Too little loss to be a fault."},
 
         "isp_title": "Main ISP and backup link",
         "isp_sub": "If your router has two internet links, isitmyisp notices when traffic moves to the backup and when it comes back.",
@@ -443,7 +476,13 @@ S = {
         "bloat_ok": "Las llamadas aguantan cuando alguien descarga.", "bloat_fair": "Las llamadas sufren un poco cuando alguien descarga (bufferbloat).",
         "bloat_bad": "Las llamadas se cortan cuando alguien descarga (bufferbloat alto: QoS/SQM en el router ayuda).",
         "speed_when": "Medido {when} ({trigger}), usó {size}.",
-        "speed_trigger": {"manual": "a mano", "scheduled": "programada"},
+        "speed_when_push": "Medido {when} por otra máquina, que lo mandó acá.",
+        "speed_trigger": {"manual": "a mano", "scheduled": "programada", "peak": "hora pico", "push": "enviada por otra máquina"},
+        "speed_peak": "Probar también en hora pico", "speed_peak_hour": "Hora pico (0-23)",
+        "speed_peak_hint": "Una segunda prueba a la hora en que todos están conectados (tipo 21:00), los mismos días. Compararla con la de siempre muestra si el ISP se congestiona a la noche, sea cual sea el techo del motor. Duplica las pruebas, así que cada una tiene la mitad del presupuesto, y no corre si tu propio enlace está ocupado.",
+        "speed_peak_vs": "En hora pico: {peak} Mbps, {pct}% de los {night} Mbps de la prueba de siempre.",
+        "speed_peak_ok": "Sin señales de congestión a la noche.",
+        "speed_peak_bad": "La línea se pone lenta a la noche: congestión en el ISP, si nada más de acá la estaba usando.",
         "speed_wan": "Tu router vio {wan} Mbps en total mientras tanto.",
         "speed_wifi_result": "Medido por Wi-Fi: es la velocidad de tu Wi-Fi, no necesariamente la de tu ISP. Conectá este equipo por cable para usarlo como evidencia.",
         "speed_dash_budget": "Datos usados este mes: {used} de {budget}.", "speed_dash_next": "Próxima prueba programada: {when}.",
@@ -464,7 +503,7 @@ S = {
         "speed_risk_fill": "Mientras corre llena tu enlace: las llamadas, videollamadas y sistemas de la oficina pueden trabarse o cortarse unos segundos. Programala cuando no haya nadie trabajando.",
         "speed_risk_data": "Consume datos: hasta {size} por prueba con tu plan de {down} Mbps. Cada prueba se corta en su parte del presupuesto mensual de abajo.",
         "speed_risk_backup": "En un enlace de respaldo con tope de datos (4G, satelital) podría agotarlo: no corre en el respaldo salvo que lo permitas.",
-        "speed_risk_privacy": "Cloudflare ve tu IP pública y que corriste una prueba (no se envía nada más).",
+        "speed_risk_privacy": "Cloudflare ve tu IP pública y que corriste una prueba (no se envía nada más). Con M-Lab activado, M-Lab publica cada prueba, con tu IP, como datos abiertos.",
         "speed_risk_wifi": "Si este equipo está por Wi-Fi, el resultado es tu Wi-Fi, no tu ISP. Para usarlo como evidencia, conectalo por cable.",
         "speed_guards": "Las pruebas programadas no corren si hay un incidente abierto, si tu router muestra el enlace ocupado (SNMP) o si se agotó el presupuesto. Mientras corre, los veredictos se pausan: nunca cuenta como un problema.",
         "speed_no_contract": "Cargá tu velocidad contratada para ver el % de tu plan:",
@@ -481,6 +520,31 @@ S = {
                                "botella es tu acceso o la salida del ISP. El tope de datos por prueba se reparte entre todos, "
                                "Cloudflare incluido."),
         "speed_no_iperf": "iperf3 no está instalado en esta máquina: esos servidores van a dar error hasta que lo instales.",
+        "speed_mlab_h": "M-Lab (segundo motor, opcional)",
+        "speed_mlab_what": ("Los servidores abiertos de Measurement Lab (los que usa la prueba de velocidad de Google) están en "
+                            "muchas más ciudades de las que la prueba de Cloudflare alcanza a toda velocidad. En algunas líneas "
+                            "el techo es Cloudflare, no tu ISP: con los dos, el plan se compara con el mejor de ambos."),
+        "speed_mlab_enable": "Probar también contra el servidor de M-Lab más cercano",
+        "speed_mlab_accept": "Entiendo que M-Lab publica cada prueba como datos abiertos, con mi IP pública",
+        "speed_cmd_h": "Tu propio motor",
+        "speed_cmd_set": ("Viene del archivo de configuración. Corre después de los otros, con el mismo "
+                          "horario y dentro del mismo presupuesto, y su resultado entra en la comparación con el plan."),
+        "speed_cmd_none": ("La CLI de Ookla, librespeed-cli, iperf3 o un script tuyo: instalalo, aceptá su licencia en su propia "
+                           "línea de comando y configuralo en [speedtest] command del archivo de configuración "
+                           "(o en ISITMYISP_SPEEDTEST_COMMAND). No desde esta página: un comando que una página "
+                           "web puede cambiar es una puerta a esta máquina."),
+        "speed_push_h": "Resultados de otra máquina",
+        "speed_push_none": ("Una prueba hecha en otro lado (la CLI de Ookla en la PC del cable, un script en el router) "
+                            "se puede mandar acá y se muestra con las demás. No usa el presupuesto de esta máquina. "
+                            "Apagado hasta que generes un token."),
+        "speed_push_on": "Hacé POST de la salida JSON de la herramienta a /api/speedtest con este token bearer:",
+        "speed_push_example": ("Por ejemplo, desde la otra máquina (cualquier formato que lee el motor propio; "
+                               "?name= le pone nombre, ?wireless=1 marca una prueba por Wi-Fi):"),
+        "speed_push_enable": "Generar un token", "speed_push_disable": "Apagar",
+        "speed_push_made": "Token nuevo generado: actualizá las máquinas que mandan resultados.",
+        "speed_push_off": "Los resultados de otras máquinas están apagados: el token ya no sirve.",
+        "speed_push_ro": "Otra máquina puede mandar acá sus resultados de velocidad.",
+        "speed_best_via": "Mejor cifra, de {name}. Cada servidor solo puede medir menos que tu línea, nunca más.",
         "speed_server": "Servidor", "speed_side": "Dónde",
         "speed_confirm": "Sí, llenar mi enlace unos {secs} segundos y usar hasta {size}",
         "speed_run": "Medir la velocidad ahora", "speed_confirm_needed": "Marcá la casilla para confirmar la prueba.",
@@ -529,6 +593,8 @@ S = {
         "sub_backup": "Tu ISP principal no está llevando el tráfico: tu router lo pasó al enlace de respaldo.",
         "backup_note": "Salís por {backup} {since} ({dur}). Tu ISP principal, {primary}, no se está usando.",
         "backup_change": "¿Cambiaste de proveedor?", "row_backup": "Respaldo", "tip_backup": "Por el enlace de respaldo",
+        "tip_note": {"icmp_only": "Solo perdió el ping; el tráfico real (TCP) anduvo bien.",
+                     "noise": "Muy poca pérdida para ser una falla."},
 
         "isp_title": "ISP principal y enlace de respaldo",
         "isp_sub": "Si tu router tiene dos enlaces a internet, isitmyisp detecta cuándo el tráfico pasa al respaldo y cuándo vuelve.",

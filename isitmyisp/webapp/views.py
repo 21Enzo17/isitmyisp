@@ -210,7 +210,8 @@ def dashboard_data(store: Store, settings: Settings, now: float | None = None, l
         d.calls = call_summary(store, settings, start, end)
         d.timeline = charts.timeline(windows, series, start, end, backup=backup,
                                      calls=d.calls["series"] if d.calls else None,
-                                     routes=route_marks(store, start, end, lang))
+                                     routes=route_marks(store, start, end, lang),
+                                     tcp=_tcp_series(store, start, end))
         d.brief = list(reversed(store.brief_events(start, end)))[:12]
         # stale: the KPIs are the last known state, as of the last window ("8 d without outages" stops growing)
         d.kpi = kpis(store, windows, series, start, d.updated if d.code == "stale" else now)
@@ -464,6 +465,11 @@ def avail_tone(pct: float | None) -> str:
     return "good" if pct is None or pct >= 99.5 else ("warn" if pct >= 98 else "bad")
 
 
+def _tcp_series(store: Store, start: float, end: float) -> list[tuple[float, float]]:
+    """[(ts, mean TCP connect failure %)] per window: is ping loss also real loss?"""
+    return [(ts, loss) for ts, loss, _ in _anchor_series(store.samples_between(start, end, role="tcp"))]
+
+
 def kpis(store: Store, windows, series, start: float, now: float) -> dict:
     """The three figures next to the verdict, each with the last 24 h as a small line and the change
     against the 24 h before (None when there's nothing to compare with)."""
@@ -607,19 +613,18 @@ def speed_status(store: Store, settings: Settings, now: float | None = None) -> 
     on = bool(cfg["enabled"] and cfg["accepted"])
     month = store.speedtests_between(sp.month_start(now), now)
     history = list(reversed(store.speedtests_between(now - 90 * 86400, now)))[:6]
-    slot = sp.last_slot(cfg, now)
-    nxt = None
-    if on and slot is not None:
-        nxt = slot + (86400 if cfg["schedule"] == "daily" else 7 * 86400)
+    nxt = sp.next_run(cfg, now) if on else None
     used = sum(int(r.get("bytes_used") or 0) for r in month)
     contract_down = float(settings.link.get("down_mbps") or 0)
     contract_up = float(settings.link.get("up_mbps") or 0)
     per_test = sp.per_test_bytes(cfg)
+    command = getattr(settings, "speed_command", None)
+    engines = 1 + len(cfg.get("servers") or []) + (1 if cfg.get("mlab") else 0) + (1 if command else 0)
     # what one test really uses: the cap, or less if the plan can't move that much in the test time
     expected = per_test
-    if contract_down:   # every server (Cloudflare plus each iperf3 one) moves up to that
+    if contract_down:   # every engine (Cloudflare, M-Lab, each iperf3 server) moves up to that
         one = (contract_down * sp.DOWN_SECONDS + (contract_up or contract_down) * sp.UP_SECONDS) * 1e6 / 8
-        expected = min(per_test, int(one * (1 + len(cfg.get("servers") or []))))
+        expected = min(per_test, int(one * engines))
     blocked = store.get_setting("_speed_blocked")
     if blocked and now - blocked.get("ts", 0) > 3600:
         blocked = None
@@ -627,13 +632,16 @@ def speed_status(store: Store, settings: Settings, now: float | None = None) -> 
     pending = bool(requested and now - requested < 120 and not any(r["ts"] >= requested for r in month))
     return {"cfg": cfg, "on": on, "last": history[0] if history else None, "history": history,
             "used": used, "budget": cfg["budget_gb"] * 1e9, "per_test": per_test, "expected": expected,
-            # about 15 s for Cloudflare, then as much for each iperf3 server, one after the other
-            "seconds": 15 * (1 + len(cfg.get("servers") or [])),
+            # about 15 s for Cloudflare, then as much for M-Lab and each iperf3 server, one after the other;
+            # a command takes as long as it takes (Ookla's CLI about 25 s)
+            "seconds": 15 * engines + (10 if command else 0), "command": command, "best": sp.best(history[0]) if history else None,
             "next": nxt, "contract_down": contract_down, "contract_up": contract_up,
             "blocked": blocked, "pending": pending, "weekdays": sp.WEEKDAYS,
             "servers_text": "\n".join(sp.label(x) + ("" if x.get("where", "auto") == "auto" else f" {x['where']}")
                                       for x in cfg.get("servers") or []),
             "max_servers": sp.MAX_SERVERS, "iperf": sp.iperf_available(),
+            "push": bool(store.get_setting("_speed_push_token")),
+            "peak": sp.peak_vs_night(history, now),
             "where": sp.locate(history[0], contract_down) if history else None}
 
 
@@ -835,7 +843,8 @@ def chart_view(store: Store, settings: Settings, span: str = "24h", k: int = 0,
         calls = call_summary(store, settings, start, end) if seconds <= 86400 and not who else None
         tl = charts.timeline(windows, series, start, end, n=n, backup=backup,
                              calls=calls["series"] if calls else None,
-                             routes=route_marks(store, start, end, lang))
+                             routes=route_marks(store, start, end, lang),
+                             tcp=None if who else _tcp_series(store, start, end))
 
     extra = {"who": who} if who else {}
     mid = (start + end) / 2

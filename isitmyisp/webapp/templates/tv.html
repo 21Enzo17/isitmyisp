@@ -64,7 +64,7 @@
 {% else %}
 {# ------------------------------------------------------------ board: for a technician's wall #}
 {% set m = d.month if d.has_data else none %}
-{% set sp = d.speed %}{% set spr = sp.last if sp and sp.on and sp.last and not sp.last.error else none %}
+{% set sp = d.speed %}{% set spr = sp.last if sp and (sp.on or sp.push) and sp.last and not sp.last.error and sp.best.down else none %}
 <main class="tvb g-{{ group }}{{ ' has-alarm' if b.alarms or b.route_top }}{{ ' has-month' if m }}">
   <header class="tvb-head">
     <span class="tvb-brand"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M17 32H24.5M39.5 32H47" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none" opacity=".55"/><circle cx="32" cy="32" r="12" fill="#3b82f6" opacity=".22"/><circle cx="11" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="53" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="32" cy="32" r="7.5" fill="#3b82f6"/></svg>isitmyisp</span>
@@ -177,7 +177,7 @@
     <div class="tvb-card tvb-speed">
       <div class="tvb-card-head"><h2><svg class="ico hi-violet" aria-hidden="true"><use href="#i-gauge"/></svg>{{ t.tv_speed_title }}</h2></div>
       <div class="tvb-meters">
-        {% for label, mbps, contract in [(t.link_down, spr.down_mbps, sp.contract_down), (t.link_up, spr.up_mbps, sp.contract_up)] %}
+        {% for label, mbps, contract in [(t.link_down, sp.best.down, sp.contract_down), (t.link_up, sp.best.up, sp.contract_up)] %}
         {% set pct = (100 * mbps / contract) if (mbps and contract) else none %}
         <div class="tvb-meter{{ ' low' if pct is not none and pct < 80 }}">
           <p class="tvb-meter-top"><span>{{ label }}</span><span><b>{{ '%.0f'|format(mbps or 0) }}</b> Mbps</span></p>

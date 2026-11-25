@@ -11,6 +11,51 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
   check-up grade. Nothing is exported as a zero when it isn't set up.
 - **Grafana dashboard** in `contrib/grafana`, ready to import, with the scrape config and optional
   alert rules.
+- **M-Lab as a second speed test engine** (#115): the nearest Measurement Lab NDT7 server (the open
+  platform behind Google's speed test), picked by round trip among the ones M-Lab offers. Off by
+  default with its own consent: M-Lab publishes every test, with your public IP, as open data. On a
+  1000 Mbps fibre where Cloudflare topped out at 490, M-Lab Buenos Aires measured 930.
+- **Your own speed test engine** (#115): set `[speedtest] command` in the config file (or
+  `ISITMYISP_SPEEDTEST_COMMAND`) to run a tool you installed, such as Ookla's CLI (`speedtest -f json`),
+  the Python speedtest-cli (`--json`), librespeed-cli (`--json`), iperf3 (`-J`) or a script printing
+  `{"download_mbps": …, "upload_mbps": …}`. The output format is detected. It runs after the built-in
+  engines, on the same schedule and budget, and its result joins the comparison with the plan.
+  isitmyisp ships none of these tools and accepts no licence for you. The command can't be set from
+  the web UI, so an admin page or a forged form can't make it run anything.
+- **Speed test results from another machine** (#115): `POST /api/speedtest` takes the JSON output of
+  any tool the own engine reads (`speedtest -f json | curl -H "Authorization: Bearer …" --data-binary @- …`),
+  so the PC on the cable can measure and isitmyisp shows it with the rest. Off until an admin makes a
+  token in Settings → Connection (its own token, not the Prometheus one; new token and off buttons).
+  Pushed tests use none of the budget, and are rate limited.
+
+- **Peak-hour speed test** (#115): an optional second scheduled test at the hour everyone is online
+  (21:00 by default), on the same days as the usual one. The dashboard compares the two ("at peak
+  hour: 450 Mbps, 50% of the usual test's 900") and says when the line slows down in the evening.
+  On the same engines that is the ISP's congestion, whatever the engine's own ceiling. It doubles
+  the tests, so each gets half the budget, and it keeps the usual guards (busy link, incident, backup).
+
+### Changed
+- **Docs**: the speed test page says what each engine measures and what it shares (Cloudflare,
+  M-Lab, your own command, another machine, iperf3), and the privacy table lists M-Lab and the own command.
+- **The plan is compared with each test's best figure**, from whichever engine or server gave it
+  (Cloudflare, M-Lab, your iperf3 servers), on the dashboard, the report and the monthly summary. A
+  server can only measure less than your line, never more, so a slow far server no longer reads as
+  your ISP falling short. The dashboard says which server the figure came from.
+- The TV board's speed meters show that best figure too, as the dashboard does.
+- **Cloudflare's speed test fills a fast line better** (#115): 6 streams instead of 4, 50 MB download
+  and 20 MB upload requests (fewer TCP slow starts), and the figure is the 90th percentile of the
+  half-second rates after the warm-up, as speed.cloudflare.com reports it, not the mean, which Wi-Fi
+  stalls pull down. The upload is now counted as it goes, not per request. When Cloudflare
+  rate-limits your IP (HTTP 429) the test says so and ends at once instead of waiting out the clock.
+
+### Fixed
+- **No more blind spot every 15 minutes**: the periodic re-discovery ran with the probes stopped, so
+  about 40 s of every 15 minutes (~5% of the time) went unmeasured and the status strip looked dashed.
+  It now runs beside the probes, and the session is only rebuilt when something it measures changed.
+- **"Healthy" next to 22% loss, explained**: when a window is healthy but ping lost packets, the
+  chart tooltip and the data table now say why: only ping lost (TCP connections to the same
+  destinations were fine), or too little loss to be a fault.
+- **Chart page**: the data table no longer sits flush against the chart card.
 
 ## [0.6.2] - 2026-11-20
 

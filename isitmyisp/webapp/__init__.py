@@ -82,7 +82,7 @@ ENDPOINT_CARD = {"settings_general": "general", "tunnel_add": "tunnels", "tunnel
                  "settings_hours": "hours", "settings_monthly": "monthly", "settings_access": "access",
                  "users_invite": "users", "users_update": "users", "settings_password": "password",
                  "settings_tv_pair": "tv", "settings_tv_unpair": "tv", "settings_tv": "tv",
-                 "settings_metrics_token": "token"}
+                 "settings_metrics_token": "token", "settings_speed_push": "speed"}
 
 
 def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | None = None,
@@ -108,7 +108,7 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         LOOPBACK=auth.is_loopback(host),
     )
     app.request_class = _Request
-    CSRFProtect(app)
+    csrf = CSRFProtect(app)
     limiter = Limiter(get_remote_address, app=app, storage_uri="memory://", default_limits=[])
     login_manager = LoginManager(app)
     login_manager.login_view = "login"
@@ -143,6 +143,11 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                 abort(403)
             g.user, g.readonly = auth.User("demo", "demo", "demo"), True
             return None
+        if endpoint == "api_speedtest":   # another machine's result: its own token, never a session
+            token = settings_mod.push_token(store)
+            if token and auth.bearer_matches(request.headers.get("Authorization"), token):
+                return None
+            return Response("authentication required\n", 401, {"WWW-Authenticate": 'Bearer realm="isitmyisp"'})
         if endpoint == "metrics" and auth.bearer_matches(request.headers.get("Authorization"),
                                                           settings_mod.metrics_token(store)):
             return None
@@ -552,7 +557,8 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                        presets=_presets_view())
         elif tab == "connection":
             ctx.update(isp=views.isp_status(store, data_dir, ASN_JOB), speed=views.speed_status(store, g.settings),
-                       ifaces=ifaces)
+                       ifaces=ifaces, push_token=None if g.readonly else settings_mod.push_token(store),
+                       push_url=url_for("api_speedtest", _external=True))
         elif tab == "alerts":
             ctx.update(alerts=alerts_mod.masked(alerts_mod.load(store)), alerts_last=store.get_setting("_alerts_last"),
                        test_results=results, hours=_hours_view(), monthly=_monthly_view())
@@ -759,7 +765,9 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         raw = {"enabled": bool(f.get("enabled")), "accepted": bool(f.get("accepted")),
                "schedule": f.get("schedule", "weekly"), "weekday": f.get("weekday", 6), "hour": f.get("hour", 3),
                "budget_gb": f.get("budget_gb", 5), "max_busy_pct": f.get("max_busy_pct", 30),
-               "run_on_backup": bool(f.get("run_on_backup")), "servers": f.get("servers", "")[:2000]}
+               "run_on_backup": bool(f.get("run_on_backup")), "servers": f.get("servers", "")[:2000],
+               "mlab": bool(f.get("mlab")), "mlab_accepted": bool(f.get("mlab_accepted")),
+               "peak": bool(f.get("peak")), "peak_hour": f.get("peak_hour", 21)}
         return _save({"speedtest": raw, "_speed_current": g.settings.speedtest})
 
     @app.post("/speedtest/run")
@@ -1022,6 +1030,14 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
         flash(g.t["saved"])
         return redirect(_settings_url())
 
+    @app.post("/settings/speed-push")
+    def settings_speed_push():
+        _guard_write()
+        on = request.form.get("action") == "new"
+        settings_mod.push_token(store, "new" if on else "off")
+        flash(g.t["speed_push_made" if on else "speed_push_off"])
+        return redirect(_settings_url())
+
     @app.post("/settings/metrics-token")
     def settings_metrics_token():
         _guard_write()
@@ -1163,6 +1179,33 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
     @app.get("/api/status")
     def api_status():
         return status_json(store)
+
+    @app.post("/api/speedtest")
+    @csrf.exempt
+    @limiter.limit("6 per minute;60 per hour")
+    def api_speedtest():
+        """A speed test another machine ran (Ookla's CLI on the PC on the cable, a script on the
+        router), sent with the push token: `speedtest -f json | curl --data-binary @- …` (#115).
+        It is shown and held against the plan like any test, but uses none of this one's budget."""
+        from .. import extcmd
+        from .. import speedtest as sp
+        from ..config import COMMAND_FORMATS
+        fmt = request.args.get("format") or "auto"
+        if fmt not in COMMAND_FORMATS:
+            return {"error": f"format must be one of: {', '.join(COMMAND_FORMATS)}"}, 400
+        try:
+            fmt, got = extcmd.parse(request.get_data(as_text=True), fmt)
+        except extcmd.ParseError as exc:
+            return {"error": str(exc)}, 400
+        isp_asn = (store.network_at(time.time()) or {}).get("isp_asn")
+        name = " ".join((request.args.get("name") or "").split())[:40]
+        server = extcmd.entry(fmt, got, name=name, engine="push",
+                              mark=lambda host: sp.mark(host, isp_asn=isp_asn, data_dir=data_dir))
+        wireless = request.args.get("wireless") in ("1", "true", "yes")
+        res = sp.Result(ts=time.time(), trigger="push", where=None, wireless=wireless, servers=[server])
+        store.add_speedtest(res)
+        return {"ok": True, "format": fmt, "name": server["name"], "down_mbps": server["down_mbps"],
+                "up_mbps": server["up_mbps"], "ping_ms": server["rtt_ms"], "where": server["where"]}, 201
 
     @app.get("/favicon.ico")
     def favicon():

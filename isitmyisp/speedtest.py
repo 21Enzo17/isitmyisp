@@ -20,10 +20,18 @@ own VPS, another branch, or one inside the ISP's network). Each one is marked in
 ISP by its ASN, and comparing both says where the bottleneck is: 300 Mbps up to the ISP and 40 to
 the rest of the internet is its exit (peering, transit), not your access. The test's data cap is
 shared between all the servers, and the other guards (budget, incidents, backup link) still hold.
+
+M-Lab NDT7 (see mlab.py) is a second engine, off unless you consent separately: M-Lab publishes
+every test, with your public IP, as open data. On some lines Cloudflare is the ceiling, not the ISP.
+
+Against the plan: any server can only measure less than your access, never more (its own limits and
+its path add up). So the plan is compared with the best figure of the test, from whichever engine
+or server gave it (best()), and a slow far server is never read as your ISP falling short.
 """
 
 from __future__ import annotations
 
+import bisect
 import calendar
 import json
 import re
@@ -33,6 +41,7 @@ import statistics
 import subprocess
 import threading
 import time
+import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from typing import Callable
@@ -44,11 +53,14 @@ from .probes.icmp import C_ENV
 DOWN_URL = "https://speed.cloudflare.com/__down?bytes={n}"
 UP_URL = "https://speed.cloudflare.com/__up"
 SERVER = "speed.cloudflare.com"
-STREAMS = 4
+STREAMS = 4           # iperf3 servers
+CF_STREAMS = 6        # Cloudflare: one TCP stream per thread; 4 left a fast line under-filled
 DOWN_SECONDS, UP_SECONDS = 8.0, 6.0
 WARMUP = 1.0          # TCP slow start: the first second doesn't count
-CHUNK = 25_000_000    # bytes per download request
-UP_CHUNK = 2_000_000  # bytes per upload request
+WINDOW = 0.5          # Cloudflare's figure: the 90th percentile of the 0.5 s rates after the warm-up
+CHUNK = 50_000_000    # bytes per download request (Cloudflare refuses 100 MB): fewer slow starts
+UP_CHUNK = 20_000_000  # bytes per upload request, sent and counted in BLOCK pieces
+BLOCK = 262_144
 UA = f"isitmyisp/{__version__} (+speed test)"
 SCHEDULES = ("weekly", "daily", "manual")
 PER_TEST_MAX = 2_000_000_000  # enough for 1 Gbps down for 8 s plus the upload; never more per test
@@ -60,7 +72,10 @@ WHERE = ("auto", "inside", "outside")   # auto: by the server's ASN against your
 SLOW_RATIO = 0.6   # outside below 60 % of inside: the exit is the bottleneck (inside below 60 % of the plan: the access)
 
 DEFAULTS = {"enabled": False, "accepted": False, "schedule": "weekly", "weekday": 6, "hour": 3,
-            "budget_gb": 5.0, "run_on_backup": False, "max_busy_pct": 30, "servers": []}
+            "budget_gb": 5.0, "run_on_backup": False, "max_busy_pct": 30, "servers": [],
+            "mlab": False, "mlab_accepted": False, "peak": False, "peak_hour": 21}
+PEAK_GRACE = 2 * 3600   # a peak-hour test that can't run within 2 h isn't at the peak any more
+PEAK_DAYS = 14          # the peak and the night figures are compared if both are this recent
 
 
 class SpeedError(RuntimeError):
@@ -117,6 +132,36 @@ class _Meter:
         span = end_t - start[0]
         return round((end_b - start[1]) * 8 / span / 1e6, 1) if span > 0 else None
 
+    def p90(self) -> float | None:
+        """90th percentile of the WINDOW rates after the warm-up, as speed.cloudflare.com reports it:
+        the mean is pulled down by stalls that are the Wi-Fi or the server, not the line. Under four
+        windows (a test cut short by the cap) it is the mean."""
+        with self.lock:
+            marks = list(self.marks)
+        times = [t for t, _ in marks]
+        def total_at(t):
+            return marks[bisect.bisect_right(times, t) - 1][1]
+        rates, t = [], WARMUP
+        while t + WINDOW <= marks[-1][0]:
+            rates.append((total_at(t + WINDOW) - total_at(t)) * 8 / WINDOW / 1e6)
+            t += WINDOW
+        if len(rates) < 4:
+            return self.mbps()
+        rates.sort()
+        return round(rates[min(len(rates) - 1, int(0.9 * len(rates)))], 1)
+
+
+def _cloudflare_errors(worker):
+    """A 429 means Cloudflare is rate-limiting this IP: say so instead of a bare HTTP error."""
+    def run():
+        try:
+            worker()
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429:
+                raise SpeedError("Cloudflare is limiting tests from this IP (HTTP 429): try again later") from None
+            raise
+    return run
+
 
 def _download(meter: _Meter, seconds: float, opener) -> None:
     def worker():
@@ -124,43 +169,78 @@ def _download(meter: _Meter, seconds: float, opener) -> None:
             req = urllib.request.Request(DOWN_URL.format(n=CHUNK), headers={"User-Agent": UA})
             with opener(req, timeout=15) as resp:
                 while not meter.stop.is_set():
-                    block = resp.read(262_144)
+                    block = resp.read(BLOCK)
                     if not block:
                         break
                     meter.add(len(block))
-    _run_streams(worker, meter, seconds)
+    _run_streams([_cloudflare_errors(worker)] * CF_STREAMS, meter, seconds)
+
+
+class _Stopped(Exception):
+    pass
+
+
+class _Body:
+    """An upload body that counts each BLOCK as the socket takes it, so the meter has a time series
+    and not one mark per request, and that ends the request once the test is over."""
+    _zeros = bytes(BLOCK)
+
+    def __init__(self, meter: _Meter, size: int):
+        self.meter, self.size, self.sent = meter, size, 0
+
+    def __len__(self) -> int:
+        return self.size
+
+    def __iter__(self):
+        while self.sent < self.size:
+            if self.meter.stop.is_set():
+                raise _Stopped
+            n = min(BLOCK, self.size - self.sent)
+            yield self._zeros[:n]
+            self.sent += n
+            self.meter.add(n)
 
 
 def _upload(meter: _Meter, seconds: float, opener) -> None:
-    body = b"\0" * UP_CHUNK
-
     def worker():
         while not meter.stop.is_set():
+            body = _Body(meter, UP_CHUNK)
             req = urllib.request.Request(UP_URL, data=body, method="POST",
-                                         headers={"User-Agent": UA, "Content-Type": "application/octet-stream"})
-            with opener(req, timeout=15) as resp:
-                resp.read()
-            meter.add(len(body))
-    _run_streams(worker, meter, seconds)
+                                         headers={"User-Agent": UA, "Content-Type": "application/octet-stream",
+                                                  "Content-Length": str(UP_CHUNK)})
+            try:
+                with opener(req, timeout=15) as resp:
+                    resp.read()
+            except _Stopped:
+                return
+            except OSError:
+                if meter.stop.is_set():   # cut mid-body because the time is up
+                    return
+                raise
+    _run_streams([_cloudflare_errors(worker)] * CF_STREAMS, meter, seconds)
 
 
-def _run_streams(worker, meter: _Meter, seconds: float) -> None:
+def _run_streams(workers: list[Callable[[], None]], meter: _Meter, seconds: float, name: str = SERVER) -> None:
+    """Run one thread per worker until the time or the byte cap; an error only counts if nothing moved."""
     errors: list[Exception] = []
 
-    def guarded():
+    def guarded(worker):
         try:
             worker()
         except Exception as exc:  # noqa: BLE001 - network errors end the stream, reported below
             errors.append(exc)
-    threads = [threading.Thread(target=guarded, daemon=True) for _ in range(STREAMS)]
+    threads = [threading.Thread(target=guarded, args=(w,), daemon=True) for w in workers]
     for th in threads:
         th.start()
-    meter.stop.wait(seconds)
+    deadline = time.monotonic() + seconds
+    while not meter.stop.wait(0.1):     # until the time, the cap, or every stream has given up
+        if time.monotonic() >= deadline or not any(th.is_alive() for th in threads):
+            break
     meter.stop.set()
     for th in threads:
         th.join(timeout=16)
     if errors and meter.total == 0:
-        raise SpeedError(f"{SERVER}: {errors[0]}")
+        raise SpeedError(f"{name}: {errors[0]}")
 
 
 _RTT = re.compile(r"time[=<]([\d.]+) ms")
@@ -181,18 +261,33 @@ def run(max_bytes: int, *, wireless: bool = False, trigger: str = "manual",
         clock: Callable[[], float] = time.monotonic, down_seconds: float = DOWN_SECONDS,
         up_seconds: float = UP_SECONDS, servers: list[dict] | None = None,
         mark: Callable[[str], dict] | None = None, isp_asn: str | None = None,
-        iperf: Callable[..., tuple[float | None, int]] | None = None) -> Result:
-    """One test. Cloudflare first, then each iperf3 server; the byte cap is split evenly between them.
-    Download gets 70 % of each share, upload 30 %; each stops at its time or its cap."""
+        iperf: Callable[..., tuple[float | None, int]] | None = None, mlab: bool = False,
+        mlab_run: Callable[..., dict] | None = None, command=None,
+        command_run: Callable[..., dict] | None = None) -> Result:
+    """One test. Cloudflare first, then M-Lab (if on), then each iperf3 server; the byte cap is split
+    evenly between them. Download gets 70 % of each share, upload 30 %; each stops at its time or its cap.
+    Last, the user's own command (config.SpeedCommand), if set: it can't be capped, its bytes are counted."""
     servers = servers or []
-    share = max_bytes // (1 + len(servers))
+    share = max_bytes // (1 + len(servers) + (1 if mlab else 0))
     res = _run_cloudflare(share, wireless=wireless, trigger=trigger, counters=counters, opener=opener,
                           ping=ping, clock=clock, down_seconds=down_seconds, up_seconds=up_seconds)
     if isp_asn == CLOUDFLARE_ASN:
         res.where = "inside"
     started = clock()
+    if mlab:
+        if mlab_run is None:
+            from .mlab import run as mlab_run
+        one = mlab_run(share, mark=mark, down_seconds=down_seconds, up_seconds=up_seconds)
+        res.servers.append(one)
+        res.bytes_used += one["bytes"]
     for srv in servers:
         one = run_server(srv, share, mark=mark, iperf=iperf, down_seconds=down_seconds, up_seconds=up_seconds)
+        res.servers.append(one)
+        res.bytes_used += one["bytes"]
+    if command is not None:
+        if command_run is None:
+            from .extcmd import run as command_run
+        one = command_run(command, mark=mark)
         res.servers.append(one)
         res.bytes_used += one["bytes"]
     res.seconds = round(res.seconds + clock() - started, 1)
@@ -217,13 +312,13 @@ def _run_cloudflare(max_bytes: int, *, wireless, trigger, counters, opener, ping
         after = counters() if counters else None
         down_span = clock() - t_down
         pinger.join(timeout=down_seconds + 6)
-        res.down_mbps = down.mbps()
+        res.down_mbps = down.p90()
         res.loaded_ms = round(statistics.median(loaded), 1) if loaded else None
         if before and after and down_span > 0 and after[0] >= before[0]:
             res.wan_down_mbps = round((after[0] - before[0]) * 8 / down_span / 1e6, 1)
         up = _Meter(int(max_bytes * 0.3), clock)
         _upload(up, up_seconds, opener)
-        res.up_mbps = up.mbps()
+        res.up_mbps = up.p90()
         res.bytes_used = down.total + up.total
         if down.total >= down.cap:
             res.notes.append("budget")       # stopped by the data cap, not the clock
@@ -317,6 +412,23 @@ def mark(host: str, *, isp_asn: str | None, data_dir=None, online: bool = False,
     return {"where": where, "asn": asn_, "as_name": name}
 
 
+def best(res: dict) -> dict:
+    """The best download and upload of one test, from any engine or server, and who gave them:
+    {"down", "down_name", "up", "up_name"} (None when nothing measured). A server can only measure
+    less than your access, never more, so this is the figure to hold against the plan."""
+    rows = []
+    if not res.get("error"):
+        rows.append((res.get("down_mbps"), res.get("up_mbps"), SERVER))
+    rows += [(s.get("down_mbps"), s.get("up_mbps"), s.get("name") or "?")
+             for s in res.get("servers") or [] if not s.get("error")]
+    out: dict = {"down": None, "down_name": None, "up": None, "up_name": None}
+    for key, i in (("down", 0), ("up", 1)):
+        got = [(r[i], r[2]) for r in rows if r[i]]
+        if got:
+            out[key], out[f"{key}_name"] = max(got, key=lambda x: x[0])
+    return out
+
+
 def locate(res: dict, plan_down: float = 0.0) -> dict | None:
     """Where the bottleneck is, comparing the best download inside the ISP with the best outside.
     None when one of the two sides wasn't measured. Codes:
@@ -349,7 +461,8 @@ def month_start(now: float) -> float:
 
 
 def runs_per_month(cfg: dict) -> int:
-    return {"weekly": 5, "daily": 31, "manual": 0}[cfg["schedule"]]
+    runs = {"weekly": 5, "daily": 31, "manual": 0}[cfg["schedule"]]
+    return runs * 2 if cfg.get("peak") else runs   # the peak-hour test is a second one per slot
 
 
 def per_test_bytes(cfg: dict) -> int:
@@ -357,12 +470,13 @@ def per_test_bytes(cfg: dict) -> int:
     return int(min(PER_TEST_MAX, cfg["budget_gb"] * 1e9 / (runs_per_month(cfg) + 2)))
 
 
-def last_slot(cfg: dict, now: float) -> float | None:
-    """The most recent scheduled moment at or before `now` (local time)."""
+def last_slot(cfg: dict, now: float, hour: int | None = None) -> float | None:
+    """The most recent scheduled moment at or before `now` (local time), at `hour` (the peak-hour
+    test) or the schedule's own hour."""
     if cfg["schedule"] == "manual":
         return None
     t = time.localtime(now)
-    today = time.mktime((t.tm_year, t.tm_mon, t.tm_mday, cfg["hour"], 0, 0, 0, 0, -1))
+    today = time.mktime((t.tm_year, t.tm_mon, t.tm_mday, cfg["hour"] if hour is None else hour, 0, 0, 0, 0, -1))
     if cfg["schedule"] == "daily":
         return today if today <= now else today - 86400
     days_back = (t.tm_wday - cfg["weekday"]) % 7
@@ -370,11 +484,43 @@ def last_slot(cfg: dict, now: float) -> float | None:
     return slot if slot <= now else slot - 7 * 86400
 
 
-def due(cfg: dict, last_run: float | None, now: float, grace: float = 6 * 3600) -> bool:
+def due(cfg: dict, last_run: float | None, now: float, grace: float = 6 * 3600, hour: int | None = None) -> bool:
     """A scheduled test is due once per slot, within `grace` of it (a machine that was off at
     03:00 doesn't fire a test at 15:00 in the middle of the working day)."""
-    slot = last_slot(cfg, now)
+    slot = last_slot(cfg, now, hour)
     return slot is not None and now - slot <= grace and (last_run is None or last_run < slot)
+
+
+def next_run(cfg: dict, now: float) -> float | None:
+    """When the next scheduled test (the usual one or the peak-hour one) is."""
+    period = 86400 if cfg["schedule"] == "daily" else 7 * 86400
+    hours = [cfg["hour"]] + ([cfg["peak_hour"]] if cfg.get("peak") else [])
+    slots = [last_slot(cfg, now, h) for h in hours]
+    return min((x + period for x in slots if x is not None), default=None)
+
+
+def which_due(cfg: dict, recent: list[dict], now: float) -> str | None:
+    """'scheduled', 'peak' (the peak-hour test) or None, from the recent results' triggers."""
+    def last(trigger):
+        return max((r["ts"] for r in recent if r.get("trigger") == trigger), default=None)
+    if due(cfg, last("scheduled"), now):
+        return "scheduled"
+    if cfg.get("peak") and due(cfg, last("peak"), now, PEAK_GRACE, cfg["peak_hour"]):
+        return "peak"
+    return None
+
+
+def peak_vs_night(history: list[dict], now: float) -> dict | None:
+    """The latest peak-hour test against the latest usual (night) one, by each test's best figure.
+    On the same engines a lower figure at the peak is the ISP's congestion, whatever the engine's ceiling."""
+    def latest(trigger):
+        return next((r for r in history if r.get("trigger") == trigger and not r.get("error")
+                     and r["ts"] >= now - PEAK_DAYS * 86400 and best(r).get("down")), None)
+    peak, night = latest("peak"), latest("scheduled")
+    if not (peak and night):
+        return None
+    p, n = best(peak)["down"], best(night)["down"]
+    return {"peak": p, "night": n, "pct": round(100 * p / n), "peak_ts": peak["ts"], "night_ts": night["ts"]}
 
 
 def blocked(cfg: dict, *, manual: bool, used_bytes: int, on_backup: bool, incident: bool,
@@ -407,15 +553,24 @@ def validate(raw: dict, current: dict) -> dict:
         out["hour"] = int(raw.get("hour", out["hour"]))
         out["budget_gb"] = float(raw.get("budget_gb", out["budget_gb"]))
         out["max_busy_pct"] = int(raw.get("max_busy_pct", out["max_busy_pct"]))
+        out["peak_hour"] = int(raw.get("peak_hour", out["peak_hour"]))
     except (TypeError, ValueError) as exc:
         raise ValueError("weekday, hour, budget and busy limit must be numbers") from exc
-    if not (0 <= out["weekday"] <= 6 and 0 <= out["hour"] <= 23):
+    if not (0 <= out["weekday"] <= 6 and 0 <= out["hour"] <= 23 and 0 <= out["peak_hour"] <= 23):
         raise ValueError("weekday 0-6 and hour 0-23")
+    out["peak"] = bool(raw.get("peak"))
+    if out["peak"] and out["peak_hour"] == out["hour"]:
+        raise ValueError("the peak-hour test needs a different hour from the usual one")
     if not 0.5 <= out["budget_gb"] <= 500:
         raise ValueError("the monthly budget must be between 0.5 and 500 GB")
     if not 5 <= out["max_busy_pct"] <= 100:
         raise ValueError("the busy limit must be between 5 and 100 %")
     out["run_on_backup"] = bool(raw.get("run_on_backup"))
+    # M-Lab publishes each test with your IP: its own consent, and turning it off forgets the consent
+    out["mlab"] = bool(raw.get("mlab"))
+    if out["mlab"] and not raw.get("mlab_accepted"):
+        raise ValueError("to use M-Lab, confirm that it publishes each test with your public IP")
+    out["mlab_accepted"] = out["mlab"]
     if "servers" in raw:
         out["servers"] = parse_servers(raw["servers"])
     return out
@@ -482,18 +637,20 @@ class Runner:
         return self.running() or (self.ended is not None and self.ended > now - window)
 
     def tick(self, cfg: dict, now: float, *, wireless: bool, on_backup: bool, incident: bool,
-             link_busy_pct: float | None, counters=None, isp_asn: str | None = None) -> str | None:
+             link_busy_pct: float | None, counters=None, isp_asn: str | None = None,
+             command=None) -> str | None:
         """Start a test if one is due or was requested. Returns what happened: 'started', a blocking
-        reason, or None (nothing to do)."""
+        reason, or None (nothing to do). `command` is the user's own engine, from the config file."""
         if self.running():
             return None
         req = self.store.get_setting("_speed_request") or 0.0
         manual = req > self.last_request and now - req < self.REQUEST_TTL
         if req > self.last_request:
             self.last_request = req
+        kind = None
         if not manual:
-            recent = [r for r in self.store.speedtests_between(now - 8 * 86400, now) if r.get("trigger") == "scheduled"]
-            if not due(cfg, recent[-1]["ts"] if recent else None, now):
+            kind = which_due(cfg, self.store.speedtests_between(now - 8 * 86400, now), now)
+            if kind is None:
                 return None
         reason = blocked(cfg, manual=manual, used_bytes=self.store.speed_bytes_since(month_start(now)),
                          on_backup=on_backup, incident=incident, link_busy_pct=link_busy_pct)
@@ -503,11 +660,15 @@ class Runner:
             self.last_reason = reason
             return reason
         cap = per_test_bytes(cfg)
-        trigger = "manual" if manual else "scheduled"
+        trigger = "manual" if manual else kind
         extra = {}
-        if cfg.get("servers"):
-            extra = {"servers": cfg["servers"], "isp_asn": isp_asn,
+        if cfg.get("servers") or cfg.get("mlab") or command is not None:
+            extra = {"servers": cfg.get("servers") or [], "isp_asn": isp_asn,
                      "mark": lambda host: mark(host, isp_asn=isp_asn, data_dir=self.data_dir, online=self.asn_online)}
+        if cfg.get("mlab") and cfg.get("mlab_accepted"):
+            extra["mlab"] = True
+        if command is not None:
+            extra["command"] = command
 
         def job():
             try:
