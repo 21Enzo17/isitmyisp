@@ -389,6 +389,8 @@ def cmd_monitor(args, t) -> int:
     server = _start_web(store, args, t) if args.web and args.web != "off" else None
     if cfg.tunnels_from_file:
         print(f"⚙️  {cfg.tunnels_from_file}: {len(cfg.tunnels)} tunnel(s)")
+    if cfg.speed_command is not None:
+        print(f"⚙️  speed test command: {cfg.speed_command.text()}")
     print(f"💾 {store.path}  {t['stop_hint']}")
     hops_by_provider: dict[str, set[str]] = {}  # ISP routers already seen per provider (ECMP is not a failover)
     speed = SpeedRunner(store, data_dir=data_dir(), asn_online=args.asn_online)  # off unless enabled in Settings (it fills the link)
@@ -438,7 +440,8 @@ def cmd_monitor(args, t) -> int:
                                       on_backup=any(i.scope == "failover" for i in store.active_incidents()),
                                       incident=mon.incident_id is not None,
                                       link_busy_pct=m.link.peak_pct if m.link else None,
-                                      counters=s.link.counters if s.link else None, isp_asn=net.isp_asn)
+                                      counters=s.link.counters if s.link else None, isp_asn=net.isp_asn,
+                                      command=cfg_now.speed_command)
                     if what == "started":
                         print(f"\n{t['speed_started']}")
                     for r in store.speedtests_between(speed_seen + 0.001, 2e10):

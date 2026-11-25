@@ -198,6 +198,10 @@
       <textarea id="ssrv" name="servers" rows="3" placeholder="iperf.example.net&#10;10.8.0.1:5201 outside" {{ 'disabled' if readonly }}>{{ speed.servers_text }}</textarea>
       <p class="muted small">{{ t.speed_servers_hint.format(max=speed.max_servers) }}
         {% if not speed.iperf %}<b>{{ t.speed_no_iperf }}</b>{% endif %}</p>
+      <fieldset class="mlab"><legend>{{ t.speed_cmd_h }}</legend>
+        {% if speed.command %}<p class="small"><code>{{ (speed.command.name or speed.command.argv[0]) if readonly else speed.command.text() }}</code></p>
+        <p class="muted small">{{ t.speed_cmd_set }}</p>{% else %}<p class="muted small">{{ t.speed_cmd_none }}</p>{% endif %}
+      </fieldset>
       {% if not readonly %}<div class="actions"><button class="btn primary" type="submit">{{ t.save }}</button></div>{% endif %}
     </form>
     {% if speed.on and not readonly %}

@@ -8,12 +8,23 @@ Looked up in this order: --config, $ISITMYISP_CONFIG, <data dir>/config.toml,
     underlay = "203.0.113.10"   # the far end's PUBLIC address (outside the tunnel)
     overlay = "10.10.0.1"       # an address on the far side reached THROUGH the tunnel
     type = "ipsec-l2tp"         # ipsec-l2tp | ipsec | wireguard | openvpn | other
+
+    [speedtest]                 # your own speed test engine, run next to the built-in ones (#115)
+    command = ["speedtest", "-f", "json", "--accept-license", "--accept-gdpr"]
+    name = "Ookla"              # optional: how results are labelled
+    format = "auto"             # auto | ookla | speedtest-cli | librespeed | iperf3 | json
+    timeout = 120               # seconds
+
+The command can also come from $ISITMYISP_SPEEDTEST_COMMAND (split like a shell would, but never run
+by one). It is set here and only here, never from the web UI: a command an admin page could change
+would be remote code execution for anyone who gets that page, or a forged form post.
 """
 
 from __future__ import annotations
 
 import ipaddress
 import os
+import shlex
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -24,6 +35,8 @@ else:  # pragma: no cover - Python 3.10
     tomllib = None
 
 TUNNEL_TYPES = {"ipsec-l2tp", "ipsec", "wireguard", "openvpn", "other"}
+COMMAND_FORMATS = ("auto", "ookla", "speedtest-cli", "librespeed", "iperf3", "json")
+COMMAND_ENV = "ISITMYISP_SPEEDTEST_COMMAND"
 
 
 class ConfigError(ValueError):
@@ -38,10 +51,23 @@ class Tunnel:
     type: str = "other"
 
 
+@dataclass(frozen=True)
+class SpeedCommand:
+    """An external speed test the user installs and runs: argv, never a shell line."""
+    argv: tuple[str, ...]
+    name: str = ""
+    format: str = "auto"
+    timeout: int = 120
+
+    def text(self) -> str:
+        return shlex.join(self.argv)
+
+
 @dataclass
 class Config:
     tunnels: list[Tunnel] = field(default_factory=list)
     path: Path | None = None
+    speed_command: SpeedCommand | None = None
 
 
 def _ip(value: object, what: str, name: str) -> str:
@@ -65,7 +91,37 @@ def parse(data: dict, path: Path | None = None) -> Config:
         if ttype not in TUNNEL_TYPES:
             raise ConfigError(f"tunnel {name!r}: type must be one of {sorted(TUNNEL_TYPES)}")
         tunnels.append(Tunnel(name, _ip(raw["underlay"], "underlay", name), _ip(raw["overlay"], "overlay", name), ttype))
-    return Config(tunnels=tunnels, path=path)
+    return Config(tunnels=tunnels, path=path, speed_command=speed_command(data.get("speedtest") or {}))
+
+
+def speed_command(raw: dict) -> SpeedCommand | None:
+    """The [speedtest] section: None when it has no command."""
+    if not isinstance(raw, dict):
+        raise ConfigError("[speedtest] must be a table")
+    cmd = raw.get("command")
+    if cmd in (None, "", []):
+        return None
+    if isinstance(cmd, str):
+        try:
+            argv = shlex.split(cmd)
+        except ValueError as exc:
+            raise ConfigError(f"[speedtest] command: {exc}") from exc
+    elif isinstance(cmd, list) and all(isinstance(a, str) for a in cmd):
+        argv = list(cmd)
+    else:
+        raise ConfigError("[speedtest] command must be a list of strings, or one string")
+    if not argv or not argv[0]:
+        raise ConfigError("[speedtest] command is empty")
+    fmt = str(raw.get("format", "auto")).lower()
+    if fmt not in COMMAND_FORMATS:
+        raise ConfigError(f"[speedtest] format must be one of {list(COMMAND_FORMATS)}")
+    try:
+        timeout = int(raw.get("timeout", 120))
+    except (TypeError, ValueError) as exc:
+        raise ConfigError("[speedtest] timeout must be a number of seconds") from exc
+    if not 5 <= timeout <= 600:
+        raise ConfigError("[speedtest] timeout must be between 5 and 600 seconds")
+    return SpeedCommand(tuple(argv), str(raw.get("name") or "")[:40], fmt, timeout)
 
 
 def candidates(explicit: str | None, data_dir: Path) -> list[Path]:
@@ -80,12 +136,20 @@ def candidates(explicit: str | None, data_dir: Path) -> list[Path]:
 
 
 def load(explicit: str | None, data_dir: Path) -> Config:
+    cfg = Config()
     for p in candidates(explicit, data_dir):
         if p.is_file():
             if tomllib is None:
                 raise ConfigError("config files need Python 3.11+")
             with open(p, "rb") as fh:
-                return parse(tomllib.load(fh), p)
+                cfg = parse(tomllib.load(fh), p)
+            break
         if explicit and p == Path(explicit):
             raise ConfigError(f"config file not found: {p}")
-    return Config()
+    env = os.environ.get(COMMAND_ENV, "").strip()
+    if env:   # the environment wins over the file, as in most containers
+        base = cfg.speed_command
+        cfg.speed_command = speed_command({"command": env, "name": base.name if base else "",
+                                           "format": base.format if base else "auto",
+                                           "timeout": base.timeout if base else 120})
+    return cfg

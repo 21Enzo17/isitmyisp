@@ -191,9 +191,11 @@ def run(max_bytes: int, *, wireless: bool = False, trigger: str = "manual",
         up_seconds: float = UP_SECONDS, servers: list[dict] | None = None,
         mark: Callable[[str], dict] | None = None, isp_asn: str | None = None,
         iperf: Callable[..., tuple[float | None, int]] | None = None, mlab: bool = False,
-        mlab_run: Callable[..., dict] | None = None) -> Result:
+        mlab_run: Callable[..., dict] | None = None, command=None,
+        command_run: Callable[..., dict] | None = None) -> Result:
     """One test. Cloudflare first, then M-Lab (if on), then each iperf3 server; the byte cap is split
-    evenly between them. Download gets 70 % of each share, upload 30 %; each stops at its time or its cap."""
+    evenly between them. Download gets 70 % of each share, upload 30 %; each stops at its time or its cap.
+    Last, the user's own command (config.SpeedCommand), if set: it can't be capped, its bytes are counted."""
     servers = servers or []
     share = max_bytes // (1 + len(servers) + (1 if mlab else 0))
     res = _run_cloudflare(share, wireless=wireless, trigger=trigger, counters=counters, opener=opener,
@@ -209,6 +211,12 @@ def run(max_bytes: int, *, wireless: bool = False, trigger: str = "manual",
         res.bytes_used += one["bytes"]
     for srv in servers:
         one = run_server(srv, share, mark=mark, iperf=iperf, down_seconds=down_seconds, up_seconds=up_seconds)
+        res.servers.append(one)
+        res.bytes_used += one["bytes"]
+    if command is not None:
+        if command_run is None:
+            from .extcmd import run as command_run
+        one = command_run(command, mark=mark)
         res.servers.append(one)
         res.bytes_used += one["bytes"]
     res.seconds = round(res.seconds + clock() - started, 1)
@@ -520,9 +528,10 @@ class Runner:
         return self.running() or (self.ended is not None and self.ended > now - window)
 
     def tick(self, cfg: dict, now: float, *, wireless: bool, on_backup: bool, incident: bool,
-             link_busy_pct: float | None, counters=None, isp_asn: str | None = None) -> str | None:
+             link_busy_pct: float | None, counters=None, isp_asn: str | None = None,
+             command=None) -> str | None:
         """Start a test if one is due or was requested. Returns what happened: 'started', a blocking
-        reason, or None (nothing to do)."""
+        reason, or None (nothing to do). `command` is the user's own engine, from the config file."""
         if self.running():
             return None
         req = self.store.get_setting("_speed_request") or 0.0
@@ -543,11 +552,13 @@ class Runner:
         cap = per_test_bytes(cfg)
         trigger = "manual" if manual else "scheduled"
         extra = {}
-        if cfg.get("servers") or cfg.get("mlab"):
+        if cfg.get("servers") or cfg.get("mlab") or command is not None:
             extra = {"servers": cfg.get("servers") or [], "isp_asn": isp_asn,
                      "mark": lambda host: mark(host, isp_asn=isp_asn, data_dir=self.data_dir, online=self.asn_online)}
         if cfg.get("mlab") and cfg.get("mlab_accepted"):
             extra["mlab"] = True
+        if command is not None:
+            extra["command"] = command
 
         def job():
             try:
