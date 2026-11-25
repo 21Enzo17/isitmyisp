@@ -112,6 +112,24 @@ class Web(WebAppBase):
         self.assertIn("The line slows down in the evening", html)
         self.assertIn("(peak hour)", html)
 
+    def test_a_cloudflare_error_still_shows_m_lab(self):
+        self.create_admin()
+        self.store.set_settings({"speedtest": {**ON, "mlab": True, "mlab_accepted": True}})
+        mlab = {"engine": "mlab", "name": "M-Lab", "where": "inside", "down_mbps": 508.4, "up_mbps": 725.3, "error": None}
+        err = "Cloudflare is limiting tests from this IP (HTTP 429)"
+        self.store.add_speedtest(sp.Result(ts=time.time() - 60, trigger="manual", servers=[mlab], error=err))
+        html = self.client.get("/?lang=en").get_data(as_text=True)
+        self.assertNotIn("The last test", html)          # not reported as a failed test
+        self.assertIn("<b>508</b> Mbps", html)
+        self.assertIn("<b>725</b> Mbps", html)
+        self.assertIn(err, html)                         # Cloudflare's row says why it has no figure
+        tv = self.client.get("/tv?lang=en").get_data(as_text=True)
+        self.assertIn("has-speed", tv)
+        # nothing measured at all: only the error
+        self.store.add_speedtest(sp.Result(ts=time.time() - 10, trigger="manual", servers=[{**mlab, "error": "timed out"}],
+                                           error=err))
+        self.assertIn("The last test", self.client.get("/?lang=en").get_data(as_text=True))
+
 
 if __name__ == "__main__":
     unittest.main()

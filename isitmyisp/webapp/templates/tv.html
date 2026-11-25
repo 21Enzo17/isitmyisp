@@ -64,7 +64,7 @@
 {% else %}
 {# ------------------------------------------------------------ board: for a technician's wall #}
 {% set m = d.month if d.has_data else none %}
-{% set sp = d.speed %}{% set spr = sp.last if sp and (sp.on or sp.push) and sp.last and not sp.last.error and sp.best.down else none %}
+{% set sp = d.speed %}{% set spr = sp.last if sp and (sp.on or sp.push) and sp.last and sp.best.down else none %}
 <main class="tvb g-{{ group }}{{ ' has-alarm' if b.alarms or b.route_top }}{{ ' has-month' if m }}">
   <header class="tvb-head">
     <span class="tvb-brand"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M17 32H24.5M39.5 32H47" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none" opacity=".55"/><circle cx="32" cy="32" r="12" fill="#3b82f6" opacity=".22"/><circle cx="11" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="53" cy="32" r="6" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="32" cy="32" r="7.5" fill="#3b82f6"/></svg>isitmyisp</span>
