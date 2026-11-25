@@ -451,6 +451,28 @@ class Store:
             rows = self.db.execute("SELECT scope, code, COUNT(*) FROM incidents GROUP BY scope, code").fetchall()
         return {(r[0], r[1]): r[2] for r in rows}
 
+    def incident_seconds(self, now: float) -> dict[tuple[str, str], float]:
+        """Time spent in incidents by (scope, code), the open ones counted up to ``now`` (for /metrics)."""
+        with self._lock:
+            rows = self.db.execute("SELECT scope, code, SUM(MAX(0, COALESCE(closed, ?) - opened)) FROM incidents"
+                                   " GROUP BY scope, code", (now,)).fetchall()
+        return {(r[0], r[1]): float(r[2] or 0) for r in rows}
+
+    def latest_speedtest(self) -> dict | None:
+        """The latest speed test that finished without an error."""
+        with self._lock:
+            rows = self.db.execute("SELECT data FROM speedtests ORDER BY ts DESC LIMIT 20").fetchall()
+        return next((d for d in (json.loads(r[0]) for r in rows) if not d.get("error")), None)
+
+    def latest_link_usage(self) -> tuple | None:
+        with self._lock:
+            return self.db.execute("SELECT ts, down_mbps, up_mbps, down_pct, up_pct, cpu_pct FROM link_usage"
+                                   " ORDER BY ts DESC LIMIT 1").fetchone()
+
+    def route_change_count(self) -> int:
+        with self._lock:
+            return int(self.db.execute("SELECT COUNT(*) FROM route_events WHERE kind = 'changed'").fetchone()[0])
+
     def captures_for(self, incident_ids: list[int]) -> dict[int, list[Capture]]:
         if not incident_ids:
             return {}

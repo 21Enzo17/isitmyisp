@@ -2,6 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from isitmyisp import speedtest as sp
+from isitmyisp.api import metrics_text
 from isitmyisp.classifier import Measurements
 from isitmyisp.config import ConfigError, Tunnel, parse
 from isitmyisp.monitor import Monitor
@@ -9,7 +11,6 @@ from isitmyisp.probes.icmp import WindowStats
 from isitmyisp.store import Store
 from isitmyisp.timeutil import parse_when
 from isitmyisp.tunnels import classify_tunnel, periodic_interval
-from isitmyisp.api import metrics_text
 
 T = Tunnel("branch", "198.51.100.20", "10.10.0.1", "ipsec-l2tp")
 T0 = 1_794_000_000.0
@@ -130,6 +131,76 @@ class Metrics(unittest.TestCase):
             self.assertNotIn("8.8.8.8", {s["target"] for s in store.latest_samples()})
             store.close()
 
+    def test_metrics_beyond_the_verdict(self):
+        """Jitter, call quality, downtime, speed test, SNMP link, check-up and route changes."""
+        from types import SimpleNamespace
+
+        from isitmyisp import demo
+        with tempfile.TemporaryDirectory() as d:
+            store = Store(Path(d) / "m.db")
+            mon = Monitor(store, WIN)
+            for i in range(3):
+                m, rows = healthy_internet()
+                mon.step(m, rows, now=T0 + (i + 1) * WIN)
+            now = T0 + 4 * WIN
+            store.close_incident(store.open_incident("isp", ["x"], ts=now - 600), ts=now - 300)
+            store.open_incident("service_down", ["y"], ts=now - 120, scope="service:Outlook")
+            body = metrics_text(store, now=now)
+            self.assertRegex(body, r'isitmyisp_jitter_ms\{role="anchor",target="1\.1\.1\.1"\} [\d.]+')
+            self.assertRegex(body, r'isitmyisp_call_quality_mos\{source="anchors"\} 4\.\d+')
+            self.assertIn('isitmyisp_incident_seconds_total{scope="internet",code="isp"} 300.0', body)
+            self.assertIn('isitmyisp_incident_seconds_total{scope="service:Outlook",code="service_down"} 120.0', body)
+            self.assertIn("isitmyisp_route_changes_total 0", body)
+            self.assertIn('isitmyisp_build_info{version="', body)
+            self.assertNotIn("speedtest_download", body)       # nothing measured: no made-up zeros
+            self.assertNotIn("isitmyisp_link_mbps", body)
+            self.assertNotIn("isitmyisp_doctor_grade", body)
+
+            demo.add_speed_result(store, now=now)
+            demo.add_doctor_run(store, now=now)
+            store.add_link_usage(now - 30, SimpleNamespace(down_mbps=120.5, up_mbps=8.0, down_pct=40.2, up_pct=8.0,
+                                                           cpu_pct=12.0))
+            body = metrics_text(store, now=now)
+            # the latest test's best figure (its server inside the ISP), and each engine or server's own
+            self.assertIn("isitmyisp_speedtest_download_mbps 286.9", body)
+            self.assertIn(f'isitmyisp_speedtest_engine_download_mbps{{engine="cloudflare",name="{sp.SERVER}"}} 58.3', body)
+            self.assertIn('isitmyisp_speedtest_engine_download_mbps{engine="iperf3",name="vps.example.org"} 41.7', body)
+            self.assertIn('isitmyisp_speedtest_trigger_download_mbps{trigger="manual"} 286.9', body)
+            self.assertIn('isitmyisp_speedtest_trigger_download_mbps{trigger="scheduled"} 262.4', body)
+            self.assertNotIn("isitmyisp_speedtest_peak_ratio ", body)                  # no peak test yet
+            self.assertIn("isitmyisp_speedtest_loaded_latency_ms 64.8", body)
+            self.assertIn('isitmyisp_link_mbps{direction="down"} 120.5', body)
+            self.assertIn('isitmyisp_link_utilization_ratio{direction="down"} 0.402', body)
+            self.assertIn("isitmyisp_router_cpu_ratio 0.12", body)
+            self.assertRegex(body, r'isitmyisp_doctor_grade\{grade="[A-F]"\} 1')
+            self.assertIn('isitmyisp_doctor_check{check="dns",scope="network"} ', body)
+            self.assertNotIn("isitmyisp_link_mbps", metrics_text(store, now=now + 3600))   # stale SNMP reading
+            for line in body.splitlines():
+                self.assertTrue(line.startswith(("# HELP isitmyisp_", "# TYPE isitmyisp_", "isitmyisp_")), line)
+            store.close()
+
+
+    def test_speed_metrics_follow_every_engine(self):
+        """A pushed test (no Cloudflare figure) and M-Lab count; the peak-hour test is set against the usual one."""
+        mlab = {"name": "M-Lab", "engine": "mlab", "where": None, "down_mbps": 930.0, "up_mbps": 610.0, "error": None}
+        push = {"name": "PC · Personal", "engine": "push", "where": None, "down_mbps": 939.0, "up_mbps": 755.0,
+                "error": None}
+        with tempfile.TemporaryDirectory() as d:
+            store = Store(Path(d) / "m.db")
+            now = T0 + 86400
+            store.add_speedtest(sp.Result(ts=now - 20 * 3600, down_mbps=480.0, up_mbps=300.0, trigger="scheduled",
+                                          servers=[mlab]))
+            store.add_speedtest(sp.Result(ts=now - 3600, down_mbps=240.0, up_mbps=290.0, trigger="peak",
+                                          servers=[{**mlab, "down_mbps": 465.0}]))
+            store.add_speedtest(sp.Result(ts=now - 60, trigger="push", servers=[push]))
+            body = metrics_text(store, now=now)
+            self.assertIn("isitmyisp_speedtest_download_mbps 939.0", body)          # the pushed one, the latest
+            self.assertIn('isitmyisp_speedtest_engine_download_mbps{engine="push",name="PC · Personal"} 939.0', body)
+            self.assertNotIn('engine="cloudflare"', body)                            # Cloudflare didn't run
+            self.assertIn('isitmyisp_speedtest_trigger_download_mbps{trigger="peak"} 465.0', body)
+            self.assertIn('isitmyisp_speedtest_trigger_download_mbps{trigger="scheduled"} 930.0', body)
+            self.assertIn("isitmyisp_speedtest_peak_ratio 0.5", body)
+            store.close()
 
 if __name__ == "__main__":
     unittest.main()

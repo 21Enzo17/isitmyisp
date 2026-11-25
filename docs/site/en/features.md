@@ -214,7 +214,7 @@ Admins invite people with one-time links that expire in 48 hours, reset password
 
 | Path | What |
 |---|---|
-| `/metrics` | Prometheus, with a token shown in **Settings → Access** |
+| `/metrics` | Prometheus, with a token shown in **Settings → Access**. What it exports, a ready-made Grafana dashboard and alert rules are in [`contrib/grafana`](https://github.com/21Enzo17/isitmyisp/tree/main/contrib/grafana) |
 | `POST /api/speedtest` | A speed test result from [another machine](#from-another-machine), with its own token |
 | `/api/status` | Current state as JSON (when logged in) |
 | `/healthz` | Public; only says whether it's alive |

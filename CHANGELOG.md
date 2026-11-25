@@ -6,6 +6,13 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 ## [Unreleased]
 
 ### Added
+- **More in `/metrics`**: jitter, call quality (MOS), time spent in incidents (for availability),
+  route changes, the latest speed test (with bufferbloat), the router's link over SNMP and the
+  check-up grade. The speed is the test's best figure, as on the dashboard, with each engine's own
+  (Cloudflare, M-Lab, your own command, another machine, iperf3) and the peak-hour test against the
+  usual one. Nothing is exported as a zero when it isn't set up.
+- **Grafana dashboard** in `contrib/grafana`, ready to import, with the scrape config and optional
+  alert rules.
 - **M-Lab as a second speed test engine** (#115): the nearest Measurement Lab NDT7 server (the open
   platform behind Google's speed test), picked by round trip among the ones M-Lab offers. Off by
   default with its own consent: M-Lab publishes every test, with your public IP, as open data. On a

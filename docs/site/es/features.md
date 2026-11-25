@@ -214,7 +214,7 @@ Los administradores invitan gente con links de un solo uso que vencen en 48 hora
 
 | Ruta | Qué |
 |---|---|
-| `/metrics` | Prometheus, con un token que está en **Configuración → Acceso** |
+| `/metrics` | Prometheus, con un token que está en **Configuración → Acceso**. Qué exporta, un dashboard de Grafana listo para importar y reglas de alerta están en [`contrib/grafana`](https://github.com/21Enzo17/isitmyisp/tree/main/contrib/grafana) |
 | `POST /api/speedtest` | Un resultado de test de velocidad de [otra máquina](#desde-otra-maquina), con su propio token |
 | `/api/status` | El estado actual en JSON (con sesión iniciada) |
 | `/healthz` | Público; solo dice si está vivo |
