@@ -29,6 +29,11 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
   server can only measure less than your line, never more, so a slow far server no longer reads as
   your ISP falling short. The dashboard says which server the figure came from.
 - The TV board's speed meters show that best figure too, as the dashboard does.
+- **Cloudflare's speed test fills a fast line better** (#115): 6 streams instead of 4, 50 MB download
+  and 20 MB upload requests (fewer TCP slow starts), and the figure is the 90th percentile of the
+  half-second rates after the warm-up, as speed.cloudflare.com reports it, not the mean, which Wi-Fi
+  stalls pull down. The upload is now counted as it goes, not per request. When Cloudflare
+  rate-limits your IP (HTTP 429) the test says so and ends at once instead of waiting out the clock.
 
 ### Fixed
 - **No more blind spot every 15 minutes**: the periodic re-discovery ran with the probes stopped, so

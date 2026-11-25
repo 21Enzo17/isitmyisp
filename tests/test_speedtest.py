@@ -1,8 +1,13 @@
+import http.server
 import io
 import tempfile
+import threading
 import time
 import unittest
+import urllib.error
+import urllib.request
 from pathlib import Path
+from unittest import mock
 
 from isitmyisp import settings as settings_mod
 from isitmyisp import speedtest as sp
@@ -25,7 +30,8 @@ class FakeHTTP:
         if self.fail:
             raise OSError("network unreachable")
         if req.data:
-            self.uploaded += len(req.data)
+            for block in req.data:     # like a socket: the body counts itself as it is read
+                self.uploaded += len(block)
             return io.BytesIO(b"")
         return io.BytesIO(b"\0" * 2_000_000)
 
@@ -40,7 +46,7 @@ class Engine(unittest.TestCase):
         r = sp.run(10_000_000, opener=http, ping=no_ping, down_seconds=5, up_seconds=5)
         self.assertIsNone(r.error)
         self.assertGreater(r.down_mbps, 0)
-        self.assertLessEqual(r.bytes_used, 10_000_000 + sp.STREAMS * 2_000_000 + sp.STREAMS * sp.UP_CHUNK)
+        self.assertLessEqual(r.bytes_used, 10_000_000 + 2 * sp.CF_STREAMS * sp.BLOCK)
         self.assertLess(r.seconds, 5)                    # the cap ended it, not the clock
         self.assertIn("budget", r.notes)
         self.assertEqual((r.idle_ms, r.loaded_ms), (30.0, 58.0))
@@ -58,6 +64,59 @@ class Engine(unittest.TestCase):
         m = sp._Meter(10**12, clock=time.monotonic)
         m.marks = [(0.0, 0), (0.5, 1_000_000), (1.0, 2_000_000), (3.0, 27_000_000)]   # slow start, then 100 Mbps
         self.assertAlmostEqual(m.mbps(), 100.0, delta=0.5)
+
+    def test_p90_is_not_pulled_down_by_stalls(self):
+        m = sp._Meter(10**12, clock=time.monotonic)
+        m.marks, total = [(0.0, 0)], 0
+        for i in range(1, 17):                     # 0.5 s steps: 100 Mbps, but a 1.5 s stall in the middle
+            total += 0 if 6 <= i <= 8 else 6_250_000
+            m.marks.append((i * 0.5, total))
+        self.assertAlmostEqual(m.p90(), 100.0, delta=0.5)
+        self.assertLess(m.mbps(), 80)
+        m.marks = [(0.0, 0), (1.0, 1_000_000), (2.0, 13_500_000)]   # too short for windows: the mean
+        self.assertEqual(m.p90(), m.mbps())
+
+    def test_cloudflare_rate_limit_is_explained(self):
+        def limited(req, timeout=None):
+            raise urllib.error.HTTPError(req.full_url, 429, "Too Many Requests", {}, None)
+        r = sp.run(10_000_000, opener=limited, ping=no_ping, down_seconds=5, up_seconds=5)
+        self.assertLess(r.seconds, 2)                  # doesn't sit out the clock once every stream failed
+        self.assertIn("HTTP 429", r.error)
+        self.assertIn("try again later", r.error)
+
+    def test_upload_body_goes_through_urllib_in_blocks(self):
+        got = []
+
+        class Sink(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                left = int(self.headers["Content-Length"])
+                while left:
+                    block = self.rfile.read(min(left, 65536))
+                    if not block:              # the client cut it: the test was over
+                        return
+                    left -= len(block)
+                got.append(int(self.headers["Content-Length"]))
+                self.send_response(200)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+            def log_message(self, *a):
+                pass
+
+        srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Sink)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            meter = sp._Meter(sp.UP_CHUNK * 3 // 2, time.monotonic)
+            with mock.patch.object(sp, "UP_URL", f"http://127.0.0.1:{srv.server_address[1]}/__up"), \
+                    mock.patch.object(sp, "CF_STREAMS", 1):
+                sp._upload(meter, 10, urllib.request.urlopen)
+        finally:
+            srv.shutdown()
+            srv.server_close()
+        self.assertGreaterEqual(meter.total, meter.cap)                  # stopped by the cap...
+        self.assertLessEqual(meter.total, meter.cap + sp.BLOCK)
+        self.assertGreater(len(meter.marks), meter.cap // sp.BLOCK)      # ...counted block by block
+        self.assertEqual(got, [sp.UP_CHUNK])          # one whole request, the second cut mid-body
 
 
 class Schedule(unittest.TestCase):
