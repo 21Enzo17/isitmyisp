@@ -92,7 +92,7 @@
   </ul>
   <form method="post" action="{{ url_for('welcome', step='speed') }}">{{ csrf() }}
     <fieldset class="mlab"><legend>{{ t.speed_engine_h }}</legend>
-      {% for e in ('cloudflare', 'mlab', 'both') %}<label class="check"><input type="radio" name="engine" value="{{ e }}" {{ 'checked' if speed.engine == e }}> {{ t['speed_engine_' ~ e] }}</label>
+      {% for e in ('cloudflare', 'mlab', 'both') + (('command',) if speed.command else ()) %}<label class="check"><input type="radio" name="engine" value="{{ e }}" {{ 'checked' if speed.engine == e }}> {{ t['speed_engine_' ~ e] }}</label>
       {% endfor %}<p class="muted small">{{ t.speed_mlab_what }}</p>
       <label class="check"><input type="checkbox" name="mlab_accepted" value="1" {{ 'checked' if (s.speedtest or {}).mlab_accepted }}> {{ t.speed_mlab_accept }}</label>
     </fieldset>
@@ -109,7 +109,7 @@
     <li class="{{ 'ok' if hours.enabled else 'todo' }}"><b>{{ t.wiz_step.hours }}:</b> {{ t.hours_summary.format(n=hours.days.values()|select|list|length) if hours.enabled else t.wiz_not_set }}</li>
     <li class="{{ 'ok' if s.services else 'todo' }}"><b>{{ t.wiz_step.services }}:</b> {{ s.services|length }}</li>
     <li class="{{ 'ok' if channels else 'todo' }}"><b>{{ t.wiz_step.alerts }}:</b> {{ channels|join(', ') if channels else t.wiz_not_set }}</li>
-    <li class="{{ 'ok' if speed.on else 'todo' }}"><b>{{ t.wiz_step.speed }}:</b> {{ t['speed_engine_' ~ speed.engine].split(':')[0] if speed.on else t.wiz_not_set }}</li>
+    <li class="{{ 'ok' if speed.on else 'todo' }}"><b>{{ t.wiz_step.speed }}:</b> {{ (t['speed_engine_' ~ speed.engine] if speed.engine != 'command' else (speed.command.name or speed.command.argv[0])).split(':')[0] if speed.on else t.wiz_not_set }}</li>
   </ul>
   <p class="muted">{{ t.wiz_done_sub }}</p>
   <h4>{{ t.wiz_next_title }}</h4>

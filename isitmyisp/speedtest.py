@@ -76,7 +76,7 @@ SLOW_RATIO = 0.6   # outside below 60 % of inside: the exit is the bottleneck (i
 DEFAULTS = {"enabled": False, "accepted": False, "schedule": "weekly", "weekday": 6, "hour": 3,
             "budget_gb": 5.0, "run_on_backup": False, "max_busy_pct": 30, "servers": [],
             "mlab": False, "mlab_accepted": False, "peak": False, "peak_hour": 21}
-ENGINES = ("cloudflare", "mlab", "both")   # see engine_of(); not in DEFAULTS, so older settings keep their M-Lab
+ENGINES = ("cloudflare", "mlab", "both", "command")   # see engine_of(); not in DEFAULTS, so older settings keep their M-Lab
 PEAK_GRACE = 2 * 3600   # a peak-hour test that can't run within 2 h isn't at the peak any more
 PEAK_DAYS = 14          # the peak and the night figures are compared if both are this recent
 
@@ -478,23 +478,26 @@ def engine_of(cfg: dict) -> str:
     return cfg.get("engine") if cfg.get("engine") in ENGINES else ("both" if cfg.get("mlab") else "cloudflare")
 
 
-def uses(cfg: dict) -> tuple[bool, bool]:
-    """(Cloudflare, M-Lab): what a test runs. M-Lab only with its consent; without it, Cloudflare."""
+def uses(cfg: dict, command: bool = True) -> tuple[bool, bool]:
+    """(Cloudflare, M-Lab): what a test runs. M-Lab only with its consent, and "command" (only your
+    own command) only with one set up in the config file (`command`); without them, Cloudflare."""
     engine = engine_of(cfg)
+    if engine == "command":
+        return not command, False
     mlab = engine in ("mlab", "both") and bool(cfg.get("mlab_accepted"))
     return engine != "mlab" or not mlab, mlab
 
 
-def engines(cfg: dict) -> int:
+def engines(cfg: dict, command: bool = True) -> int:
     """The engines that share a test's byte cap: Cloudflare and M-Lab as picked, each iperf3 server.
-    Your own command isn't one: it can't be capped."""
-    return sum(uses(cfg)) + len(cfg.get("servers") or [])
+    Your own command isn't one: it can't be capped (with only the command, this is 0)."""
+    return sum(uses(cfg, command)) + len(cfg.get("servers") or [])
 
 
-def per_test_bytes(cfg: dict) -> int:
+def per_test_bytes(cfg: dict, command: bool = True) -> int:
     """Each test's share of the monthly budget (two manual tests are always budgeted for), at most
     PER_TEST_MAX for each engine."""
-    return int(min(PER_TEST_MAX * engines(cfg), cfg["budget_gb"] * 1e9 / (runs_per_month(cfg) + 2)))
+    return int(min(PER_TEST_MAX * engines(cfg, command), cfg["budget_gb"] * 1e9 / (runs_per_month(cfg) + 2)))
 
 
 def needed_bytes(cfg: dict, down_mbps: float, up_mbps: float = 0.0) -> int:
@@ -613,10 +616,10 @@ def validate(raw: dict, current: dict) -> dict:
     if not 5 <= out["max_busy_pct"] <= 100:
         raise ValueError("the busy limit must be between 5 and 100 %")
     out["run_on_backup"] = bool(raw.get("run_on_backup"))
-    # which built-in engine: Cloudflare, M-Lab or both (older forms and imports only sent "mlab")
+    # which engine: Cloudflare, M-Lab, both, or only your own command (older forms only sent "mlab")
     engine = raw.get("engine") or ("both" if raw.get("mlab") else "cloudflare")
     if engine not in ENGINES:
-        raise ValueError("the engine must be cloudflare, mlab or both")
+        raise ValueError("the engine must be cloudflare, mlab, both or command")
     out["engine"] = engine
     # M-Lab publishes each test with your IP: its own consent, and turning it off forgets the consent
     out["mlab"] = engine in ("mlab", "both")
@@ -711,10 +714,10 @@ class Runner:
                 self.store.set_settings({"_speed_blocked": {"ts": now, "reason": reason}}, bump=False)
             self.last_reason = reason
             return reason
-        cap = per_test_bytes(cfg)
+        cap = per_test_bytes(cfg, command is not None)
         trigger = "manual" if manual else kind
         extra = {}
-        cloudflare, mlab = uses(cfg)
+        cloudflare, mlab = uses(cfg, command is not None)
         if cfg.get("servers") or engine_of(cfg) != "cloudflare" or command is not None:
             extra = {"servers": cfg.get("servers") or [], "isp_asn": isp_asn,
                      "mark": lambda host: mark(host, isp_asn=isp_asn, data_dir=self.data_dir, online=self.asn_online)}

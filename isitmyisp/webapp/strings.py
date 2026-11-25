@@ -81,6 +81,7 @@ S = {
         "speed_schedule": "When", "speed_weekday": "Day", "speed_hour": "Hour (0-23)",
         "speed_budget": "Monthly data budget (GB)", "speed_busy": "Skip if the link is busier than (%)",
         "speed_budget_hint": "Cap per test: {per} (with your plan a test uses about {exp}). Used this month: {used} of {budget}.",
+        "speed_budget_hint_cmd": "Your own command can't be capped: with your plan a test uses about {exp}, counted afterwards. Used this month: {used} of {budget}; when it runs out, tests stop.",
         "speed_budget_short": "This budget is too small to measure your {down} Mbps plan: a test needs {need} and gets {per}, so it stops early and measures less than you have. Raise it to {gb} GB, or test less often.",
         "speed_dash_short": "The data budget is too small to measure your {down} Mbps plan: tests stop early and measure less than you have. Raise it to {gb} GB in Settings.",
         "speed_on_backup": "Also run on the backup link (careful with data caps)",
@@ -94,6 +95,7 @@ S = {
         "speed_engine_cloudflare": "Cloudflare (speed.cloudflare.com): the default, nothing is published",
         "speed_engine_mlab": "M-Lab: the nearest Measurement Lab server",
         "speed_engine_both": "Both: the plan is compared with the best of the two (uses twice the data)",
+        "speed_engine_command": "Only your own command (set in the config file): no Cloudflare or M-Lab",
         "speed_mlab_what": ("Measurement Lab's open servers (the ones behind Google's speed test) are in many more cities than "
                             "Cloudflare's test reaches at full speed. On some lines Cloudflare is the ceiling, not your ISP: "
                             "if your tests top out well below your plan, try M-Lab."),
@@ -518,6 +520,7 @@ S = {
         "speed_schedule": "Cuándo", "speed_weekday": "Día", "speed_hour": "Hora (0-23)",
         "speed_budget": "Presupuesto mensual de datos (GB)", "speed_busy": "No correr si el enlace está ocupado más de (%)",
         "speed_budget_hint": "Tope por prueba: {per} (con tu plan una prueba usa unos {exp}). Usado este mes: {used} de {budget}.",
+        "speed_budget_hint_cmd": "A tu propio comando no se le puede poner tope: con tu plan una prueba usa unos {exp}, que se cuentan después. Usado este mes: {used} de {budget}; cuando se acaba, no corren más pruebas.",
         "speed_budget_short": "Con este presupuesto no se puede medir tu plan de {down} Mbps: una prueba necesita {need} y tiene {per}, así que se corta antes y mide menos de lo que tenés. Subilo a {gb} GB, o probá menos seguido.",
         "speed_dash_short": "El presupuesto de datos no alcanza para medir tu plan de {down} Mbps: las pruebas se cortan antes y miden menos de lo que tenés. Subilo a {gb} GB en Ajustes.",
         "speed_on_backup": "Correr también en el enlace de respaldo (cuidado con los topes de datos)",
@@ -532,6 +535,7 @@ S = {
         "speed_engine_cloudflare": "Cloudflare (speed.cloudflare.com): el de siempre, no se publica nada",
         "speed_engine_mlab": "M-Lab: el servidor de Measurement Lab más cercano",
         "speed_engine_both": "Los dos: el plan se compara con el mejor (usa el doble de datos)",
+        "speed_engine_command": "Solo tu propio comando (del archivo de configuración): sin Cloudflare ni M-Lab",
         "speed_mlab_what": ("Los servidores abiertos de Measurement Lab (los que usa la prueba de velocidad de Google) están en "
                             "muchas más ciudades de las que la prueba de Cloudflare alcanza a toda velocidad. En algunas líneas "
                             "el techo es Cloudflare, no tu ISP: si tus pruebas quedan muy por debajo del plan, probá M-Lab."),

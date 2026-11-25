@@ -138,6 +138,8 @@ timeout = 120          # segundos
 
 Entiende la CLI de Ookla (`speedtest -f json`), el speedtest-cli de Python (`--json`), librespeed-cli (`--json`), iperf3 (`-J`) y un formato simple para tus scripts: `{"download_mbps": 930, "upload_mbps": 600, "ping_ms": 2.1, "server": "Nombre"}`. Corre como lista de argumentos, nunca a través de una shell, después de los motores incluidos, con el mismo horario y las mismas protecciones. Sus datos no se pueden topear, así que se descuentan del presupuesto después. Con Docker, montá la herramienta dentro del contenedor.
 
+Con el comando configurado, la elección de motor en **Configuración → Tu conexión** suma una cuarta opción, **Solo tu propio comando**: la prueba corre únicamente tu herramienta, sin Cloudflare ni M-Lab, y el plan se compara solo con su resultado.
+
 #### Desde otra máquina
 
 La máquina que corre isitmyisp no siempre es la indicada para medir: una Raspberry Pi por Wi-Fi, o un procesador que no llega a 1 Gbps. Cualquier otra máquina puede mandarle sus resultados. En **Configuración → Tu conexión → Resultados de otra máquina**, generá un token. Después, desde esa máquina (por ejemplo, con un cron en una PC por cable):

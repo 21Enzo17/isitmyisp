@@ -138,6 +138,8 @@ timeout = 120          # seconds
 
 It understands Ookla's CLI (`speedtest -f json`), the Python speedtest-cli (`--json`), librespeed-cli (`--json`), iperf3 (`-J`) and a plain format for your scripts: `{"download_mbps": 930, "upload_mbps": 600, "ping_ms": 2.1, "server": "Name"}`. It runs as an argument list, never through a shell, after the built-in engines, with the same schedule and guards. Its data can't be capped, so it's counted against the budget afterwards. With Docker, mount the tool into the container.
 
+Once the command is set, the engine choice in **Settings → Your connection** gains a fourth option, **Only your own command**: the test then runs just your tool, without Cloudflare or M-Lab, and the plan is compared with its result alone.
+
 #### From another machine
 
 The machine running isitmyisp is not always the one to measure with: a Raspberry Pi on Wi-Fi, or a CPU that can't keep up with 1 Gbps. Any other machine can send its results. In **Settings → Your connection → Results from another machine**, make a token. Then, from that machine (for example, a cron job on a PC on the cable):

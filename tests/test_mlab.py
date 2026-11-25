@@ -183,6 +183,12 @@ class Choice(unittest.TestCase):
         old = {k: v for k, v in ON.items() if k != "engine"}
         self.assertEqual(sp.engine_of({**old, "mlab": True}), "both")                   # saved before 0.7.1
         self.assertEqual(sp.engines({**ON, "engine": "mlab", "mlab_accepted": True}), 1)
+        only = {**ON, "engine": "command"}
+        self.assertEqual(sp.uses(only), (False, False))                                 # only your command
+        self.assertEqual(sp.uses(only, command=False), (True, False))                   # none set: Cloudflare
+        self.assertEqual(sp.per_test_bytes(only), 0)
+        self.assertGreater(sp.per_test_bytes(only, command=False), 0)
+        self.assertIsNone(sp.budget_short(only, 1000, 600))
 
     def test_validate_keeps_the_choice(self):
         got = sp.validate({"enabled": True, "accepted": True, "engine": "mlab", "mlab_accepted": True}, ON)
@@ -208,7 +214,8 @@ class Consent(unittest.TestCase):
             try:
                 for cfg, want, cf in (({**ON, "schedule": "manual", "mlab": True, "mlab_accepted": True}, True, True),
                                       ({**ON, "schedule": "manual", "mlab": True, "mlab_accepted": False}, False, True),
-                                      ({**ON, "schedule": "manual", "engine": "mlab", "mlab_accepted": True}, True, False)):
+                                      ({**ON, "schedule": "manual", "engine": "mlab", "mlab_accepted": True}, True, False),
+                                      ({**ON, "schedule": "manual", "engine": "command"}, False, True)):
                     got, done = {}, threading.Event()
 
                     def fake_run(cap, got=got, done=done, **kw):

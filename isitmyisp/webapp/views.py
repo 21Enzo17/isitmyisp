@@ -618,14 +618,14 @@ def speed_status(store: Store, settings: Settings, now: float | None = None) -> 
     used = sum(int(r.get("bytes_used") or 0) for r in month)
     contract_down = float(settings.link.get("down_mbps") or 0)
     contract_up = float(settings.link.get("up_mbps") or 0)
-    per_test = sp.per_test_bytes(cfg)
     command = getattr(settings, "speed_command", None)
-    engines = sp.engines(cfg) + (1 if command else 0)
+    per_test = sp.per_test_bytes(cfg, command is not None)
+    engines = sp.engines(cfg, command is not None) + (1 if command else 0)
     # what one test really uses: the cap, or less if the plan can't move that much in the test time
     expected = per_test
     if contract_down:   # every engine (Cloudflare, M-Lab, each iperf3 server) moves up to that
         one = (contract_down * sp.DOWN_SECONDS + (contract_up or contract_down) * sp.UP_SECONDS) * 1e6 / 8
-        expected = min(per_test, int(one * engines))
+        expected = min(per_test, int(one * engines)) if per_test else int(one)   # only the command: uncapped
     blocked = store.get_setting("_speed_blocked")
     if blocked and now - blocked.get("ts", 0) > 3600:
         blocked = None
@@ -643,7 +643,7 @@ def speed_status(store: Store, settings: Settings, now: float | None = None) -> 
             "max_servers": sp.MAX_SERVERS, "iperf": sp.iperf_available(),
             "push": bool(store.get_setting("_speed_push_token")),
             "peak": sp.peak_vs_night(history, now),
-            "engine": cfg["engine"],
+            "engine": cfg["engine"] if command or cfg["engine"] != "command" else "cloudflare",
             "short": sp.budget_short(cfg, contract_down, contract_up) if on else None,
             "where": sp.locate(history[0], contract_down) if history else None}
 
