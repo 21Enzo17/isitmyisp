@@ -23,6 +23,12 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
   token in Settings → Connection (its own token, not the Prometheus one; new token and off buttons).
   Pushed tests use none of the budget, and are rate limited.
 
+- **Peak-hour speed test** (#115): an optional second scheduled test at the hour everyone is online
+  (21:00 by default), on the same days as the usual one. The dashboard compares the two ("at peak
+  hour: 450 Mbps, 50% of the usual test's 900") and says when the line slows down in the evening.
+  On the same engines that is the ISP's congestion, whatever the engine's own ceiling. It doubles
+  the tests, so each gets half the budget, and it keeps the usual guards (busy link, incident, backup).
+
 ### Changed
 - **The plan is compared with each test's best figure**, from whichever engine or server gave it
   (Cloudflare, M-Lab, your iperf3 servers), on the dashboard, the report and the monthly summary. A

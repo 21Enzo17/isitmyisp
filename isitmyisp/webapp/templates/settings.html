@@ -184,6 +184,11 @@
         <div><label for="sh">{{ t.speed_hour }}</label><input type="number" min="0" max="23" id="sh" name="hour" value="{{ sc.hour }}" {{ 'disabled' if readonly }}></div>
       </div>
       <div class="form-row">
+        <div><label class="check"><input type="checkbox" name="peak" value="1" {{ 'checked' if sc.peak }} {{ 'disabled' if readonly }}> {{ t.speed_peak }}</label></div>
+        <div><label for="sph">{{ t.speed_peak_hour }}</label><input type="number" min="0" max="23" id="sph" name="peak_hour" value="{{ sc.peak_hour }}" {{ 'disabled' if readonly }}></div>
+      </div>
+      <p class="muted small">{{ t.speed_peak_hint }}</p>
+      <div class="form-row">
         <div><label for="sb">{{ t.speed_budget }}</label><input type="number" step="0.5" min="0.5" max="500" id="sb" name="budget_gb" value="{{ sc.budget_gb }}" {{ 'disabled' if readonly }}></div>
         <div><label for="sm">{{ t.speed_busy }}</label><input type="number" min="5" max="100" id="sm" name="max_busy_pct" value="{{ sc.max_busy_pct }}" {{ 'disabled' if readonly }}></div>
       </div>

@@ -382,6 +382,8 @@
       {% if sp.where %}<p class="speed-where-says{{ ' bad' if sp.where.code != 'even' }}">{{ speed_where_text(sp.where, lang) }}</p>{% endif %}
       {% endif %}
       {% if r.wireless %}<p class="speed-warn">{{ t.speed_wifi_result }}</p>{% endif %}
+      {% if sp.peak %}<p class="speed-where-says{{ ' bad' if sp.peak.pct < 80 }}">{{ t.speed_peak_vs.format(peak='%.0f'|format(sp.peak.peak), night='%.0f'|format(sp.peak.night), pct=sp.peak.pct) }}
+        {{ t.speed_peak_bad if sp.peak.pct < 80 else t.speed_peak_ok }}</p>{% endif %}
       {% endif %}
       {% endif %}
       {% if sp.on %}

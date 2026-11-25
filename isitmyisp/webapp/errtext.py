@@ -143,6 +143,8 @@ _ES: list[tuple[str, str | Callable[..., str]]] = [
     (r"at most (.+?) iperf3 servers", "Como máximo {0} servidores iperf3."),
     (r"to use M-Lab, confirm that it publishes each test with your public IP",
      "Para usar M-Lab, confirmá que entendés que publica cada prueba con tu IP pública."),
+    (r"the peak-hour test needs a different hour from the usual one",
+     "La prueba en hora pico necesita una hora distinta de la de siempre."),
     # monthly report
     (r"day and hour must be whole numbers", "El día y la hora tienen que ser números enteros."),
     (r"the day must be between 1 and 28 .*", "El día tiene que estar entre 1 y 28 (todos los meses lo tienen)."),
