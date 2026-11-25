@@ -342,7 +342,7 @@
       <p class="muted">{{ t.speed_dash_none }}</p>
       {% else %}
       {% set r = sp.last %}
-      {% if r.error %}<p class="muted">{{ t.speed_dash_error.format(when=r.ts|when, err=r.error) }}</p>{% else %}
+      {% if r.error and not (sp.best.down or sp.best.up) %}<p class="muted">{{ t.speed_dash_error.format(when=r.ts|when, err=r.error) }}</p>{% else %}
       <div class="meters">
         {% for label, mbps, contract in [(t.link_down, sp.best.down, sp.contract_down), (t.link_up, sp.best.up, sp.contract_up)] %}
         {% set pct = (100 * mbps / contract) if (mbps and contract) else none %}
@@ -371,7 +371,9 @@
       <table class="speed-where">
         <thead><tr><th>{{ t.speed_server }}</th><th>{{ t.speed_side }}</th><th class="num">{{ t.link_down }}</th><th class="num">{{ t.link_up }}</th></tr></thead>
         <tbody>
-          {% if r.trigger != 'push' %}<tr><td>speed.cloudflare.com</td><td>{{ speed_side(r.where, lang) }}</td><td class="num">{{ '%.0f'|format(r.down_mbps or 0) }}</td><td class="num">{{ '%.0f'|format(r.up_mbps or 0) }}</td></tr>{% endif %}
+          {% if r.trigger != 'push' %}<tr><td>speed.cloudflare.com</td><td>{{ speed_side(r.where, lang) }}</td>
+            {% if r.error %}<td colspan="2" class="muted small">{{ r.error }}</td>
+            {% else %}<td class="num">{{ '%.0f'|format(r.down_mbps or 0) }}</td><td class="num">{{ '%.0f'|format(r.up_mbps or 0) }}</td>{% endif %}</tr>{% endif %}
           {% for s in r.servers %}
           <tr><td>{{ s.name }}{% if s.asn %} <span class="muted small">{{ s.asn }}</span>{% endif %}{% if s.rtt_ms is not none and s.rtt_ms is defined %} <span class="muted small">{{ '%.0f'|format(s.rtt_ms) }} ms</span>{% endif %}</td><td>{{ speed_side(s.where, lang) }}</td>
             {% if s.error %}<td colspan="2" class="muted small">{{ s.error }}</td>

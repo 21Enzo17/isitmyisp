@@ -202,5 +202,25 @@ class Metrics(unittest.TestCase):
             self.assertIn("isitmyisp_speedtest_peak_ratio 0.5", body)
             store.close()
 
+    def test_a_cloudflare_error_keeps_the_other_engines(self):
+        """Cloudflare refused the test (HTTP 429) but M-Lab measured: the test still counts."""
+        mlab = {"name": "M-Lab", "engine": "mlab", "where": None, "down_mbps": 508.4, "up_mbps": 725.3, "error": None}
+        with tempfile.TemporaryDirectory() as d:
+            store = Store(Path(d) / "m.db")
+            now = T0 + 86400
+            store.add_speedtest(sp.Result(ts=now - 20 * 3600, down_mbps=900.0, up_mbps=600.0, trigger="scheduled"))
+            store.add_speedtest(sp.Result(ts=now - 3600, trigger="peak", servers=[mlab],
+                                          error="Cloudflare is limiting tests from this IP (HTTP 429)"))
+            body = metrics_text(store, now=now)
+            self.assertIn("isitmyisp_speedtest_download_mbps 508.4", body)
+            self.assertIn('isitmyisp_speedtest_engine_download_mbps{engine="mlab",name="M-Lab"} 508.4', body)
+            self.assertNotIn('engine="cloudflare"', body)                            # its part failed
+            self.assertIn('isitmyisp_speedtest_trigger_download_mbps{trigger="peak"} 508.4', body)
+            self.assertIn("isitmyisp_speedtest_peak_ratio 0.565", body)
+            store.add_speedtest(sp.Result(ts=now - 60, trigger="manual", servers=[{**mlab, "error": "timed out"}],
+                                          error="network unreachable"))
+            self.assertIn("isitmyisp_speedtest_download_mbps 508.4", metrics_text(store, now=now))  # nothing measured
+            store.close()
+
 if __name__ == "__main__":
     unittest.main()

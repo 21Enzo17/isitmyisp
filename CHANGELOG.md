@@ -3,6 +3,15 @@
 Versions follow [semantic versioning](https://semver.org). Each release has a Docker image
 (`21enzo03/isitmyisp:<version>` on Docker Hub, amd64 and arm64) and a git tag `v<version>`.
 
+## [Unreleased]
+
+### Fixed
+- **A Cloudflare error no longer hides the other engines.** When Cloudflare refused the test (for
+  example HTTP 429) but M-Lab, iperf3 or your own command measured, the whole test showed as failed:
+  the dashboard printed only the error, and `/metrics`, the peak-hour comparison and the TV board left
+  it out. Now the test counts with what did measure, and Cloudflare's row in the table says why it
+  has no figure.
+
 ## [0.7.0] - 2026-11-25
 
 ### Added

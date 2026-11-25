@@ -514,7 +514,7 @@ def peak_vs_night(history: list[dict], now: float) -> dict | None:
     """The latest peak-hour test against the latest usual (night) one, by each test's best figure.
     On the same engines a lower figure at the peak is the ISP's congestion, whatever the engine's ceiling."""
     def latest(trigger):
-        return next((r for r in history if r.get("trigger") == trigger and not r.get("error")
+        return next((r for r in history if r.get("trigger") == trigger
                      and r["ts"] >= now - PEAK_DAYS * 86400 and best(r).get("down")), None)
     peak, night = latest("peak"), latest("scheduled")
     if not (peak and night):

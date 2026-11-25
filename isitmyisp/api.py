@@ -98,7 +98,7 @@ def metrics_text(store: Store, now: float | None = None) -> str:
     by_trigger = {}
     for res in recent:
         trig = res.get("trigger") or "manual"
-        if trig not in by_trigger and not res.get("error") and sp.best(res)["down"]:
+        if trig not in by_trigger and sp.best(res)["down"]:
             by_trigger[trig] = sp.best(res)
     metric("speedtest_trigger_download_mbps", "Best download of the latest test of each kind (scheduled, peak, "
            "manual, push), from the last two weeks.", "gauge",

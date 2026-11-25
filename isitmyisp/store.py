@@ -459,10 +459,14 @@ class Store:
         return {(r[0], r[1]): float(r[2] or 0) for r in rows}
 
     def latest_speedtest(self) -> dict | None:
-        """The latest speed test that finished without an error."""
+        """The latest speed test that measured something: Cloudflare without an error, or another engine
+        (M-Lab, iperf3, a command) that did, even if Cloudflare's own part failed."""
+        def measured(d):
+            return not d.get("error") or any(not s.get("error") and (s.get("down_mbps") or s.get("up_mbps"))
+                                             for s in d.get("servers") or [])
         with self._lock:
             rows = self.db.execute("SELECT data FROM speedtests ORDER BY ts DESC LIMIT 20").fetchall()
-        return next((d for d in (json.loads(r[0]) for r in rows) if not d.get("error")), None)
+        return next((d for d in (json.loads(r[0]) for r in rows) if measured(d)), None)
 
     def latest_link_usage(self) -> tuple | None:
         with self._lock:
