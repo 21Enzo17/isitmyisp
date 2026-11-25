@@ -17,12 +17,18 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
   engines, on the same schedule and budget, and its result joins the comparison with the plan.
   isitmyisp ships none of these tools and accepts no licence for you. The command can't be set from
   the web UI, so an admin page or a forged form can't make it run anything.
+- **Speed test results from another machine** (#115): `POST /api/speedtest` takes the JSON output of
+  any tool the own engine reads (`speedtest -f json | curl -H "Authorization: Bearer …" --data-binary @- …`),
+  so the PC on the cable can measure and isitmyisp shows it with the rest. Off until an admin makes a
+  token in Settings → Connection (its own token, not the Prometheus one; new token and off buttons).
+  Pushed tests use none of the budget, and are rate limited.
 
 ### Changed
 - **The plan is compared with each test's best figure**, from whichever engine or server gave it
   (Cloudflare, M-Lab, your iperf3 servers), on the dashboard, the report and the monthly summary. A
   server can only measure less than your line, never more, so a slow far server no longer reads as
   your ISP falling short. The dashboard says which server the figure came from.
+- The TV board's speed meters show that best figure too, as the dashboard does.
 
 ### Fixed
 - **No more blind spot every 15 minutes**: the periodic re-discovery ran with the probes stopped, so

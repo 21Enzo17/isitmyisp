@@ -230,11 +230,19 @@ def run(command, *, mark: Callable[[str], dict] | None = None, runner=subprocess
         why, base = str(_why(proc) if failed else exc), os.path.basename(argv[0])
         out["error"] = why if why.startswith(f"{base}:") else f"{base}: {why}"
         return out
-    if not command.name and LABELS.get(fmt):
-        label = LABELS[fmt]
-    out["name"] = f"{label} · {got['server']}"[:60] if got["server"] and got["server"] != label else label
-    out.update({"down_mbps": got["down_mbps"], "up_mbps": got["up_mbps"], "rtt_ms": got["ping_ms"],
-                "url": got["url"] if str(got["url"] or "").startswith("https://") else None})
+    out.update(entry(fmt, got, name=command.name, fallback=label, mark=mark))
+    return out
+
+
+def entry(fmt: str, got: dict, *, name: str = "", fallback: str = "", engine: str = ENGINE,
+          mark: Callable[[str], dict] | None = None) -> dict:
+    """One parsed result as a server of the test (see speedtest.run_server): named after the tool
+    (or `name`) and its server, its bytes, and which side of the ISP that server is on."""
+    label = name or LABELS.get(fmt) or fallback or fmt
+    out = {"name": f"{label} · {got['server']}"[:60] if got["server"] and got["server"] != label else label,
+           "engine": engine, "where": None, "forced": False, "asn": None, "as_name": None,
+           "down_mbps": got["down_mbps"], "up_mbps": got["up_mbps"], "error": None, "rtt_ms": got["ping_ms"],
+           "url": got["url"] if str(got["url"] or "").startswith("https://") else None}
     # what it moved; if the tool doesn't say, what those rates move in a test as long as ours
     out["bytes"] = got["bytes"] or int(((got["down_mbps"] or 0) * DOWN_SECONDS + (got["up_mbps"] or 0) * UP_SECONDS) * 1e6 / 8)
     if got["host"] and mark:
