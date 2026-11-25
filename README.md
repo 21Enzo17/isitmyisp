@@ -146,7 +146,7 @@ python -m unittest discover -s tests -t .  # needs the web extra; without it, se
 isitmyisp demo --static site               # the demo as a static site (what the live demo is)
 pip install markdown && python3 scripts/build_docs.py site   # the docs site into site/docs
 python3 scripts/screenshots.py             # regenerate docs/screenshots from synthetic data (needs Docker)
-scripts/release.sh                         # tests, the multi-arch image on Docker Hub, the tag
+scripts/release.sh                         # tests, the multi-arch image on Docker Hub, the tag (--dry-run, --yes)
 ```
 Work happens in branches (`feat/…`, `fix/…`, `docs/…`) with a pull request that closes its issue.
 
