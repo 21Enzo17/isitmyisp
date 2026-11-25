@@ -35,7 +35,9 @@ Es normal en muchos routers y firewalls de empresa: le dan baja prioridad a los 
 
 Puede ser el ISP o algo de tu lado: otros equipos usando internet en ese momento, o el Wi-Fi del equipo que mide. El resultado avisa cuando el límite parece ser tu Wi-Fi. Si conectaste el router por SNMP, también muestra todo lo que pasaba por la WAN durante el test.
 
-Cloudflare solo no dice si lo lento es tu acceso o la salida del ISP al resto de internet. Con un servidor iperf3 propio dentro de tu ISP y otro fuera, el resultado dice dónde está el cuello de botella. Ver [Dentro y fuera de tu ISP](features.md#dentro-y-fuera-de-tu-isp).
+También puede ser el servidor. Un test de velocidad mide el camino hasta su servidor, y con algunos ISP el techo es el propio Cloudflare: en una fibra de 1000 Mbps donde Cloudflare daba 490, M-Lab y el servidor de Ookla del propio ISP daban más de 900. Por eso tu plan se compara con la mejor cifra de cada prueba, y por eso podés sumar [otros motores](features.md#motores): M-Lab, tu propia herramienta o los resultados de una PC por cable.
+
+Cloudflare solo no dice si lo lento es tu acceso o la salida del ISP al resto de internet. Con un servidor iperf3 propio dentro de tu ISP y otro fuera, el resultado dice dónde está el cuello de botella. Ver [Dentro y fuera de tu ISP](features.md#dentro-y-fuera-de-tu-isp). Y una [prueba en hora pico](features.md#hora-pico) muestra si la línea se pone lenta a la noche.
 
 ## No me llegan las alertas
 
