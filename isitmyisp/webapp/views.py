@@ -642,6 +642,7 @@ def speed_status(store: Store, settings: Settings, now: float | None = None) -> 
             "max_servers": sp.MAX_SERVERS, "iperf": sp.iperf_available(),
             "push": bool(store.get_setting("_speed_push_token")),
             "peak": sp.peak_vs_night(history, now),
+            "short": sp.budget_short(cfg, contract_down, contract_up) if on else None,
             "where": sp.locate(history[0], contract_down) if history else None}
 
 

@@ -98,7 +98,7 @@ Los caminos se comparan por red (/24) y por organización, así que no necesita 
 Cuando está activado:
 
 - Corre semanalmente (por defecto, el domingo a las 3), todos los días a la hora que elijas, o solo cuando apretás "probar ahora". Si querés, también en [hora pico](#hora-pico).
-- Respeta un presupuesto mensual de datos (5 GB por defecto).
+- Respeta un presupuesto mensual de datos (5 GB por defecto). Un plan rápido necesita más: 1000/600 Mbps con Cloudflare y M-Lab y la prueba en hora pico usa unos 3 GB por prueba, 40 GB al mes. Si el presupuesto no alcanza, la prueba se corta antes y mide menos de lo que tenés, y Ajustes y el panel te avisan cuánto poner.
 - Nunca corre en el enlace de respaldo ni pasado el presupuesto.
 - La prueba programada además espera si hay un incidente o el enlace está ocupado (más del 30 % por defecto). "Probar ahora" corre igual: la pediste vos.
 - Mide contra speed.cloudflare.com, que ve tu IP pública, y contra cualquier otro [motor](#motores) que actives.

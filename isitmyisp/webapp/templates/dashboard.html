@@ -389,6 +389,7 @@
       {% endif %}
       {% endif %}
       {% if sp.on %}
+      {% if sp.short %}<p class="speed-warn"><a href="{{ url_for('settings_page', tab='connection') }}#speed">{{ t.speed_dash_short.format(down='%.0f'|format(sp.contract_down), gb='%.0f'|format(sp.short.budget_gb)) }}</a></p>{% endif %}
       <p class="muted small">{{ t.speed_dash_budget.format(used=sp.used|size, budget=sp.budget|size) }}
         {% if sp.next %}{{ t.speed_dash_next.format(when=sp.next|when) }}{% endif %}</p>
       {% if sp.pending %}<p class="muted small">{{ t.speed_pending }}</p>

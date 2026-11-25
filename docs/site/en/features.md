@@ -98,7 +98,7 @@ Would a call sound good right now? An estimated MOS from 1 to 5 (ITU-T G.107 E-m
 When it's on:
 
 - It runs weekly (Sunday at 3 a.m. by default), daily at the hour you pick, or only when you press "test now". Optionally also at [peak hour](#peak-hour).
-- It keeps to a monthly data budget (5 GB by default).
+- It keeps to a monthly data budget (5 GB by default). A fast plan needs more: 1000/600 Mbps with Cloudflare, M-Lab and the peak-hour test uses about 3 GB a test, 40 GB a month. When the budget is too small, the test stops early and measures less than you have, and Settings and the dashboard tell you what to set.
 - It never runs on the backup link or over the budget.
 - A scheduled test also waits out an incident and a busy link (above 30 % by default). "Test now" runs anyway: you asked for it.
 - It measures against speed.cloudflare.com, which sees your public IP, and against any other [engine](#engines) you turn on.

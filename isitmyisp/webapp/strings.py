@@ -81,6 +81,8 @@ S = {
         "speed_schedule": "When", "speed_weekday": "Day", "speed_hour": "Hour (0-23)",
         "speed_budget": "Monthly data budget (GB)", "speed_busy": "Skip if the link is busier than (%)",
         "speed_budget_hint": "Cap per test: {per} (with your plan a test uses about {exp}). Used this month: {used} of {budget}.",
+        "speed_budget_short": "This budget is too small to measure your {down} Mbps plan: a test needs {need} and gets {per}, so it stops early and measures less than you have. Raise it to {gb} GB, or test less often.",
+        "speed_dash_short": "The data budget is too small to measure your {down} Mbps plan: tests stop early and measure less than you have. Raise it to {gb} GB in Settings.",
         "speed_on_backup": "Also run on the backup link (careful with data caps)",
         "speed_servers": "Your own iperf3 servers (optional, one per line)",
         "speed_servers_hint": ("Up to {max}: your VPS, another branch, or a server inside your ISP's network. Format: host[:port], "
@@ -512,6 +514,8 @@ S = {
         "speed_schedule": "Cuándo", "speed_weekday": "Día", "speed_hour": "Hora (0-23)",
         "speed_budget": "Presupuesto mensual de datos (GB)", "speed_busy": "No correr si el enlace está ocupado más de (%)",
         "speed_budget_hint": "Tope por prueba: {per} (con tu plan una prueba usa unos {exp}). Usado este mes: {used} de {budget}.",
+        "speed_budget_short": "Con este presupuesto no se puede medir tu plan de {down} Mbps: una prueba necesita {need} y tiene {per}, así que se corta antes y mide menos de lo que tenés. Subilo a {gb} GB, o probá menos seguido.",
+        "speed_dash_short": "El presupuesto de datos no alcanza para medir tu plan de {down} Mbps: las pruebas se cortan antes y miden menos de lo que tenés. Subilo a {gb} GB en Ajustes.",
         "speed_on_backup": "Correr también en el enlace de respaldo (cuidado con los topes de datos)",
         "speed_servers": "Tus servidores iperf3 (opcional, uno por línea)",
         "speed_servers_hint": ("Hasta {max}: tu VPS, otra sucursal o un servidor dentro de la red de tu ISP. Formato: host[:puerto], "

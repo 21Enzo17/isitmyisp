@@ -34,6 +34,7 @@ from __future__ import annotations
 import bisect
 import calendar
 import json
+import math
 import re
 import shutil
 import socket
@@ -63,7 +64,8 @@ UP_CHUNK = 20_000_000  # bytes per upload request, sent and counted in BLOCK pie
 BLOCK = 262_144
 UA = f"isitmyisp/{__version__} (+speed test)"
 SCHEDULES = ("weekly", "daily", "manual")
-PER_TEST_MAX = 2_000_000_000  # enough for 1 Gbps down for 8 s plus the upload; never more per test
+PER_TEST_MAX = 3_000_000_000  # per engine: enough for 2 Gbps down for 8 s or 1 Gbps up for 6 s; never more
+DOWN_SHARE = 0.7      # of each engine's share of the cap; the rest is the upload's
 
 CLOUDFLARE_ASN = "AS13335"
 IPERF_PORT = 5201
@@ -306,7 +308,7 @@ def _run_cloudflare(max_bytes: int, *, wireless, trigger, counters, opener, ping
                                   daemon=True)
         before = counters() if counters else None
         t_down = clock()
-        down = _Meter(int(max_bytes * 0.7), clock)
+        down = _Meter(int(max_bytes * DOWN_SHARE), clock)
         pinger.start()
         _download(down, down_seconds, opener)
         after = counters() if counters else None
@@ -316,7 +318,7 @@ def _run_cloudflare(max_bytes: int, *, wireless, trigger, counters, opener, ping
         res.loaded_ms = round(statistics.median(loaded), 1) if loaded else None
         if before and after and down_span > 0 and after[0] >= before[0]:
             res.wan_down_mbps = round((after[0] - before[0]) * 8 / down_span / 1e6, 1)
-        up = _Meter(int(max_bytes * 0.3), clock)
+        up = _Meter(int(max_bytes * (1 - DOWN_SHARE)), clock)
         _upload(up, up_seconds, opener)
         res.up_mbps = up.p90()
         res.bytes_used = down.total + up.total
@@ -383,9 +385,9 @@ def run_server(srv: dict, max_bytes: int, *, mark: Callable[[str], dict] | None 
         iperf = _iperf3
     port = int(srv.get("port", IPERF_PORT))
     try:
-        out["down_mbps"], down = iperf(srv["host"], port, int(max_bytes * 0.7), reverse=True, seconds=down_seconds)
+        out["down_mbps"], down = iperf(srv["host"], port, int(max_bytes * DOWN_SHARE), reverse=True, seconds=down_seconds)
         out["bytes"] += down
-        out["up_mbps"], up = iperf(srv["host"], port, int(max_bytes * 0.3), reverse=False, seconds=up_seconds)
+        out["up_mbps"], up = iperf(srv["host"], port, int(max_bytes * (1 - DOWN_SHARE)), reverse=False, seconds=up_seconds)
         out["bytes"] += up
     except SpeedError as exc:
         out["error"] = str(exc)
@@ -465,9 +467,36 @@ def runs_per_month(cfg: dict) -> int:
     return runs * 2 if cfg.get("peak") else runs   # the peak-hour test is a second one per slot
 
 
+def engines(cfg: dict) -> int:
+    """The engines that share a test's byte cap: Cloudflare, M-Lab (if on and accepted), each iperf3 server.
+    Your own command isn't one: it can't be capped."""
+    return 1 + len(cfg.get("servers") or []) + (1 if cfg.get("mlab") and cfg.get("mlab_accepted") else 0)
+
+
 def per_test_bytes(cfg: dict) -> int:
-    """Each test's share of the monthly budget (two manual tests are always budgeted for)."""
-    return int(min(PER_TEST_MAX, cfg["budget_gb"] * 1e9 / (runs_per_month(cfg) + 2)))
+    """Each test's share of the monthly budget (two manual tests are always budgeted for), at most
+    PER_TEST_MAX for each engine."""
+    return int(min(PER_TEST_MAX * engines(cfg), cfg["budget_gb"] * 1e9 / (runs_per_month(cfg) + 2)))
+
+
+def needed_bytes(cfg: dict, down_mbps: float, up_mbps: float = 0.0) -> int:
+    """The cap one test needs so that no engine stops before its time on a line this fast."""
+    down = down_mbps * 1e6 / 8 * DOWN_SECONDS / DOWN_SHARE
+    up = (up_mbps or down_mbps) * 1e6 / 8 * UP_SECONDS / (1 - DOWN_SHARE)
+    return int(max(down, up) * engines(cfg))
+
+
+def budget_short(cfg: dict, down_mbps: float, up_mbps: float = 0.0) -> dict | None:
+    """When the monthly budget is too small to measure a plan this fast: {"need", "budget_gb"} (the cap
+    a test needs, and the budget that gives it), or None. None too without a plan to compare with,
+    or when no budget would do (a plan past PER_TEST_MAX)."""
+    if not down_mbps:
+        return None
+    need = needed_bytes(cfg, down_mbps, up_mbps)
+    if per_test_bytes(cfg) >= need or need > PER_TEST_MAX * engines(cfg):
+        return None
+    gb = need * (runs_per_month(cfg) + 2) / 1e9
+    return {"need": need, "budget_gb": float(math.ceil(gb / 5) * 5)}
 
 
 def last_slot(cfg: dict, now: float, hour: int | None = None) -> float | None:

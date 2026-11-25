@@ -112,6 +112,18 @@ class Web(WebAppBase):
         self.assertIn("The line slows down in the evening", html)
         self.assertIn("(peak hour)", html)
 
+    def test_a_small_budget_is_flagged(self):
+        self.create_admin()
+        self.store.set_settings({"speedtest": {**ON, "mlab": True, "mlab_accepted": True, "peak": True, "budget_gb": 15},
+                                 "link": {"down_mbps": 1000, "up_mbps": 600}})
+        html = self.client.get("/?lang=en").get_data(as_text=True)
+        self.assertIn("too small to measure your 1000 Mbps plan", html)
+        self.assertIn("Raise it to 40 GB in Settings", html)
+        page = self.client.get("/settings/connection?lang=en").get_data(as_text=True)
+        self.assertIn("a test needs 3.0 GB", page)
+        self.store.set_settings({"speedtest": {**ON, "mlab": True, "mlab_accepted": True, "peak": True, "budget_gb": 40}})
+        self.assertNotIn("too small to measure", self.client.get("/?lang=en").get_data(as_text=True))
+
     def test_a_cloudflare_error_still_shows_m_lab(self):
         self.create_admin()
         self.store.set_settings({"speedtest": {**ON, "mlab": True, "mlab_accepted": True}})

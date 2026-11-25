@@ -5,12 +5,20 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
 
 ## [0.7.1] - 2026-11-25
 
+### Added
+- **A warning when the budget is too small for your plan.** Settings and the dashboard say how much a
+  test needs and what monthly budget gives it (for 1000/600 Mbps with Cloudflare, M-Lab and the
+  peak-hour test: 40 GB).
+
 ### Fixed
 - **A Cloudflare error no longer hides the other engines.** When Cloudflare refused the test (for
   example HTTP 429) but M-Lab, iperf3 or your own command measured, the whole test showed as failed:
   the dashboard printed only the error, and `/metrics`, the peak-hour comparison and the TV board left
   it out. Now the test counts with what did measure, and Cloudflare's row in the table says why it
   has no figure.
+- **A fast plan can be measured whole.** The data cap of a test was 2 GB in all, split between the
+  engines: with Cloudflare and M-Lab on a 1000/600 Mbps line, each stopped early and measured less,
+  whatever the budget. The cap is now 3 GB for each engine.
 
 ## [0.7.0] - 2026-11-25
 
