@@ -443,6 +443,10 @@ html.tv-board body { overflow: hidden; height: 100%; font-size: 1rem; }
 .preset-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px 24px; margin-top: 10px; }
 .presets fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .presets legend { font-size: 13.5px; color: var(--ink-2); font-weight: 600; margin-bottom: 4px; }
+/* speed test: the M-Lab engine, its own consent */
+fieldset.mlab { border: 0; border-top: 1px solid var(--line); margin: 18px 0 4px; padding: 12px 0 0; min-width: 0; }
+fieldset.mlab legend { font-size: 13.5px; color: var(--ink-2); font-weight: 600; padding: 0 6px 0 0; }
+fieldset.mlab p { margin: 4px 0 0; }
 label.check.preset { align-items: flex-start; margin: 8px 0; }
 label.check.preset input { margin-top: 3px; }
 label.check.preset > span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }

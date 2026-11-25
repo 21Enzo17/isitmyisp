@@ -179,11 +179,12 @@ def summary(store: Store, start: float, end: float, lang: str, public_url: str =
     calls = call_periods(store, start, end)
     if calls:
         lines.append(t["calls"].format(pct=f"{calls[0]:.1f}%"))
-    tests = [r for r in store.speedtests_between(start, end) if not r.get("error") and r.get("down_mbps")]
-    if tests:
+    from .speedtest import best
+    tests = [b for r in store.speedtests_between(start, end) if (b := best(r))["down"]]
+    if tests:   # each test's best figure: a server can only measure less than the line, never more
         import statistics
-        down = statistics.median(r["down_mbps"] for r in tests)
-        up = statistics.median(r.get("up_mbps") or 0 for r in tests)
+        down = statistics.median(b["down"] for b in tests)
+        up = statistics.median(b["up"] or 0 for b in tests)
         plan = float((store.get_setting("link") or {}).get("down_mbps") or 0)
         lines.append(t["speed"].format(down=f"{down:.0f}", up=f"{up:.0f}",
                                        pct=f"{100 * down / plan:.0f}%" if plan else "—"))

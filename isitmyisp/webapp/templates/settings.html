@@ -189,6 +189,11 @@
       </div>
       <p class="muted small">{{ t.speed_budget_hint.format(per=speed.per_test|size, exp=speed.expected|size, used=speed.used|size, budget=speed.budget|size) }}</p>
       <label class="check"><input type="checkbox" name="run_on_backup" value="1" {{ 'checked' if sc.run_on_backup }} {{ 'disabled' if readonly }}> {{ t.speed_on_backup }}</label>
+      <fieldset class="mlab"><legend>{{ t.speed_mlab_h }}</legend>
+        <p class="muted small">{{ t.speed_mlab_what }}</p>
+        <label class="check"><input type="checkbox" name="mlab" value="1" {{ 'checked' if sc.mlab }} {{ 'disabled' if readonly }}> {{ t.speed_mlab_enable }}</label>
+        <label class="check"><input type="checkbox" name="mlab_accepted" value="1" {{ 'checked' if sc.mlab_accepted }} {{ 'disabled' if readonly }}> {{ t.speed_mlab_accept }}</label>
+      </fieldset>
       <label for="ssrv">{{ t.speed_servers }}</label>
       <textarea id="ssrv" name="servers" rows="3" placeholder="iperf.example.net&#10;10.8.0.1:5201 outside" {{ 'disabled' if readonly }}>{{ speed.servers_text }}</textarea>
       <p class="muted small">{{ t.speed_servers_hint.format(max=speed.max_servers) }}

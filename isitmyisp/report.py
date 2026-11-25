@@ -139,7 +139,8 @@ R = {
         "tun_likely": "Likely cause",
         "speed": "Measured speed",
         "speed_plan": "Contracted: {down} Mbps down / {up} Mbps up. ",
-        "speed_intro": "Tests against speed.cloudflare.com with several parallel streams. A test over Wi-Fi measures the Wi-Fi as well.",
+        "speed_intro": ("Each test's best figure, from speed.cloudflare.com and, when on, M-Lab and your own iperf3 servers "
+                        "(a server can only measure less than the line, never more). A test over Wi-Fi measures the Wi-Fi as well."),
         "speed_down": "Download", "speed_up": "Upload", "speed_loaded": "Latency under load", "speed_via": "Measured over",
         "speed_wifi": "Wi-Fi", "speed_cable": "cable",
         "sw_title": "Inside and outside the ISP",
@@ -270,7 +271,8 @@ R = {
         "tun_likely": "Causa probable",
         "speed": "Velocidad medida",
         "speed_plan": "Contratado: {down} Mbps de bajada / {up} Mbps de subida. ",
-        "speed_intro": "Pruebas contra speed.cloudflare.com con varias conexiones en paralelo. Una prueba por Wi-Fi mide también el Wi-Fi.",
+        "speed_intro": ("La mejor cifra de cada prueba, entre speed.cloudflare.com y, si están activados, M-Lab y tus servidores "
+                        "iperf3 (un servidor solo puede medir menos que la línea, nunca más). Una prueba por Wi-Fi mide también el Wi-Fi."),
         "speed_down": "Bajada", "speed_up": "Subida", "speed_loaded": "Latencia con carga", "speed_via": "Medido por",
         "speed_wifi": "Wi-Fi", "speed_cable": "cable",
         "sw_title": "Dentro y fuera del ISP",
@@ -994,8 +996,9 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
         figs.append((t["fig_open"], fmt_duration(bad_open)))
     link_cfg = store.get_setting("link") or {}
     plan_d = float(link_cfg.get("down_mbps") or 0)
-    tests_ok = [r for r in store.speedtests_between(start, end) if not r.get("error") and r.get("down_mbps")]
-    med_d = statistics.median(r["down_mbps"] for r in tests_ok) if tests_ok else None
+    from .speedtest import best
+    tests_ok = [b["down"] for r in store.speedtests_between(start, end) if (b := best(r))["down"]]
+    med_d = statistics.median(tests_ok) if tests_ok else None
     if med_d is not None and plan_d:
         figs.append((t["fig_speed"], t["fig_speed_v"].format(pct=f"{100 * med_d / plan_d:.0f}%")))
     out.append('<div class="tiles">' + "".join(
@@ -1190,7 +1193,8 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
                    f'</thead><tbody>{rows}</tbody></table>')
 
     # ---- measured speed (only if the user turned the speed test on)
-    tests = [r for r in store.speedtests_between(start, end) if not r.get("error")]
+    from .speedtest import best
+    tests = [r for r in store.speedtests_between(start, end) if best(r)["down"]]
     if tests:
         link = store.get_setting("link") or {}
         cd, cu = float(link.get("down_mbps") or 0), float(link.get("up_mbps") or 0)
@@ -1198,10 +1202,11 @@ def build_report(store: Store, start: float, end: float, lang: str = "en", now: 
         def pct(v, c):
             return f" ({100 * v / c:.0f}%)" if v and c else ""
         rows = "".join(
-            f'<tr><td class="dt">{_dt_html(r["ts"])}</td><td class="num">{(r.get("down_mbps") or 0):.0f} Mbps{pct(r.get("down_mbps"), cd)}</td>'
-            f'<td class="num">{(r.get("up_mbps") or 0):.0f} Mbps{pct(r.get("up_mbps"), cu)}</td>'
+            f'<tr><td class="dt">{_dt_html(r["ts"])}</td><td class="num">{(b["down"] or 0):.0f} Mbps{pct(b["down"], cd)}</td>'
+            f'<td class="num">{(b["up"] or 0):.0f} Mbps{pct(b["up"], cu)}</td>'
             f'<td class="num">{_e(str(round(r["loaded_ms"])) + " ms" if r.get("loaded_ms") is not None else "—")}</td>'
-            f'<td>{_e(t["speed_wifi"] if r.get("wireless") else t["speed_cable"])}</td></tr>' for r in tests)
+            f'<td>{_e(t["speed_wifi"] if r.get("wireless") else t["speed_cable"])}</td></tr>'
+            for r in tests for b in [best(r)])
         plan = t["speed_plan"].format(down=f"{cd:.0f}", up=f"{cu:.0f}") if cd else ""
         out.append(f'<h2>{_e(t["speed"])}</h2><p class="muted">{_e(plan + t["speed_intro"])}</p>'
                    f'<table><thead><tr><th class="num">{t["start"]}</th><th class="num">{t["speed_down"]}</th>'

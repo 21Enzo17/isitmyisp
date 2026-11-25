@@ -66,7 +66,7 @@ S = {
         "speed_risk_fill": "While it runs it fills your link: calls, video calls and office systems can stutter or cut for a few seconds. Schedule it when nobody is working.",
         "speed_risk_data": "It uses data: up to {size} per test with your {down} Mbps plan. Every test stops at its share of the monthly budget below.",
         "speed_risk_backup": "On a backup link with a data cap (4G, satellite) it could use the cap up: it doesn't run on the backup unless you allow it.",
-        "speed_risk_privacy": "Cloudflare sees your public IP and that you ran a test (nothing else is sent).",
+        "speed_risk_privacy": "Cloudflare sees your public IP and that you ran a test (nothing else is sent). With M-Lab on, M-Lab publishes each test, with your IP, as open data.",
         "speed_risk_wifi": "If this machine is on Wi-Fi, the result is your Wi-Fi, not your ISP. For evidence, connect it by cable.",
         "speed_guards": "Scheduled tests skip when an incident is open, when your router shows the link busy (SNMP), or when the budget is used up. While a test runs, verdicts pause: it never counts as a problem.",
         "speed_no_contract": "Set your contracted speed so results show the % of your plan:",
@@ -82,6 +82,13 @@ S = {
                                "outside your ISP by its ASN, and comparing both tells whether the bottleneck is your access or the "
                                "ISP's exit. The data cap per test is shared between all of them, Cloudflare included."),
         "speed_no_iperf": "iperf3 is not installed on this machine: those servers will show an error until you install it.",
+        "speed_mlab_h": "M-Lab (optional second engine)",
+        "speed_mlab_what": ("Measurement Lab's open servers (the ones behind Google's speed test) are in many more cities than "
+                            "Cloudflare's test reaches at full speed. On some lines Cloudflare is the ceiling, not your ISP: "
+                            "with both, the plan is compared with the best of the two."),
+        "speed_mlab_enable": "Also test against the nearest M-Lab server",
+        "speed_mlab_accept": "I understand that M-Lab publishes every test as open data, with my public IP address",
+        "speed_best_via": "Best figure, from {name}. Each server can only measure less than your line, never more.",
         "speed_server": "Server", "speed_side": "Where",
         "speed_confirm": "Yes, fill my link for about {secs} seconds and use up to {size}",
         "speed_run": "Test the speed now", "speed_confirm_needed": "Tick the box to confirm the test.",
@@ -466,7 +473,7 @@ S = {
         "speed_risk_fill": "Mientras corre llena tu enlace: las llamadas, videollamadas y sistemas de la oficina pueden trabarse o cortarse unos segundos. Programala cuando no haya nadie trabajando.",
         "speed_risk_data": "Consume datos: hasta {size} por prueba con tu plan de {down} Mbps. Cada prueba se corta en su parte del presupuesto mensual de abajo.",
         "speed_risk_backup": "En un enlace de respaldo con tope de datos (4G, satelital) podría agotarlo: no corre en el respaldo salvo que lo permitas.",
-        "speed_risk_privacy": "Cloudflare ve tu IP pública y que corriste una prueba (no se envía nada más).",
+        "speed_risk_privacy": "Cloudflare ve tu IP pública y que corriste una prueba (no se envía nada más). Con M-Lab activado, M-Lab publica cada prueba, con tu IP, como datos abiertos.",
         "speed_risk_wifi": "Si este equipo está por Wi-Fi, el resultado es tu Wi-Fi, no tu ISP. Para usarlo como evidencia, conectalo por cable.",
         "speed_guards": "Las pruebas programadas no corren si hay un incidente abierto, si tu router muestra el enlace ocupado (SNMP) o si se agotó el presupuesto. Mientras corre, los veredictos se pausan: nunca cuenta como un problema.",
         "speed_no_contract": "Cargá tu velocidad contratada para ver el % de tu plan:",
@@ -483,6 +490,13 @@ S = {
                                "botella es tu acceso o la salida del ISP. El tope de datos por prueba se reparte entre todos, "
                                "Cloudflare incluido."),
         "speed_no_iperf": "iperf3 no está instalado en esta máquina: esos servidores van a dar error hasta que lo instales.",
+        "speed_mlab_h": "M-Lab (segundo motor, opcional)",
+        "speed_mlab_what": ("Los servidores abiertos de Measurement Lab (los que usa la prueba de velocidad de Google) están en "
+                            "muchas más ciudades de las que la prueba de Cloudflare alcanza a toda velocidad. En algunas líneas "
+                            "el techo es Cloudflare, no tu ISP: con los dos, el plan se compara con el mejor de ambos."),
+        "speed_mlab_enable": "Probar también contra el servidor de M-Lab más cercano",
+        "speed_mlab_accept": "Entiendo que M-Lab publica cada prueba como datos abiertos, con mi IP pública",
+        "speed_best_via": "Mejor cifra, de {name}. Cada servidor solo puede medir menos que tu línea, nunca más.",
         "speed_server": "Servidor", "speed_side": "Dónde",
         "speed_confirm": "Sí, llenar mi enlace unos {secs} segundos y usar hasta {size}",
         "speed_run": "Medir la velocidad ahora", "speed_confirm_needed": "Marcá la casilla para confirmar la prueba.",
