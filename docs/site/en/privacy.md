@@ -24,6 +24,8 @@ isitmyisp is meant to run on your network for months. By default it **never send
 | Your services | only the ones you add | an HTTP GET (or TCP connect) every 30 s | **off** |
 | speed.cloudflare.com | only if you turn on the speed test | ~15 s of downloads and uploads; Cloudflare sees your public IP | **off** |
 | Your iperf3 servers | only the ones you add to the speed test | ~15 s of downloads and uploads each; each server sees your public IP | **off** |
+| M-Lab (locate.measurementlab.net and the server it picks) | only if you turn M-Lab on, with its own consent | ~15 s of downloads and uploads; **M-Lab publishes every test, with your public IP, as open data** | **off** |
+| Your own speed test command | only if you set one in the config file | whatever that tool sends, to whichever server it picks | **off** |
 | The internet destinations, from your browser | only when you press the button in [Check from this device](device-check.md) | cookie-less HTTPS requests from that PC or phone (not from the probe) | **off** |
 | Your router over SNMP | only if you connect it | reads of the WAN counters and CPU | **off** |
 | Telegram, your SMTP server or your webhook | only if you enable alerts | the alert text | **off** |

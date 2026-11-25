@@ -97,13 +97,61 @@ Los caminos se comparan por red (/24) y por organización, así que no necesita 
 
 Cuando está activado:
 
-- Corre semanalmente (por defecto, el domingo a las 3), todos los días a la hora que elijas, o solo cuando apretás "probar ahora".
+- Corre semanalmente (por defecto, el domingo a las 3), todos los días a la hora que elijas, o solo cuando apretás "probar ahora". Si querés, también en [hora pico](#hora-pico).
 - Respeta un presupuesto mensual de datos (5 GB por defecto).
 - Nunca corre en el enlace de respaldo ni pasado el presupuesto.
 - La prueba programada además espera si hay un incidente o el enlace está ocupado (más del 30 % por defecto). "Probar ahora" corre igual: la pediste vos.
-- Mide contra speed.cloudflare.com, que ve tu IP pública.
+- Mide contra speed.cloudflare.com, que ve tu IP pública, y contra cualquier otro [motor](#motores) que actives.
+- Tu plan se compara con la **mejor cifra** de cada prueba, venga del motor que venga. Un servidor solo puede medir menos que tu línea, nunca más, así que un servidor lejano y lento nunca se lee como que tu ISP no cumple.
 - Mide también la latencia con el enlace lleno (bufferbloat) y avisa cuando el resultado lo limita tu Wi-Fi y no el ISP.
 - Mientras corre, esas ventanas no cuentan para el veredicto.
+
+### Motores
+
+Cada motor mide el camino hasta su propio servidor, así que cada uno te dice algo distinto. Todos los que actives corren en la misma prueba, uno detrás de otro, y el presupuesto se reparte entre ellos.
+
+| Motor | Qué mide | Qué comparte | Por defecto |
+|---|---|---|---|
+| **Cloudflare** | Hacia internet: el camino al servidor de Cloudflare más cercano. Con algunos ISP el techo es el propio Cloudflare (su servidor, o su peering con ese ISP). | Cloudflare ve tu IP pública. | sí, con el test |
+| **M-Lab** | El servidor NDT7 de [Measurement Lab](https://www.measurementlab.net/) más cercano: la plataforma abierta detrás del test de velocidad de Google, con servidores en muchas más ciudades. | **M-Lab publica cada prueba como datos abiertos, con tu IP pública.** Necesita su propio consentimiento. | **no** |
+| **Tu propio comando** | Lo que mida tu herramienta, por ejemplo el servidor de tu propio ISP con la CLI de Ookla. | Lo que comparta esa herramienta. | **no** |
+| **Otra máquina** | Una prueba que corrió en otro lado, por ejemplo en una PC por cable, y que se le manda a isitmyisp. | Nada más desde acá. | **no** |
+| **Tus servidores iperf3** | Dentro o fuera de tu ISP: ver [más abajo](#dentro-y-fuera-de-tu-isp). | Cada servidor ve tu IP pública. | **no** |
+
+La cifra de Cloudflare es el percentil 90 de las tasas de cada medio segundo, después de un segundo de calentamiento y con seis conexiones, como la informa speed.cloudflare.com. Si Cloudflare está limitando tu IP (HTTP 429), el resultado lo dice.
+
+#### M-Lab
+
+Se activa en **Configuración → Tu conexión → Prueba de velocidad contra tu plan**, marcando también la segunda casilla: M-Lab publica cada prueba, con tu IP pública, como datos abiertos para investigación. En una fibra de 1000 Mbps donde Cloudflare no pasaba de 490, M-Lab Buenos Aires midió 930.
+
+#### Tu propio motor
+
+isitmyisp puede correr una herramienta de test de velocidad que vos instalaste y leer su JSON. No trae ninguna ni acepta licencias por vos: la de Ookla, por ejemplo, solo permite uso personal, así que la aceptás en tu propio comando. El comando se configura solo en el archivo de configuración (o en la variable `ISITMYISP_SPEEDTEST_COMMAND`), nunca desde la web, así que ni una página de admin ni un formulario falsificado pueden hacerle correr nada.
+
+```toml
+[speedtest]
+command = ["speedtest", "-f", "json", "--accept-license", "--accept-gdpr"]
+name = "Ookla"         # opcional, cómo se muestra
+format = "auto"        # auto | ookla | speedtest-cli | librespeed | iperf3 | json
+timeout = 120          # segundos
+```
+
+Entiende la CLI de Ookla (`speedtest -f json`), el speedtest-cli de Python (`--json`), librespeed-cli (`--json`), iperf3 (`-J`) y un formato simple para tus scripts: `{"download_mbps": 930, "upload_mbps": 600, "ping_ms": 2.1, "server": "Nombre"}`. Corre como lista de argumentos, nunca a través de una shell, después de los motores incluidos, con el mismo horario y las mismas protecciones. Sus datos no se pueden topear, así que se descuentan del presupuesto después. Con Docker, montá la herramienta dentro del contenedor.
+
+#### Desde otra máquina
+
+La máquina que corre isitmyisp no siempre es la indicada para medir: una Raspberry Pi por Wi-Fi, o un procesador que no llega a 1 Gbps. Cualquier otra máquina puede mandarle sus resultados. En **Configuración → Tu conexión → Resultados de otra máquina**, generá un token. Después, desde esa máquina (por ejemplo, con un cron en una PC por cable):
+
+```sh
+speedtest -f json | curl -H "Authorization: Bearer <token>" --data-binary @- \
+  "http://<isitmyisp>:8080/api/speedtest?name=PC"
+```
+
+Acepta cualquier formato que lea el motor propio (`?format=` si no lo puede adivinar), y `?wireless=1` si esa máquina está por Wi-Fi. Un resultado enviado se muestra aunque el test propio de esta máquina esté apagado, no usa presupuesto y está limitado a 6 por minuto. El token no es el de Prometheus; podés generar uno nuevo o apagarlo cuando quieras.
+
+### Hora pico
+
+Marcá **Probar también en hora pico** (21:00 por defecto) para tener una segunda prueba, los mismos días, a la hora en que todos están conectados. El panel la compara con la de siempre: "En hora pico: 450 Mbps, 50% de los 900 Mbps de la prueba de siempre". Por debajo del 80 % dice que la línea se pone lenta a la noche. Con los mismos motores, eso es congestión del ISP, sea cual sea el techo del motor. Duplica las pruebas, así que cada una tiene la mitad del presupuesto, y no corre si tu propio enlace está ocupado, como cualquier prueba programada.
 
 ### Dentro y fuera de tu ISP
 
@@ -119,7 +167,7 @@ Con un servidor de cada lado, el panel y el informe comparan la mejor bajada de 
 | **El acceso** | Adentro y afuera dan parecido, pero aun dentro del ISP llegás a menos del 60 % de tu plan. El límite es tu acceso. |
 | **Sin cuello de botella en la salida** | Adentro y afuera dan parecido. |
 
-Las protecciones siguen valiendo: el tope de datos por prueba se reparte entre Cloudflare y tus servidores, no corre en el enlace de respaldo, y la prueba programada sigue esperando si hay un incidente. Necesita el programa `iperf3` en la máquina (la imagen de Docker lo trae), y cada servidor ve tu IP pública.
+Las protecciones siguen valiendo: el tope de datos por prueba se reparte entre los motores y tus servidores, no corre en el enlace de respaldo, y la prueba programada sigue esperando si hay un incidente. Necesita el programa `iperf3` en la máquina (la imagen de Docker lo trae), y cada servidor ve tu IP pública.
 
 ## El router por SNMP
 
@@ -167,6 +215,7 @@ Los administradores invitan gente con links de un solo uso que vencen en 48 hora
 | Ruta | Qué |
 |---|---|
 | `/metrics` | Prometheus, con un token que está en **Configuración → Acceso** |
+| `POST /api/speedtest` | Un resultado de test de velocidad de [otra máquina](#desde-otra-maquina), con su propio token |
 | `/api/status` | El estado actual en JSON (con sesión iniciada) |
 | `/healthz` | Público; solo dice si está vivo |
 | `/report?since=7d` | El informe en HTML |

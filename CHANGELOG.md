@@ -30,6 +30,8 @@ Versions follow [semantic versioning](https://semver.org). Each release has a Do
   the tests, so each gets half the budget, and it keeps the usual guards (busy link, incident, backup).
 
 ### Changed
+- **Docs**: the speed test page says what each engine measures and what it shares (Cloudflare,
+  M-Lab, your own command, another machine, iperf3), and the privacy table lists M-Lab and the own command.
 - **The plan is compared with each test's best figure**, from whichever engine or server gave it
   (Cloudflare, M-Lab, your iperf3 servers), on the dashboard, the report and the monthly summary. A
   server can only measure less than your line, never more, so a slow far server no longer reads as

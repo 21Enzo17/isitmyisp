@@ -35,7 +35,9 @@ That's normal for many routers and business firewalls: they deprioritise pings a
 
 It can be the ISP or something on your side: other devices using the internet at that moment, or the Wi-Fi of the machine measuring. The result warns when your Wi-Fi seems to be the limit. If you connected the router over SNMP, it also shows everything the WAN carried during the test.
 
-Cloudflare alone can't say whether the slow part is your access or the ISP's exit to the rest of the internet. With an iperf3 server of your own inside your ISP and another outside, the result says where the bottleneck is. See [Inside and outside your ISP](features.md#inside-and-outside-your-isp).
+It can also be the server. A speed test measures the path to its server, and on some ISPs Cloudflare itself is the ceiling: on a 1000 Mbps fibre where Cloudflare gave 490, M-Lab and the ISP's own Ookla server gave over 900. That's why your plan is compared with the best figure of each test, and why you can add [other engines](features.md#engines): M-Lab, your own tool, or the results of a PC on the cable.
+
+Cloudflare alone can't say whether the slow part is your access or the ISP's exit to the rest of the internet. With an iperf3 server of your own inside your ISP and another outside, the result says where the bottleneck is. See [Inside and outside your ISP](features.md#inside-and-outside-your-isp). And a [peak-hour test](features.md#peak-hour) shows whether the line slows down in the evening.
 
 ## Alerts don't arrive
 

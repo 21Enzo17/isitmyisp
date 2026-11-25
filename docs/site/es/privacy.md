@@ -24,6 +24,8 @@ isitmyisp está pensado para correr meses en tu red. Por defecto **nunca manda t
 | Tus servicios | solo los que agregues | un GET HTTP (o conexión TCP) cada 30 s | **no** |
 | speed.cloudflare.com | solo si activás el test de velocidad | descargas y subidas de unos 15 s; Cloudflare ve tu IP pública | **no** |
 | Tus servidores iperf3 | solo los que agregues al test de velocidad | descargas y subidas de unos 15 s cada uno; cada servidor ve tu IP pública | **no** |
+| M-Lab (locate.measurementlab.net y el servidor que elija) | solo si activás M-Lab, con su propio consentimiento | descargas y subidas de unos 15 s; **M-Lab publica cada prueba, con tu IP pública, como datos abiertos** | **no** |
+| Tu propio comando de test de velocidad | solo si lo configurás en el archivo de configuración | lo que mande esa herramienta, al servidor que elija | **no** |
 | Los destinos de internet, desde tu navegador | solo cuando apretás el botón en [Chequear desde este equipo](device-check.md) | pedidos HTTPS sin cookies desde esa PC o celular (no desde la sonda) | **no** |
 | Tu router por SNMP | solo si lo conectás | lectura de los contadores de la WAN y la CPU | **no** |
 | Telegram, tu servidor SMTP o tu webhook | solo si activás alertas | el texto de la alerta | **no** |
