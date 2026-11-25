@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 
 from . import __version__, mos
+from . import speedtest as sp
 from .store import Store
 
 VERDICT_CODES = ("ok", "local", "access", "isp", "remote", "dns", "no_data", "speedtest")
@@ -19,6 +20,18 @@ def is_stale(last: tuple | None, now: float) -> bool:
 
 def _prom_escape(v: str) -> str:
     return v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
+
+def _speed_rows(res: dict) -> list[tuple[str, str, dict]]:
+    """(engine, name, row) for each figure of one test: the built-in Cloudflare one, then each engine or server."""
+    rows = []
+    if res.get("down_mbps") or res.get("up_mbps"):
+        rows.append(("cloudflare", sp.SERVER, {"down": res.get("down_mbps"), "up": res.get("up_mbps")}))
+    for s in res.get("servers") or []:
+        if not s.get("error"):
+            rows.append((s.get("engine") or "iperf3", s.get("name") or "?",
+                         {"down": s.get("down_mbps"), "up": s.get("up_mbps")}))
+    return rows
 
 
 def metrics_text(store: Store, now: float | None = None) -> str:
@@ -65,13 +78,35 @@ def metrics_text(store: Store, now: float | None = None) -> str:
 
     st = store.latest_speedtest()
     if st:
-        for name, key, help_ in (("speedtest_download_mbps", "down_mbps", "Download speed of the latest speed test."),
-                                 ("speedtest_upload_mbps", "up_mbps", "Upload speed of the latest speed test."),
-                                 ("speedtest_idle_latency_ms", "idle_ms", "Latency before the latest speed test."),
+        top = sp.best(st)
+        metric("speedtest_download_mbps", "Best download of the latest speed test, from any engine or server "
+               "(the figure to hold against the plan).", "gauge", [({}, round(top["down"], 2))] if top["down"] else [])
+        metric("speedtest_upload_mbps", "Best upload of the latest speed test, from any engine or server.", "gauge",
+               [({}, round(top["up"], 2))] if top["up"] else [])
+        for name, key, help_ in (("speedtest_idle_latency_ms", "idle_ms", "Latency before the latest speed test."),
                                  ("speedtest_loaded_latency_ms", "loaded_ms",
                                   "Latency during the latest speed test's download (minus idle = bufferbloat).")):
             metric(name, help_, "gauge", [({}, round(st[key], 2))] if st.get(key) is not None else [])
-        metric("speedtest_timestamp_seconds", "Unix time of the latest speed test.", "gauge", [({}, round(st["ts"], 3))])
+        metric("speedtest_timestamp_seconds", "Unix time of the latest speed test.", "gauge",
+               [({}, round(st["ts"], 3))])
+        rows = _speed_rows(st)
+        for d, key in (("download", "down"), ("upload", "up")):
+            metric(f"speedtest_engine_{d}_mbps", f"{d.capitalize()} of the latest speed test, per engine or server.",
+                   "gauge", [({"engine": e, "name": n}, round(r[key], 2)) for e, n, r in rows if r.get(key)])
+
+    recent = list(reversed(store.speedtests_between(now - sp.PEAK_DAYS * 86400, now)))
+    by_trigger = {}
+    for res in recent:
+        trig = res.get("trigger") or "manual"
+        if trig not in by_trigger and not res.get("error") and sp.best(res)["down"]:
+            by_trigger[trig] = sp.best(res)
+    metric("speedtest_trigger_download_mbps", "Best download of the latest test of each kind (scheduled, peak, "
+           "manual, push), from the last two weeks.", "gauge",
+           [({"trigger": t}, round(b["down"], 2)) for t, b in sorted(by_trigger.items())])
+    pk = sp.peak_vs_night(recent, now)
+    if pk:
+        metric("speedtest_peak_ratio", "Peak-hour test against the usual one (best download, 1 = no slowdown).",
+               "gauge", [({}, round(pk["peak"] / pk["night"], 3))])
 
     lu = store.latest_link_usage()
     if lu and now - lu[0] <= LINK_FRESH_S:

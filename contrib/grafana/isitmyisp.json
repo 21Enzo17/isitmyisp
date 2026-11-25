@@ -844,7 +844,7 @@
     },
     {
       "type": "row",
-      "title": "Along the path: router \u2192 ISP \u2192 internet",
+      "title": "Along the path: router → ISP → internet",
       "id": 16,
       "collapsed": false,
       "gridPos": {
@@ -1336,7 +1336,7 @@
             "uid": "${datasource}"
           },
           "expr": "sort_desc(sum by (scope, code) (increase(isitmyisp_incident_seconds_total{instance=~\"$instance\",scope=~\"internet|failover|(service|device|tunnel):.*\"}[$__range])) > 0)",
-          "legendFormat": "{{scope}} \u00b7 {{code}}",
+          "legendFormat": "{{scope}} · {{code}}",
           "refId": "A",
           "instant": true,
           "range": false
@@ -1502,7 +1502,7 @@
     {
       "type": "timeseries",
       "title": "Speed tests",
-      "description": "Result of the latest speed test (each step is a new test).",
+      "description": "Best figure of the latest speed test, from any engine or server (the one to hold against the plan). Each step is a new test.",
       "id": 35,
       "datasource": {
         "type": "prometheus",
@@ -1615,6 +1615,102 @@
     },
     {
       "type": "timeseries",
+      "title": "Download by engine",
+      "description": "Each engine or server's own download in the latest test: Cloudflare, M-Lab, your own command, another machine, iperf3. A server can only measure less than your line, so the gap shows its ceiling.",
+      "id": 46,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "isitmyisp_speedtest_engine_download_mbps{instance=~\"$instance\"}",
+          "legendFormat": "{{name}}",
+          "refId": "J"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 52
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Mbits",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "stepAfter"
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Peak hour against the usual test",
+      "description": "Best download of the latest test of each kind. When the peak-hour test is well below the usual one on the same engines, the line slows down in the evening: the ISP's congestion.",
+      "id": 47,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "isitmyisp_speedtest_trigger_download_mbps{instance=~\"$instance\",trigger=~\"scheduled|peak\"}",
+          "legendFormat": "{{trigger}}",
+          "refId": "K"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 52
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Mbits",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "stepAfter"
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
       "title": "Internet link traffic (SNMP)",
       "description": "What the router's WAN carries, read over SNMP (only if SNMP is set up).",
       "id": 41,
@@ -1646,7 +1742,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 52
+        "y": 60
       },
       "fieldConfig": {
         "defaults": {
@@ -1711,7 +1807,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 52
+        "y": 60
       },
       "fieldConfig": {
         "defaults": {

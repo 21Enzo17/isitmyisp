@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from isitmyisp import speedtest as sp
 from isitmyisp.api import metrics_text
 from isitmyisp.classifier import Measurements
 from isitmyisp.config import ConfigError, Tunnel, parse
@@ -160,7 +161,13 @@ class Metrics(unittest.TestCase):
             store.add_link_usage(now - 30, SimpleNamespace(down_mbps=120.5, up_mbps=8.0, down_pct=40.2, up_pct=8.0,
                                                            cpu_pct=12.0))
             body = metrics_text(store, now=now)
-            self.assertIn("isitmyisp_speedtest_download_mbps 58.3", body)    # the latest one
+            # the latest test's best figure (its server inside the ISP), and each engine or server's own
+            self.assertIn("isitmyisp_speedtest_download_mbps 286.9", body)
+            self.assertIn(f'isitmyisp_speedtest_engine_download_mbps{{engine="cloudflare",name="{sp.SERVER}"}} 58.3', body)
+            self.assertIn('isitmyisp_speedtest_engine_download_mbps{engine="iperf3",name="vps.example.org"} 41.7', body)
+            self.assertIn('isitmyisp_speedtest_trigger_download_mbps{trigger="manual"} 286.9', body)
+            self.assertIn('isitmyisp_speedtest_trigger_download_mbps{trigger="scheduled"} 262.4', body)
+            self.assertNotIn("isitmyisp_speedtest_peak_ratio ", body)                  # no peak test yet
             self.assertIn("isitmyisp_speedtest_loaded_latency_ms 64.8", body)
             self.assertIn('isitmyisp_link_mbps{direction="down"} 120.5', body)
             self.assertIn('isitmyisp_link_utilization_ratio{direction="down"} 0.402', body)
@@ -172,6 +179,28 @@ class Metrics(unittest.TestCase):
                 self.assertTrue(line.startswith(("# HELP isitmyisp_", "# TYPE isitmyisp_", "isitmyisp_")), line)
             store.close()
 
+
+    def test_speed_metrics_follow_every_engine(self):
+        """A pushed test (no Cloudflare figure) and M-Lab count; the peak-hour test is set against the usual one."""
+        mlab = {"name": "M-Lab", "engine": "mlab", "where": None, "down_mbps": 930.0, "up_mbps": 610.0, "error": None}
+        push = {"name": "PC · Personal", "engine": "push", "where": None, "down_mbps": 939.0, "up_mbps": 755.0,
+                "error": None}
+        with tempfile.TemporaryDirectory() as d:
+            store = Store(Path(d) / "m.db")
+            now = T0 + 86400
+            store.add_speedtest(sp.Result(ts=now - 20 * 3600, down_mbps=480.0, up_mbps=300.0, trigger="scheduled",
+                                          servers=[mlab]))
+            store.add_speedtest(sp.Result(ts=now - 3600, down_mbps=240.0, up_mbps=290.0, trigger="peak",
+                                          servers=[{**mlab, "down_mbps": 465.0}]))
+            store.add_speedtest(sp.Result(ts=now - 60, trigger="push", servers=[push]))
+            body = metrics_text(store, now=now)
+            self.assertIn("isitmyisp_speedtest_download_mbps 939.0", body)          # the pushed one, the latest
+            self.assertIn('isitmyisp_speedtest_engine_download_mbps{engine="push",name="PC · Personal"} 939.0', body)
+            self.assertNotIn('engine="cloudflare"', body)                            # Cloudflare didn't run
+            self.assertIn('isitmyisp_speedtest_trigger_download_mbps{trigger="peak"} 465.0', body)
+            self.assertIn('isitmyisp_speedtest_trigger_download_mbps{trigger="scheduled"} 930.0', body)
+            self.assertIn("isitmyisp_speedtest_peak_ratio 0.5", body)
+            store.close()
 
 if __name__ == "__main__":
     unittest.main()

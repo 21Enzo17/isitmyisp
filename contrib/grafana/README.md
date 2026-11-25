@@ -38,7 +38,11 @@ With several monitors (home, office) the **Monitor** selector at the top switche
 | `isitmyisp_incidents_total{scope,code}` | Incidents so far |
 | `isitmyisp_incident_seconds_total{scope,code}` | Time spent in incidents so far; `increase()` over a range gives the downtime |
 | `isitmyisp_route_changes_total` | Times the route to a watched destination changed |
-| `isitmyisp_speedtest_download_mbps`, `_upload_mbps`, `_idle_latency_ms`, `_loaded_latency_ms`, `_timestamp_seconds` | The latest speed test (only once one has run) |
+| `isitmyisp_speedtest_download_mbps`, `_upload_mbps` | The latest speed test's best figure, from whichever engine or server gave it: the one to hold against the plan, as on the dashboard |
+| `isitmyisp_speedtest_idle_latency_ms`, `_loaded_latency_ms`, `_timestamp_seconds` | Latency before and during the latest test (bufferbloat), and when it ran |
+| `isitmyisp_speedtest_engine_download_mbps{engine,name}`, `_engine_upload_mbps` | Each engine or server's own figure in the latest test: `cloudflare`, `mlab`, `command` (your own), `push` (another machine), `iperf3` |
+| `isitmyisp_speedtest_trigger_download_mbps{trigger}` | Best download of the latest test of each kind in the last two weeks: `scheduled`, `peak`, `manual`, `push` |
+| `isitmyisp_speedtest_peak_ratio` | The peak-hour test against the usual one, 1 = no slowdown (only with the peak-hour test on) |
 | `isitmyisp_link_mbps{direction}`, `isitmyisp_link_utilization_ratio{direction}`, `isitmyisp_router_cpu_ratio` | The router's internet link over SNMP (only with SNMP set up, and only while readings are fresh) |
 | `isitmyisp_doctor_grade{grade}`, `isitmyisp_doctor_check{check,scope}`, `isitmyisp_doctor_timestamp_seconds` | The latest check-up: the grade, and each check as 0 ok, 1 to look at, 2 bad |
 | `isitmyisp_last_window_timestamp_seconds` | When the last window was measured |
@@ -64,6 +68,10 @@ groups:
         expr: time() - isitmyisp_last_window_timestamp_seconds > 300
         annotations:
           summary: "isitmyisp stopped measuring"
+      - alert: SlowAtPeakHour
+        expr: isitmyisp_speedtest_peak_ratio < 0.6
+        annotations:
+          summary: "At peak hour the line gives under 60% of the usual test"
       - alert: CallsWouldSoundBad
         expr: avg_over_time(isitmyisp_call_quality_mos[10m]) < 3.6
         for: 10m
