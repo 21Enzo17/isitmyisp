@@ -205,6 +205,21 @@ Tiene dos vistas:
 
 ![La vista simple del modo TV](/docs/img/es/tv-simple.png)
 
+## Modo celular
+
+El panel en una sola columna, para cuando el problema te agarra lejos de la computadora. Tiene lo mismo que el panel, ordenado para decidir rápido: de quién es la culpa y por qué, el camino salto por salto, qué cambió, las últimas 24 horas, qué está afectado, la capacidad y qué podés hacer. Lo abrís con el botón **Vista celular** que aparece arriba del panel en pantallas chicas, o yendo a la dirección del panel seguida de **/phone**, por ejemplo `192.168.1.50:8080/phone`. Pide el mismo inicio de sesión que el panel.
+
+![El modo celular durante un problema en la red del ISP](/docs/img/es/phone.png)
+
+- **El veredicto** dice desde qué hora pasa y cuánto lleva. Debajo, **Por qué lo decimos** despliega la evidencia y lo que se descartó.
+- **Tu conexión** muestra tu red, tu ISP (con su ASN y la IP del salto, para dictárselos al soporte) e internet, cada uno con su latencia de las últimas 6 horas. **Cada destino** despliega ping y TCP 443 lado a lado: si el ping se pierde y el TCP contesta, el ISP está descartando ping, no tráfico.
+- **Qué cambió** aparece solo si cambió algo: un [cambio de camino](#cambios-de-camino) con la latencia de antes y de ahora, el paso al [enlace de respaldo](#enlace-de-respaldo-failover) o una [IP pública](#ip-publica-fija) distinta de la fija.
+- **Qué está afectado** agrupa servicios, túneles y dispositivos: lo que falla por nombre, el resto como un número. Si algo falla, sube antes del camino.
+- **Capacidad** muestra la carga del enlace y la CPU del router (si tenés [SNMP](#el-router-por-snmp)) y la última [prueba de velocidad](#test-de-velocidad), plegada.
+- Al pie: probar desde ese celular, la última hora en detalle, el informe y el panel completo.
+
+Se actualiza solo cada minuto, sin JavaScript, y respeta el tema claro u oscuro.
+
 ## Usuarios
 
 - **Administrador:** cambia la configuración, los usuarios y las alertas.

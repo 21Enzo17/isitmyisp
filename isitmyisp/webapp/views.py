@@ -680,7 +680,7 @@ def board(d: Dashboard, now: float | None = None) -> dict:
     route = board_route(d)
     return {"points": points, "points_hidden": p_hidden, "points_rot": p_rot,
             "conns": shown, "conns_hidden": c_hidden, "conns_rot": c_rot,
-            "alarms": [c for c in conns if c.st == "bad"],
+            "alarms": [c for c in conns if c.st == "bad"], "conns_all": conns,
             "points_alarm": any(p.status == "bad" for p in d.points),
             "recent": d.recent[:BOARD_RECENT], "route": route,
             # on top only when nothing worse is going on; during an outage it waits in the events card
@@ -691,6 +691,29 @@ def board_route(d: Dashboard) -> dict | None:
     """The wall screen names a path change only while it is still making things worse: one line, the
     headline and how much, never the diagram."""
     return (d.routes or {}).get("alert")
+
+
+def phone_extras(store: Store, d: Dashboard, now: float | None = None) -> dict:
+    """What the phone view adds to the dashboard data for whoever has to fix it: the ISP's ASN and the
+    gateway as text, each destination's ping next to its TCP handshake, a public IP that isn't the one
+    paid for, and what's affected grouped by kind (the failing ones by name, the rest as a count)."""
+    now = now or time.time()
+    net = store.network_at(now) or {}
+    pub = next((i for i in store.active_incidents() if i.scope == "public_ip"), None)
+    groups: dict[str, dict] = {}
+    for c in board(d, now)["conns_all"]:
+        grp = groups.setdefault(c.kind, {"bad": [], "warn": [], "ok": 0})
+        if c.st in ("bad", "warn"):
+            grp[c.st].append(c.name)
+        else:
+            grp["ok"] += 1
+    by_kind = {p.kind: p for p in d.points}
+    return {"asn": net.get("isp_asn") or "", "gateway": net.get("gateway") or "",
+            "spark": {"home": by_kind.get("home"), "isp": by_kind.get("isp")},
+            "dests": [p for p in d.points if p.kind == "internet"],
+            "pubip": {"since": pub.opened, **(pub.details or {})} if pub else None,
+            "impact": {k: groups[k] for k in ("service", "tunnel", "device") if k in groups},
+            "recent": d.recent[:3]}
 
 
 # ------------------------------------------------------------------ the chart, enlarged, with zoom

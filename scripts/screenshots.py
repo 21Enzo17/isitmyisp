@@ -80,7 +80,7 @@ def render(db: Path, work: Path, path: str, lang: str = "en", css: str = "") -> 
     html = client.get(f"{path}{'&' if '?' in path else '?'}lang={lang}", follow_redirects=True).get_data(as_text=True)
     html = re.sub(r'<link rel="stylesheet" href="([^"]+)">',
                   lambda m: "<style>" + client.get(m.group(1)).get_data(as_text=True) + css + "</style>", html)
-    html = html.replace('<meta http-equiv="refresh" content="30">', "")
+    html = re.sub(r'<meta http-equiv="refresh" content="\d+">', "", html)
     html = html.replace('src="/static/', 'src="static/')     # images load from the copy next to the page
     store.close()
     page = work / f"page-{abs(hash((str(db), path, css)))}.html"
@@ -131,6 +131,8 @@ def main(lang: str = "en") -> None:
             (states["failover"], "/", "", "failover.png", "1440,720", False),
             (states["healthy"], "/settings/connection", only("#speed"), "speed-test-settings.png", "1440,1000", True),
             (states["isp"], "/", "", "mobile.png", "390,1500", True),
+            (states["isp"], "/phone", "", "phone.png", "390,2460", True),
+            (states["isp"], "/phone", "", "phone-screen.png", "390,844", True),   # one phone screen, for the README
             (states["tv"], "/tv/demo", "", "tv.png", "1920,1080", True),
             (states["isp"], "/tv/demo?layout=simple", "", "tv-simple.png", "1280,720", True),
             (states["healthy"], "/tv", "", "tv-code.png", "1280,720", True),
