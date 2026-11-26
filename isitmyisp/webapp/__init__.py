@@ -868,10 +868,11 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
 
     @app.get("/phone")
     def phone():
-        """The verdict at a glance, for a phone: whose fault, the path, the last incident and the last speed
-        test against the plan. Signed in like the dashboard; one column, no menus, refreshes by itself."""
+        """The verdict at a glance, for a phone: whose fault and why, the path hop by hop, what changed, the
+        last 24 h, what's affected and the capacity. Signed in like the dashboard; one column, no menus,
+        no JavaScript (details fold with <details>), refreshes by itself."""
         d = views.dashboard_data(store, g.settings, lang=g.lang)
-        return render_template("phone.html", d=d, last=d.recent[0] if d.recent else None)
+        return render_template("phone.html", d=d, b=views.board(d), ph=views.phone_extras(store, d))
 
     # ---------------------------------------------------------------- TV mode
 
