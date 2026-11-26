@@ -365,6 +365,7 @@ def cmd_monitor(args, t) -> int:
     from .discovery import network_to_dict
     from .failover import PathWatch, isp_ttl, provider_of
     from .speedtest import Runner as SpeedRunner
+    from .speedtest import best as speed_best
     from .monitor import Monitor, mtr_capturer
 
     store = Store(args.db)
@@ -446,7 +447,8 @@ def cmd_monitor(args, t) -> int:
                         print(f"\n{t['speed_started']}")
                     for r in store.speedtests_between(speed_seen + 0.001, 2e10):
                         speed_seen = r["ts"]
-                        print(f"\n{t['speed_done'].format(down=r.get('down_mbps') or 0, up=r.get('up_mbps') or 0, err=r.get('error') or '')}")
+                        top = speed_best(r)   # Cloudflare may not have run: show the best engine
+                        print(f"\n{t['speed_done'].format(down=top['down'] or 0, up=top['up'] or 0, err=r.get('error') or '')}")
                     ip_change = public_ip.tick(cfg_now.static_ip)
                     if ip_change:
                         print(f"\n{t['public_ip_' + ip_change].format(ip=cfg_now.static_ip)}")
