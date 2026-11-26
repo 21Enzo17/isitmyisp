@@ -68,3 +68,58 @@ class PhoneMode(WebAppBase):
         self.assertIn('class="ph-ev g-isp now"', html)
         self.assertIn("ongoing", html)
         self.assertIn("The evidence points here", html)
+        self.assertIn('class="ph-claim"', html)                       # the ISP is blamed: the report is the button
+
+    def test_a_service_down_is_named_even_with_internet_working(self):
+        from types import SimpleNamespace
+
+        from isitmyisp.webapp import views
+        self.create_admin()
+        self.assertNotIn('class="ph-card ph-alert"', self.page().get_data(as_text=True))
+        orig = views.service_cards
+        views.service_cards = lambda *a, **k: [SimpleNamespace(name="ERP", state="down"),
+                                               SimpleNamespace(name="Mail", state="up")]
+        try:
+            html = self.page().get_data(as_text=True)
+        finally:
+            views.service_cards = orig
+        self.assertIn('class="ph-card ph-alert"', html)
+        self.assertIn("Not answering: ERP", html)
+        self.assertNotIn("Mail", html)
+
+    def test_the_report_is_one_tap_away(self):
+        self.create_admin()
+        html = self.page().get_data(as_text=True)
+        self.assertIn('href="/report?since=7d"', html)                 # quiet link when the ISP isn't blamed
+        self.assertNotIn('class="ph-claim"', html)
+
+    def test_the_link_load_from_the_router(self):
+        from isitmyisp.snmp import LinkUsage
+        self.create_admin()
+        self.assertNotIn("Link load", self.page().get_data(as_text=True))   # SNMP off: no card at all
+        settings_mod.save(self.store, {"link": {"enabled": True, "host": "192.168.1.1", "community": "test-ro", "down_mbps": 300, "up_mbps": 30}})
+        self.assertIn("Can&#39;t read the router", self.page().get_data(as_text=True))
+        self.store.add_link_usage(time.time() - 60, LinkUsage(120.0, 6.0, 40.0, 20.0, 12.0))
+        html = self.page().get_data(as_text=True)
+        self.assertIn("Link load", html)
+        self.assertIn("40% of contract", html)
+        self.assertIn("Room to spare", html)
+        self.store.add_link_usage(time.time() - 30, LinkUsage(290.0, 6.0, 96.7, 20.0, 12.0))
+        self.assertIn("The link is full", self.page().get_data(as_text=True))
+
+    def test_on_the_backup_link_it_says_so_in_a_sentence(self):
+        from isitmyisp.monitor import Monitor
+        main = {"isp_hop": "181.89.4.100", "isp_asn": "AS7303", "isp_name": "Telecom",
+                "path": [{"index": 2, "host": "181.89.4.100", "segment": "isp", "asn": "AS7303", "as_name": "Telecom"}]}
+        backup = {"isp_hop": "190.2.3.4", "isp_asn": "AS11664", "isp_name": "Claro",
+                  "path": [{"index": 2, "host": "190.2.3.4", "segment": "isp", "asn": "AS11664", "as_name": "Claro"}]}
+        mon = Monitor(self.store, 30.0)
+        mon.observe_network(main)
+        mon.observe_network(backup)
+        self.store.add_network(backup)
+        self.create_admin()
+        html = self.page().get_data(as_text=True)
+        self.assertIn("Internet works, on the backup link", html)
+        self.assertIn('class="ph-advice ph-backup"', html)
+        self.assertIn("Going out through Claro", html)
+        self.assertIn("Your main ISP, Telecom, is not in use.", html)

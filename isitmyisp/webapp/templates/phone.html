@@ -25,6 +25,7 @@
   <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5.5M12 16.2v.2"/></symbol>
   <symbol id="i-tunnels" viewBox="0 0 24 24"><path d="M4 8.5h15m-3.5-3.5L19 8.5 15.5 12M20 15.5H5m3.5 3.5L5 15.5 8.5 12"/></symbol>
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5Z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></symbol>
+  <symbol id="i-bars" viewBox="0 0 24 24"><path d="M6 19v-6M12 19V9M18 19V5"/></symbol>
   <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4.5 17a8.5 8.5 0 1 1 15 0"/><path d="M12 14l4-5"/></symbol>
   <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></symbol>
   <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.6A7.8 7.8 0 0 1 9.4 4.5a7.8 7.8 0 1 0 10.1 10.1Z"/></symbol>
@@ -44,8 +45,16 @@
     <h1 id="ph-h">{{ headline }}</h1>
     <p class="ph-sub">{{ sub }}</p>
     {% if d.active %}<p class="ph-ongoing">{{ t.kpi_down_for }} <b>{{ d.active_for }}</b></p>{% endif %}
+    {% if fo %}<p class="ph-advice ph-backup">{{ t.backup_note.format(backup=fo.backup, since=fo.since|since, dur=fo['for'], primary=fo.primary or t.isp_primary.lower()) }}</p>{% endif %}
     {% if d.has_data and d.code in t.advice and d.code != 'ok' %}<p class="ph-advice"><b>{{ t.what_to_do }}.</b> {{ t.advice[d.code] }}</p>{% endif %}
+    {% set claim = d.has_data and group == 'isp' %}
+    {% if claim %}<p class="ph-claim"><a class="btn primary" href="{{ url_for('report', since='7d') }}">{{ t.claim }} <span aria-hidden="true">→</span></a></p>{% endif %}
   </section>
+
+  {# services that stopped answering while the verdict may still be green #}
+  {% set down = d.services|selectattr('state', 'equalto', 'down')|list %}
+  {% if down %}<p class="ph-card ph-alert" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>
+    <span>{{ t.tv_services_down.format(names=down|map(attribute='name')|join(', ')) }}</span></p>{% endif %}
 
   {% if d.has_data %}
   {# 2 · the path: your network, the ISP, the internet #}
@@ -56,7 +65,7 @@
       <li class="s-{{ h.state }}{{ ' blamed' if h.blamed }}">
         <span class="node" aria-hidden="true"></span>
         <span class="ph-hop"><b>{{ t.hop[h.key] }}</b>
-          <span class="ph-hop-id">{% if h.key == 'internet' %}{{ t.hop_dest.format(n=h.name) }}{% else %}{{ h.name }}{% endif %}{% if h.key == 'isp' and fo %} · {{ t.isp_backup_badge }}{% endif %}</span></span>
+          <span class="ph-hop-id">{% if h.key == 'internet' %}{{ t.hop_dest.format(n=h.name) }}{% else %}{{ h.name }}{% endif %}</span></span>
         <span class="ph-hop-val"><b>{{ num(h.median) }}</b> ms<br><b>{{ '%.1f'|format(h.loss) if h.loss is not none else '—' }}</b>% {{ t.loss_word }}</span>
         {% if h.blamed %}<span class="here">{{ t.hop_here }}</span>{% endif %}
       </li>
@@ -74,7 +83,28 @@
     {% endif %}
     <p class="ph-day">{% if not d.day.n %}{{ t.day_none }}{% else %}{{ t.day_some.format(n=d.day.n, inc=t.day_inc[0 if d.day.n == 1 else 1], dur=d.day.dur) }}
       {% for g in ('isp', 'you', 'other') if d.day.by.get(g) %}{{ t.day_by[g].format(k=d.day.by[g]) }}{{ ', ' if not loop.last else '.' }}{% endfor %}{% endif %}</p>
+    {% if not claim %}<p class="ph-more"><a href="{{ url_for('report', since='7d') }}">{{ t.claim }} <span aria-hidden="true">→</span></a></p>{% endif %}
   </section>
+
+  {# the link's load, read from the router by SNMP: slow without an incident is often a full link #}
+  {% if d.link_enabled %}
+  <section class="ph-card" aria-labelledby="ph-load-h">
+    <h2 id="ph-load-h"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-bars"/></svg>{{ t.ph_load }}</h2>
+    {% if not d.link %}<p class="muted">{{ t.link_err }}.</p>{% else %}
+    {% for label, mbps, pct in [(t.link_down, d.link.down, d.link.down_pct), (t.link_up, d.link.up, d.link.up_pct)] %}
+    <div class="ph-meter{{ ' low' if pct is not none and pct >= 85 }}">
+      <p><span>{{ label }}</span><span><b>{{ '%.0f'|format(mbps) }}</b> Mbps</span></p>
+      {% if pct is not none %}
+      <svg class="bar" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true"><rect class="bar-track" x="0" y="2" width="100" height="6"/><rect class="bar-fill" x="0" y="2" width="{{ [pct, 100]|min }}" height="6"/><rect class="bar-mark" x="84.6" y="0" width="0.8" height="10"/></svg>
+      <p class="ph-pct">{{ '%.0f'|format(pct) }}% {{ t.of_contract }}</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% set full = (d.link.down_pct or 0) >= 85 or (d.link.up_pct or 0) >= 85 %}
+    <p class="ph-when{{ ' ph-full-link' if full else ' muted' }}">{{ t.ph_load_full if full else t.ph_load_ok }}</p>
+    {% endif %}
+  </section>
+  {% endif %}
 
   {# 4 · the last speed test against the plan #}
   {% set sp = d.speed %}{% set r = sp.last if sp else none %}
