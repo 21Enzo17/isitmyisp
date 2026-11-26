@@ -3,6 +3,22 @@
 Versions follow [semantic versioning](https://semver.org). Each release has a Docker image
 (`21enzo03/isitmyisp:<version>` on Docker Hub, amd64 and arm64) and a git tag `v<version>`.
 
+## [0.8.0] - 2026-11-25
+
+### Added
+- **Phone mode** at `/phone`: the dashboard's answer in one column, for whoever has to act on a
+  problem from a phone. Whose fault it is and since when, with the evidence folded under *Why we say
+  so*; the path hop by hop with 6 h of latency on each hop, the ISP's ASN and hop IP as text, and
+  ping against TCP 443 for each destination; what changed (a path change, the backup link, a public
+  IP that isn't the fixed one), only when something did; the last 24 hours; what's affected, failing
+  services, tunnels and devices by name; the link load and router CPU, and the speed test against
+  the plan. Same login as the dashboard, no JavaScript, light and dark, refreshes every minute. On a
+  phone the dashboard shows a *Phone view* button.
+
+### Fixed
+- **The monitor's log no longer reads 0 Mbps** when the speed test ran only on M-Lab or your own
+  command: it shows the best engine's figure, as the dashboard does.
+
 ## [0.7.1] - 2026-11-25
 
 ### Added
@@ -375,6 +391,7 @@ and to prove it.
 ### Install
 - One-line installer (`install.sh`) that shows every Docker command before running it, and a Raspberry Pi guide.
 
+[0.8.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.8.0
 [0.7.1]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.7.1
 [0.7.0]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.7.0
 [0.6.2]: https://github.com/21Enzo17/isitmyisp/releases/tag/v0.6.2
