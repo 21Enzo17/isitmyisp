@@ -205,6 +205,21 @@ It has two views:
 
 ![The simple TV view](/docs/img/tv-simple.png)
 
+## Phone mode
+
+The dashboard in a single column, for when the problem catches you away from a computer. It has what the dashboard has, ordered to decide fast: whose fault it is and why, the path hop by hop, what changed, the last 24 hours, what's affected, the capacity and what you can do. Open it with the **Phone view** button at the top of the dashboard on small screens, or go to the dashboard's address followed by **/phone**, for example `192.168.1.50:8080/phone`. It takes the same login as the dashboard.
+
+![Phone mode during a problem in the ISP's network](/docs/img/phone.png)
+
+- **The verdict** says since what time it's been happening and for how long. Below it, **Why we say so** unfolds the evidence and what was ruled out.
+- **Your connection** shows your network, your ISP (with its ASN and the hop's IP, to read out to support) and the internet, each with its latency over the last 6 hours. **Each destination** unfolds ping and TCP 443 side by side: if ping is lost and TCP answers, the ISP is dropping ping, not traffic.
+- **What changed** shows only when something did: a [path change](#path-changes) with the latency before and now, the switch to the [backup link](#backup-link-failover) or a [public IP](#static-public-ip) that isn't the fixed one.
+- **What's affected** groups services, tunnels and devices: what fails by name, the rest as a count. When something fails, it moves above the path.
+- **Capacity** shows the link load and the router's CPU (with [SNMP](#the-router-over-snmp)) and the latest [speed test](#speed-test), folded.
+- At the bottom: test from that phone, the last hour in detail, the report and the full dashboard.
+
+It refreshes by itself every minute, without JavaScript, and follows the light or dark theme.
+
 ## Users
 
 - **Admin:** changes settings, users and alerts.

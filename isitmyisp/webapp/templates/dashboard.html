@@ -19,6 +19,7 @@
   <p class="status-pill g-{{ grp }}"><span class="dot" aria-hidden="true"></span>{{ t.pill.stale if d.code == 'stale' else (t.pill[grp] if d.has_data else t.pill.none) }}</p>
   <div class="dash-tools">
     {% if d.has_data %}{% with spans=(['1h', '6h', '24h'] if demo_static else ['15m', '1h', '3h', '6h', '12h', '24h', '2d', '7d', '30d']), span='24h', custom=false, start=d.updated - 86400, end=d.updated, first=none, now=d.updated, extra={}, uid='d' %}{% include "_rangepick.html" %}{% endwith %}{% endif %}
+    {% if not demo_static %}<a class="phone-btn" href="{{ url_for('phone') }}"><svg class="ico" aria-hidden="true"><use href="#i-phone"/></svg>{{ t.ph_open }}</a>{% endif %}
     {% include "_theme.html" %}
   </div>
 </div>

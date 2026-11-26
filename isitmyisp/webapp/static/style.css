@@ -671,6 +671,12 @@ label.check input { width: 17px; height: 17px; accent-color: var(--accent); }
 .range-chip .ico { color: var(--ink-2); }
 .g-good { --c: var(--good); } .g-you { --c: var(--you); } .g-isp { --c: var(--isp); } .g-other { --c: var(--other); } .g-none { --c: var(--ink-3); }
 .dash-tools { display: flex; align-items: center; gap: 12px; }
+/* the way into phone mode: only where the screen is a phone's */
+.phone-btn { display: none; align-items: center; gap: 7px; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px;
+  color: var(--ink); background: var(--surface); box-shadow: var(--shadow); text-decoration: none; font-size: 14px; font-weight: 600; }
+.phone-btn:hover { border-color: var(--line-2); }
+.phone-btn .ico { width: 18px; height: 18px; }
+@media (max-width: 760px) { .phone-btn { display: inline-flex; } }
 .dash-tools .stamp { position: static; font-size: 13px; color: var(--ink-3); }
 .theme-btn { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; color: var(--ink);
              background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }

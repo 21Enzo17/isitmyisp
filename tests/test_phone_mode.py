@@ -173,4 +173,10 @@ class PhoneMode(WebAppBase):
         self.assertRegex(html, r"<summary><span>Download</span> <b>287</b> Mbps · 96% of 300 Mbps</summary>")
         self.assertIn('href="/check"', html)                            # test from this phone
         self.assertIn('href="/chart?span=1h"', html)                    # the last hour, in detail
-        self.assertIn('<meta http-equiv="refresh" content="30">', html)
+        self.assertIn('<meta http-equiv="refresh" content="60">', html)   # long enough to read a fold
+
+    def test_the_dashboard_links_here(self):
+        self.create_admin()
+        html = self.client.get("/?lang=es").get_data(as_text=True)
+        self.assertIn('class="phone-btn" href="/phone"', html)
+        self.assertIn("Vista celular", html)

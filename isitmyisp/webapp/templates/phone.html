@@ -8,7 +8,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="{{ theme or 'dark light' }}">
   <meta name="robots" content="noindex">
-  <meta http-equiv="refresh" content="30">
+  {# a minute, not the dashboard's 30 s: a refresh closes any <details> being read #}
+  <meta http-equiv="refresh" content="60">
   {% set fo = d.failover %}
   {% set group = 'other' if fo and d.code == 'ok' else d.group %}
   {% set headline = t.headline.no_data if not d.has_data else (t.headline_backup if fo and d.code == 'ok' else t.headline.get(d.code, d.code)) %}

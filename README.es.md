@@ -73,12 +73,12 @@ Se complementan bien: Uptime Kuma para tus servicios, isitmyisp para la conexió
 ## Qué tiene
 
 <p>
-  <img src="docs/screenshots/es/tv.png" alt="El modo TV: veredicto, indicadores, últimas 24 horas, eventos, destinos y servicios" width="62%">
-  <img src="docs/screenshots/es/mobile.png" alt="El panel en un celular" width="22%">
+  <img src="docs/screenshots/es/tv.png" alt="El modo TV: veredicto, indicadores, últimas 24 horas, eventos, destinos y servicios" width="75%"> <img src="docs/screenshots/es/phone-screen.png" alt="El modo celular: el veredicto con el porqué y qué está afectado, en una pantalla de celular" width="19.5%">
 </p>
 
 - **Panel:** el veredicto al lado de la disponibilidad, el tiempo sin cortes y la latencia; las últimas 24 horas (de quién fue la culpa, pérdida, latencia, calidad de llamadas, enlace de respaldo) con valores al pasar el mouse y una vista en tabla; cada destino; los últimos eventos; en qué tramo está el problema y qué hacer. Modo claro y oscuro. Todo funciona sin JavaScript.
 - **Modo TV:** abrí `/tv` en la tele, escribí en Configuración el código corto que muestra, y queda vinculada. Un tablero que se acomoda a cualquier pantalla de 720p a 4K, o una vista simple para el mostrador.
+- **Modo celular:** `/phone` (o **Vista celular** en el panel desde un celular) lo pone en una columna: de quién es la culpa y desde cuándo, el camino salto por salto con ping contra TCP, qué cambió, las últimas 24 horas, qué está afectado y la capacidad, con el detalle plegado.
 - **Tus servicios y dispositivos:** tu banco, tu sistema de gestión o ARCA (con presets de un clic para Argentina), y los aparatos de tu red (posnet, impresoras, cámaras, centrales telefónicas), para que "¿es mi internet o son ellos?" tenga respuesta.
 - **Respaldo, llamadas y velocidad:** detecta en un minuto cuando el tráfico pasa al enlace de respaldo; estima la calidad de las llamadas (modelo E de la ITU-T G.107, aclarando que es una estimación); un test de velocidad opcional contra tu plan, apagado por defecto, con presupuesto de datos, con Cloudflare, M-Lab, tu propia herramienta (la CLI de Ookla, LibreSpeed…) o resultados que manda una PC por cable, y una prueba opcional en hora pico; con servidores iperf3 propios dentro y fuera de tu ISP, dice si el cuello de botella es tu acceso o la salida del ISP al resto de internet.
 - **Chequeo y loops:** `isitmyisp doctor` (también una vez por día, y en el panel) revisa cómo está armada tu red aunque no haya cortes: CGNAT, doble NAT, IPv6, velocidad e intercepción del DNS, MTU, reinicios del router, velocidad del enlace. Los loops y las tormentas de broadcast en tu LAN tienen su propio veredicto.
