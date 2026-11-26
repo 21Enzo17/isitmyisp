@@ -864,6 +864,15 @@ def create_app(store: Store, *, data_dir: Path | None = None, toml_path: str | N
                 return redirect(url_for("dashboard"))
         return render_template("invite.html", inv=inv, error=error), (400 if error else 200)
 
+    # ---------------------------------------------------------------- phone mode
+
+    @app.get("/phone")
+    def phone():
+        """The verdict at a glance, for a phone: whose fault, the path, the last incident and the last speed
+        test against the plan. Signed in like the dashboard; one column, no menus, refreshes by itself."""
+        d = views.dashboard_data(store, g.settings, lang=g.lang)
+        return render_template("phone.html", d=d, last=d.recent[0] if d.recent else None)
+
     # ---------------------------------------------------------------- TV mode
 
     @app.get("/tv/<token>")

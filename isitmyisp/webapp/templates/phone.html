@@ -1,0 +1,105 @@
+<!doctype html>
+{# Phone mode: the dashboard's answer in one column, for a glance from the couch. No JavaScript, no menus. #}
+<html lang="{{ lang }}" class="ph"{% if theme %} data-theme="{{ theme }}"{% endif %}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="{{ theme or 'dark light' }}">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="refresh" content="60">
+  {% set fo = d.failover %}
+  {% set group = 'other' if fo and d.code == 'ok' else d.group %}
+  {% set headline = t.headline.no_data if not d.has_data else (t.headline_backup if fo and d.code == 'ok' else t.headline.get(d.code, d.code)) %}
+  {% set sub = t.sub_backup if fo and d.code == 'ok' else t.verdict_sub.get(d.code, '') %}
+  <title>{{ headline }} · isitmyisp</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+  <meta name="theme-color" content="#0a1121">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=css_v) }}">
+</head>
+<body class="ph-page">
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-wait" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.5l3 2"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5.5M12 16.2v.2"/></symbol>
+  <symbol id="i-tunnels" viewBox="0 0 24 24"><path d="M4 8.5h15m-3.5-3.5L19 8.5 15.5 12M20 15.5H5m3.5 3.5L5 15.5 8.5 12"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5Z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4.5 17a8.5 8.5 0 1 1 15 0"/><path d="M12 14l4-5"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.6A7.8 7.8 0 0 1 9.4 4.5a7.8 7.8 0 1 0 10.1 10.1Z"/></symbol>
+</svg>
+{% macro num(v, fmt='%.0f') %}{{ (fmt|format(v) if v >= 1 or fmt != '%.0f' else '< 1') if v is not none else '—' }}{% endmacro %}
+
+<main class="ph-main">
+  <header class="ph-top">
+    <span class="ph-brand"><img src="{{ url_for('static', filename='favicon.svg') }}" alt="" width="22" height="22">isitmyisp</span>
+    {% if d.has_data %}<span class="ph-stamp"><span class="live{{ ' stale' if d.code == 'stale' }}" aria-hidden="true"></span>{{ t.min_ago.format(ago=d.updated_ago) }}</span>{% endif %}
+    {% include "_theme.html" %}
+  </header>
+
+  {# 1 · whose fault #}
+  <section class="ph-card ph-verdict g-{{ group }}" aria-labelledby="ph-h">
+    <span class="verdict-ico" aria-hidden="true"><svg class="ico"><use href="#i-{{ 'check' if group == 'good' else ('wait' if group == 'none' else 'alert') }}"/></svg></span>
+    <h1 id="ph-h">{{ headline }}</h1>
+    <p class="ph-sub">{{ sub }}</p>
+    {% if d.active %}<p class="ph-ongoing">{{ t.kpi_down_for }} <b>{{ d.active_for }}</b></p>{% endif %}
+    {% if d.has_data and d.code in t.advice and d.code != 'ok' %}<p class="ph-advice"><b>{{ t.what_to_do }}.</b> {{ t.advice[d.code] }}</p>{% endif %}
+  </section>
+
+  {% if d.has_data %}
+  {# 2 · the path: your network, the ISP, the internet #}
+  <section class="ph-card" aria-labelledby="ph-link-h">
+    <h2 id="ph-link-h"><svg class="ico hi-blue" aria-hidden="true"><use href="#i-tunnels"/></svg>{{ t.ph_link }}</h2>
+    <ol class="ph-path g-{{ group }}">
+      {% for h in d.path %}
+      <li class="s-{{ h.state }}{{ ' blamed' if h.blamed }}">
+        <span class="node" aria-hidden="true"></span>
+        <span class="ph-hop"><b>{{ t.hop[h.key] }}</b>
+          <span class="ph-hop-id">{% if h.key == 'internet' %}{{ t.hop_dest.format(n=h.name) }}{% else %}{{ h.name }}{% endif %}{% if h.key == 'isp' and fo %} · {{ t.isp_backup_badge }}{% endif %}</span></span>
+        <span class="ph-hop-val"><b>{{ num(h.median) }}</b> ms<br><b>{{ '%.1f'|format(h.loss) if h.loss is not none else '—' }}</b>% {{ t.loss_word }}</span>
+        {% if h.blamed %}<span class="here">{{ t.hop_here }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  {# 3 · the last incident #}
+  <section class="ph-card" aria-labelledby="ph-last-h">
+    <h2 id="ph-last-h"><svg class="ico hi-amber" aria-hidden="true"><use href="#i-bell"/></svg>{{ t.ph_last }}</h2>
+    {% if not last %}<p class="muted">{{ t.recent_none }}</p>{% else %}
+    <p class="ph-ev g-{{ last.group }}{{ ' now' if last.ongoing }}"><span class="ev-dot" aria-hidden="true"></span>
+      <b>{{ t.verdict.get(last.code, last.code) }}{% if last.name %} · {{ last.name }}{% endif %}</b>{% if last.count > 1 %} <span class="muted">×{{ last.count }}</span>{% endif %}<br>
+      <span class="muted">{% if last.ongoing %}<b class="ph-now">{{ t.ongoing_now }}</b> · {% endif %}{{ last.opened|ago }} ({{ last.duration }})</span></p>
+    {% endif %}
+    <p class="ph-day">{% if not d.day.n %}{{ t.day_none }}{% else %}{{ t.day_some.format(n=d.day.n, inc=t.day_inc[0 if d.day.n == 1 else 1], dur=d.day.dur) }}
+      {% for g in ('isp', 'you', 'other') if d.day.by.get(g) %}{{ t.day_by[g].format(k=d.day.by[g]) }}{{ ', ' if not loop.last else '.' }}{% endfor %}{% endif %}</p>
+  </section>
+
+  {# 4 · the last speed test against the plan #}
+  {% set sp = d.speed %}{% set r = sp.last if sp else none %}
+  <section class="ph-card" aria-labelledby="ph-speed-h">
+    <h2 id="ph-speed-h"><svg class="ico hi-violet" aria-hidden="true"><use href="#i-gauge"/></svg>{{ t.tv_speed_title }}</h2>
+    {% if not sp or not (sp.on or sp.push) %}<p class="muted">{{ t.speed_dash_off }}</p>
+    {% elif not r or not sp.best or not (sp.best.down or sp.best.up) %}<p class="muted">{{ t.speed_dash_none }}</p>
+    {% else %}
+    {% for label, mbps, contract in [(t.link_down, sp.best.down, sp.contract_down), (t.link_up, sp.best.up, sp.contract_up)] %}
+    {% set pct = (100 * mbps / contract) if (mbps and contract) else none %}
+    <div class="ph-meter{{ ' low' if pct is not none and pct < 80 }}">
+      <p><span>{{ label }}</span><span><b>{{ '%.0f'|format(mbps or 0) }}</b> Mbps</span></p>
+      {% if pct is not none %}
+      <svg class="bar" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true"><rect class="bar-track" x="0" y="2" width="100" height="6"/><rect class="bar-fill" x="0" y="2" width="{{ [pct, 100]|min }}" height="6"/></svg>
+      <p class="ph-pct">{{ t.speed_of_plan.format(pct='%.0f'|format(pct), plan='%.0f'|format(contract)) }}</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% if not sp.contract_down %}<p class="muted small">{{ t.ph_no_plan }}</p>{% endif %}
+    <p class="ph-when muted">{{ t.tv_speed_when.format(when=r.ts|ago) }}</p>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <p class="ph-full"><a href="{{ url_for('dashboard') }}">{{ t.ph_full }} <span aria-hidden="true">→</span></a></p>
+</main>
+</body>
+</html>
