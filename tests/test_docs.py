@@ -1,4 +1,4 @@
-"""The documentation site: every page in every language, no broken links, no scripts."""
+"""The documentation site: every page in every language, no broken links, a search that needs no JavaScript."""
 
 import importlib.util
 import re
@@ -31,7 +31,7 @@ class DocsSite(unittest.TestCase):
 
     def test_same_pages_in_every_language(self):
         slugs = [s for _, group in self.bd.NAV for s in group]
-        self.assertEqual(len(self.pages), len(slugs) * len(self.bd.LANGS))
+        self.assertEqual(len(self.pages), (len(slugs) + 1) * len(self.bd.LANGS))      # + the search page
         for lang in self.bd.LANGS:
             for slug in slugs:
                 self.assertIn(self.bd.url(lang, slug), self.pages)
@@ -53,11 +53,37 @@ class DocsSite(unittest.TestCase):
                     broken.append((url, href))
         self.assertEqual(broken, [])
 
-    def test_no_javascript_and_a_strict_csp(self):
+    def test_only_the_external_script_and_a_strict_csp(self):
+        js = f'<script src="/docs/docs.js?v={self.bd.JS_V}" defer></script>'
         for url in self.pages:
-            self.assertNotIn("<script", self.html(url))
-        self.assertIn("default-src 'none'", self.bd.headers())
-        self.assertNotIn("script-src", self.bd.headers())
+            page = self.html(url)
+            self.assertEqual(page.count("<script"), 1, url)       # no inline code: the CSP wouldn't run it anyway
+            self.assertIn(js, page)
+        self.assertTrue((self.out / "docs" / "docs.js").exists())
+        csp = self.bd.headers()
+        self.assertIn("default-src 'none'", csp)
+        self.assertIn("script-src 'self';", csp)
+        self.assertNotIn("unsafe-inline", csp)
+
+    def test_search_page_indexes_every_section_without_javascript(self):
+        for lang in self.bd.LANGS:
+            page = self.html(f"/docs/{lang}/search/")
+            self.assertIn("<noscript>", page)                          # how to search with JS off
+            self.assertIn('class="search-form" method="get"', page)    # shown by docs.js, hidden without it
+            for md in (ROOT / "docs" / "site" / lang).glob("*.md"):
+                slug = md.stem
+                built = self.html(self.bd.url(lang, slug))
+                for sid in re.findall(r'<h2 id="([^"]+)"', built):
+                    self.assertIn(f'href="{self.bd.url(lang, slug)}#{sid}"', page, (lang, slug, sid))
+            # every page leads to it, with a key that works with no script (accesskey)
+            self.assertIn(f'href="/docs/{lang}/search/" accesskey="k"', self.html(f"/docs/{lang}/faq/"))
+
+    def test_search_text_is_folded_like_docs_js(self):
+        self.assertEqual(self.bd.fold("Configuración RÁPIDA"), "configuracion rapida")
+        self.assertEqual(self.bd.fold("Wi-Fi"), "wifi")
+        page = self.html("/docs/es/search/")
+        self.assertIn("configuracion", page)
+        self.assertNotIn('data-t="Preguntas', page)            # the searched text is lower case
 
     def test_language_switch_lands_on_the_same_page(self):
         page = self.html("/docs/es/alerts/")

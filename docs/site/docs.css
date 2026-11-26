@@ -1,4 +1,4 @@
-/* isitmyisp docs: the app's fonts and colours, for reading. No JavaScript. */
+/* isitmyisp docs: the app's fonts and colours, for reading. Works without JavaScript (docs.js only adds to it). */
 @font-face { font-family: "Plex"; font-weight: 400; font-display: swap; src: url("/static/fonts/ibm-plex-sans-400.woff2") format("woff2"); }
 @font-face { font-family: "Plex"; font-weight: 500; font-display: swap; src: url("/static/fonts/ibm-plex-sans-500.woff2") format("woff2"); }
 @font-face { font-family: "Plex"; font-weight: 600; font-display: swap; src: url("/static/fonts/ibm-plex-sans-600.woff2") format("woff2"); }
@@ -43,6 +43,33 @@ a:hover { text-decoration-thickness: 2px; }
 .top-links a:not(.btn):hover { color: var(--ink); }
 .btn { display: inline-block; padding: 6px 14px; border-radius: var(--r-sm); background: var(--accent); color: var(--accent-ink);
   text-decoration: none; font-weight: 500; }
+
+/* search: a link in the header (accesskey K; Ctrl K shown by docs.js) and the generated search page */
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+[hidden] { display: none !important; }
+.top-links a.search-link { display: inline-flex; align-items: center; gap: 8px; padding: 5px 8px 5px 10px; min-width: 150px;
+  border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--surface); color: var(--ink-3); }
+.top-links a.search-link:hover, .top-links a.search-link[aria-current] { border-color: var(--accent); color: var(--ink); }
+.search-link svg, .search-form svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.search-link kbd, .search-esc { margin-left: auto; padding: 1px 6px; border: 1px solid var(--line-2); border-radius: 5px;
+  font: 500 .72rem/1.4 var(--font); color: var(--ink-3); background: var(--bg); }
+.search-form { display: flex; align-items: center; gap: 10px; margin: 1.2em 0 .6em; padding: 0 14px; border: 1px solid var(--line-2);
+  border-radius: var(--r); background: var(--surface); box-shadow: var(--shadow); color: var(--ink-3); }
+.search-form:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.search-form label { display: flex; }
+.search-form input { flex: 1; min-width: 0; padding: 14px 0; border: 0; outline: 0; background: none; color: var(--ink); font: inherit; font-size: 1.05rem; }
+.search-form input::-webkit-search-cancel-button { display: none; }
+.search-count { margin: 0 0 1em; color: var(--ink-3); font-size: .9rem; }
+.doc .search-index h2 { margin: 1.6em 0 .5em; padding: 0; font-size: .78rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
+.doc .search-index ul { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
+.doc .search-index li { margin: 0; padding: 10px 16px; border-top: 1px solid var(--line); }
+.doc .search-index li:first-child { border-top: 0; }
+.doc .search-index li:has(a:focus-visible), .doc .search-index li:hover { background: var(--accent-soft); }
+.search-index a { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; text-decoration: none; }
+.search-index a:focus-visible { outline: 0; }
+.search-index b { font-weight: 600; }
+.search-index a span { color: var(--ink-3); font-size: .8rem; }
+.doc .search-index p { margin: 2px 0 0; color: var(--ink-2); font-size: .9rem; line-height: 1.5; }
 
 /* layout: sidebar, article, on-page contents */
 .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr) 210px; gap: 40px; max-width: 1320px; margin: 0 auto; padding: 0 24px; }
@@ -105,6 +132,9 @@ main { min-width: 0; padding: 36px 0 64px; }
   .top { padding: 0 16px; }
   .top-links { gap: 12px; }
   .top-links a[href^="https://github"] { display: none; }
+  .top-links a.search-link { min-width: 0; }
+  .search-link kbd { display: none; }
+  .btn { white-space: nowrap; }
   .brand-docs { display: none; }
   .layout { display: block; padding: 0 16px; }
   .side { display: none; }
@@ -116,5 +146,9 @@ main { min-width: 0; padding: 36px 0 64px; }
   .doc .cards { grid-template-columns: 1fr; }
   .pager { grid-template-columns: 1fr; }
   .pager .next { grid-column: 1; }
+}
+@media (max-width: 520px) {
+  .top-links a.search-link { padding: 7px 9px; }
+  .search-link span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }   /* icon only, still named */
 }
 .doc :not(pre) > code { overflow-wrap: anywhere; }
